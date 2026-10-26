@@ -3,7 +3,7 @@
 - 状態：**草案**。未決の項目（6章）が残っている。以降の質疑はこのリポジトリで行い、未決事項を解消してから確定する。
 - 作成：2026-10-26
 - 正本となるドメインモデル：[digital-souls-memory `docs/domain-model.md`](https://github.com/FYuki/digital-souls-memory/blob/4c8493916fa8350cd610a97b68351a5a14f22a92/docs/domain-model.md)（epic/phase1-consistency `4c84939`）
-- 根拠とした調査：digital-souls-memory の研究ブランチ `research/phase1-oss-reassessment`（`a18a9a4`）にある `docs/research/hindsight-domain-fit.md` と、その確認結果JSON。2026-10-26時点では未公開のため、公開後にURLへ置き換える。
+- 根拠とした調査：[digital-souls-memory `docs/research/hindsight-domain-fit.md`](https://github.com/FYuki/digital-souls-memory/blob/a18a9a4c7e35c7846f1e7054fe20d1da14574713/docs/research/hindsight-domain-fit.md)と[確認結果JSON](https://github.com/FYuki/digital-souls-memory/blob/a18a9a4c7e35c7846f1e7054fe20d1da14574713/docs/reports/2026-10-26-phase1-oss/hindsight-domain-results.json)（研究ブランチ `research/phase1-oss-reassessment`、`a18a9a4`）
 
 ## 1. 目的
 
