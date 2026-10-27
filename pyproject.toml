@@ -20,6 +20,16 @@ dev = [
   "ruff==0.13.2",
 ]
 
+[tool.uv]
+# uv.lockはビルド環境を記録しないため、hatchlingの推移依存もここで固定する。
+build-constraint-dependencies = [
+  "hatchling==1.27.0",
+  "packaging==26.3",
+  "pathspec==1.1.1",
+  "pluggy==1.7.0",
+  "trove-classifiers==2026.9.21.13",
+]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/digital_souls_memory_hindsight"]
 
