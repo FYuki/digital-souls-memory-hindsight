@@ -21,7 +21,8 @@
 
 bot の概要・review disabled 通知は CodeRabbit レビュー完了ではありません。
 blocking 指摘を残したまま merge しません。作業ブランチから main への直接 PR は作りません。
-これらの条件は merge 権限を与えません。依頼で許可された担当だけが merge します。
+作業 PR → epic は、最終 head の CI グリーンを確認したうえで、作業担当（エージェントを含む）が merge してよいです（所有者の継続的な許可、2026-10-27）。
+epic → main はこの許可に含まれません。依頼で許可された担当だけが merge します。
 branch protection・ruleset・GitHub App などの設定は別途の判断なしに変更しません。
 push 前に remote・対象ブランチ・差分を確認し、秘密情報・私的ログ・実データを含めません。
 
