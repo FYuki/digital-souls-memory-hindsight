@@ -41,7 +41,7 @@ uv sync --frozen
 uv run --no-sync ruff check src tests
 uv run --no-sync ruff format --check src tests
 uv run --no-sync mypy
-uv run --no-sync pytest -m ut -q
+uv run --no-sync pytest -m 'ut and not it2 and not st' -q
 git diff --check
 ```
 

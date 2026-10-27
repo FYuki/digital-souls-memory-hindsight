@@ -18,5 +18,5 @@ Python **3.12.3**、uv **0.8.22** を使います。
 ```sh
 python3 -m pip install uv==0.8.22
 uv sync --frozen
-uv run --no-sync pytest -m ut -q
+uv run --no-sync pytest -m 'ut and not it2 and not st' -q
 ```

@@ -144,7 +144,7 @@ FAIL・SKIP・NOT RUNはPASSと区別して報告する。
 - 構成：`ghcr.io/vectorize-io/hindsight:1.1.0-slim`（`sha256:fbc37d194bce007b6cce2fd9f66cd7f8c050bd18b80e662090a92835d9cb191d`）、`hindsight-client==1.1.0`、OpenAI互換スタブ（LLM・embedding）、外部ネットワークに接続しないDockerネットワーク
 - 起動時の疎通確認、retain（抽出→Fact保存）、自動の統合、recallが、スタブだけで通った（PASS）。抽出はjson_objectモードで、Factの形はプロンプト内のJSON Schemaで指定される。スタブはそれに合わせて応答する必要がある
 - 既定の全文検索（native、english）では、日本語の部分一致（「お茶」）が返らなかった
-- pgvectorとPGroongaを入れたイメージ（digital-souls-memoryの `docker/retrieval-postgres` と同じ構成）で `TEXT_SEARCH_EXTENSION=pgroonga` にすると、「お茶」「東京タワー」「土曜日の約束」が該当する記憶を返した（PASS）
+- pgvectorとPGroongaを入れたイメージ（digital-souls-memoryの `docker/retrieval-postgres` と同じ構成）で `HINDSIGHT_API_TEXT_SEARCH_EXTENSION=pgroonga` にすると、「お茶」「東京タワー」「土曜日の約束」が該当する記憶を返した（PASS）
 - 該当する記憶のない問い合わせ（「コーヒー」）にも結果が返った。棄権（AC-R4）はHindsightの外側か `min_scores` で扱う必要がある
 - `retain` は `operation_id` を引数に取れる。K6の冪等化に使えるかは未検証（NOT RUN）
 - fullイメージは試していない（slimで足りるため、NOT RUN）
