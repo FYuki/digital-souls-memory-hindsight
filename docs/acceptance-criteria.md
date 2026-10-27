@@ -15,7 +15,7 @@
 | # | 前提 | 状態 |
 | --- | --- | --- |
 | A1 | Hindsightはフォークせず、別プロセスのサーバー＋公式クライアントとして利用する。サーバーはイメージ `ghcr.io/vectorize-io/hindsight:1.1.0-slim`（digestも固定）か、pipの `hindsight-api-slim==1.1.0` を使う。クライアントは `hindsight-client==1.1.0` に固定する。上流の修正が必要なら、外側で回避するか上流へ報告する | 決定（2026-10-26、本人） |
-| A2 | 会話の正本（Evidence台帳）はHindsightの外側に置き、追記専用にする。Hindsightのdocumentは作り直せる検索用のコピーとする | 調査の推奨 |
+| A2 | 会話の正本（Evidence台帳）はHindsightの外側に置き、追記専用にする。Hindsightは台帳から投影した本文をもとに、エピソード記憶と意味記憶を抽出する仕組みとして使う。Hindsightのdocumentは作り直せる検索用のコピーとする | 決定（2026-10-26、本人） |
 | A3 | キャラごとの知覚範囲（M6）は、1キャラ＝1 bankとし、そのキャラが知覚した本文だけを各bankへ投影して表す（案A） | 決定（2026-10-26、本人） |
 | A4 | Turn単位の厳密な出典（source_turn_idsの精度）は求めない。会話を削除したら、関連する記憶をさかのぼって消せればよい。作り直し方式でかまわない | 本人が明示 |
 | A5 | 再強化（スコアの加算・last_reinforced_at）は求めない。同じFactへの複数言及が、非同期の統合によって1つの事実として扱えればよい | 本人が明示 |
@@ -51,7 +51,7 @@ FAIL・SKIP・NOT RUNはPASSと区別して報告する。
 | AC-P1 | 各キャラのbankには、そのキャラがperceived_byに含まれるTurnの本文だけを投影する。thoughtは本人のbankだけに入れ、perceived_byが空のTurnはどのbankにも入れない | IT1 |
 | AC-P2 | キャラA・Bと「途中まで届いた相手」の3パターンで、範囲外の本文・抽出Fact・統合済みFact・chunkが、recall・文書取得・reflectのどの経路でも返らない | IT1 |
 | AC-P3 | 台帳への追記からbankへの投影はoutboxを通し、再試行してもappendを二重に行わない。turn_idから導いたoperation_idによるHindsightの冪等化が使えるかをまず検証し、使えない場合は外側で冪等にする | IT1 |
-| AC-P4 | 共有bank（案B）を採る場合に限り、observation_scopesはキャラ単位（per_tag、または明示のcustom）とし、combined・sharedは使わない。読み書きの範囲は拡張で強制する | IT1（案Bの場合） |
+| AC-P4 | **対象外（A3で案Aを採用したため）。** 記録として残す：共有bank（案B）を採る場合に限り、observation_scopesはキャラ単位（per_tag、または明示のcustom）とし、combined・sharedは使わない。読み書きの範囲は拡張で強制する | なし（案Bの場合のみIT1） |
 
 ### 3.3 派生記憶と同じFactの統合
 
@@ -122,12 +122,12 @@ FAIL・SKIP・NOT RUNはPASSと区別して報告する。
 
 ## 6. 未決事項（質疑中）
 
-- 解決済み：U1（利用形態 → A1）、U2（案A → A3）、U3（投影の単位 → A8）、U4（統合の実行 → A6）
+- 解決済み：U1（利用形態 → A1）、U2（案A → A3）、U3（投影の単位 → A8）、U4（統合の実行 → A6）、台帳の位置づけ（→ A2）、AC-P4の扱い（案Aでは対象外）
 - U5：IT2・STで使う実モデル（抽出・統合・embedding・reranker）と、その実行許可
 - U6：日本語向けのembedding（bge-m3）とreranker（bge-reranker-v2-m3）をどう動かすか。slimイメージは外部のプロバイダ（TEIなど）が必要。fullイメージは標準モデルが英語用なので、モデルの差し替えが必要
 - U7：配達範囲が確定するのを待つ間、他のキャラのdocumentへのappendは確定順になる。その結果、occurred_atの順序とずれることを許容するか
 
 ## 7. 引継ぎメモ
 
-- 2026-10-26までの決定（A1・A3・A6・A8、K1の対策）を反映した版。以降の質疑と決定は、このファイルとこのリポジトリのIssue・PRで管理する。
+- 2026-10-26までの決定（A1・A2・A3・A6・A8、AC-P4の扱い、K1の対策）を反映した版。以降の質疑と決定は、このファイルとこのリポジトリのIssue・PRで管理する。
 - 調査の詳細・再現用probe・結果JSONは「根拠とした調査」を参照する。
