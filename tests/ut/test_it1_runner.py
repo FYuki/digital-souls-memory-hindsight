@@ -60,3 +60,56 @@ def test_runner_preserves_exit_status_and_collects_logs_before_cleanup(
     assert "logs" in calls[-2]
     assert "down" in calls[-1] and "--volumes" in calls[-1]
     assert "Hindsight is running" in (artifacts / "compose.log").read_text()
+
+
+def _run_with_delayed_ready_log(tmp_path: Path, ready_after: int, timeout: str) -> tuple[int, str]:
+    fake = tmp_path / "docker"
+    fake.write_text(
+        f"#!{sys.executable}\n"
+        "import json, os, sys\n"
+        "from pathlib import Path\n"
+        "args = sys.argv[1:]\n"
+        "with open(os.environ['DOCKER_CALLS'], 'a') as log: log.write(json.dumps(args) + '\\n')\n"
+        "commands = ('build','pull','up','logs','run','down')\n"
+        "command = next(value for value in args if value in commands)\n"
+        "if command == 'logs':\n"
+        "    counter = Path(os.environ['LOGS_COUNTER'])\n"
+        "    count = int(counter.read_text()) + 1 if counter.exists() else 1\n"
+        "    counter.write_text(str(count))\n"
+        "    print('starting')\n"
+        "    if count > int(os.environ['READY_AFTER']): print('Hindsight is running')\n"
+        "sys.exit(0)\n"
+    )
+    fake.chmod(0o755)
+    calls_path = tmp_path / "calls.jsonl"
+    result = subprocess.run(
+        ["bash", str(ROOT / "scripts" / "run-it1.sh")],
+        cwd=tmp_path,
+        env={
+            "PATH": str(tmp_path) + os.pathsep + os.defpath,
+            "HOME": str(tmp_path),
+            "DOCKER_CALLS": str(calls_path),
+            "IT1_ARTIFACT_DIR": str(tmp_path / "artifacts"),
+            "LOGS_COUNTER": str(tmp_path / "logs-count"),
+            "READY_AFTER": str(ready_after),
+            "IT1_HINDSIGHT_READY_TIMEOUT": timeout,
+        },
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+    return result.returncode, calls_path.read_text()
+
+
+def test_runner_waits_for_ready_log_printed_after_healthcheck(tmp_path: Path) -> None:
+    """Hindsight can pass /health before it logs that it is running."""
+    status, calls = _run_with_delayed_ready_log(tmp_path, ready_after=2, timeout="20")
+    assert status == 0
+    assert '"run"' in calls
+
+
+def test_runner_fails_when_ready_log_never_appears(tmp_path: Path) -> None:
+    status, calls = _run_with_delayed_ready_log(tmp_path, ready_after=10_000, timeout="2")
+    assert status != 0
+    assert '"run"' not in calls

@@ -28,10 +28,15 @@ trap 'exit 143' TERM
 "${compose[@]}" build postgres stub service
 "${compose[@]}" pull hindsight
 "${compose[@]}" up --detach --wait --wait-timeout 180 postgres stub hindsight service
-"${compose[@]}" logs --no-color hindsight > "$artifact_dir/hindsight-startup.log"
-if ! grep -Fq 'Hindsight is running' "$artifact_dir/hindsight-startup.log"; then
-    cat "$artifact_dir/hindsight-startup.log"
-    exit 1
-fi
+# Hindsight can pass /health before it logs that it is running, so poll the log.
+ready_deadline=$((SECONDS + ${IT1_HINDSIGHT_READY_TIMEOUT:-60}))
+until "${compose[@]}" logs --no-color hindsight > "$artifact_dir/hindsight-startup.log" &&
+    grep -Fq 'Hindsight is running' "$artifact_dir/hindsight-startup.log"; do
+    if ((SECONDS >= ready_deadline)); then
+        cat "$artifact_dir/hindsight-startup.log"
+        exit 1
+    fi
+    sleep 1
+done
 "${compose[@]}" run --rm --no-deps tests uv run --no-sync pytest -m it1 \
     --allow-hosts=postgres,hindsight,service -q "$@"
