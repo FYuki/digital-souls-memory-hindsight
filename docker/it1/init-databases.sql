@@ -1,0 +1,2 @@
+CREATE DATABASE ledger;
+CREATE DATABASE hindsight;

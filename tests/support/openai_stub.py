@@ -1,0 +1,250 @@
+"""Deterministic OpenAI fixture for isolated IT1, using only the standard library."""
+
+import hashlib
+import json
+import math
+import os
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from typing import cast
+
+DIMENSIONS = 384
+CHAT_PATH = "/v1/chat/completions"
+EMBEDDINGS_PATH = "/v1/embeddings"
+CONSOLIDATION_PROMPT = "You are a memory consolidation system"
+
+
+def _object(value: object) -> dict[str, object]:
+    if not isinstance(value, dict):
+        raise ValueError("Expected a JSON object")
+    return cast(dict[str, object], value)
+
+
+def _array(value: object) -> list[object]:
+    if not isinstance(value, list):
+        raise ValueError("Expected a JSON array")
+    return cast(list[object], value)
+
+
+def _messages(request: dict[str, object]) -> list[dict[str, object]]:
+    return [_object(item) for item in _array(request["messages"])]
+
+
+def _schema_in_prompt(messages: list[dict[str, object]]) -> dict[str, object] | None:
+    text = "\n".join(
+        content for message in messages if isinstance(content := message.get("content"), str)
+    )
+    decoder = json.JSONDecoder()
+    best: dict[str, object] | None = None
+    longest = 0
+    for start, character in enumerate(text):
+        if character != "{":
+            continue
+        try:
+            candidate, end = decoder.raw_decode(text, start)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(candidate, dict) and "properties" in candidate and end - start > longest:
+            best = candidate
+            longest = end - start
+    return best
+
+
+def _select_schema(
+    request: dict[str, object], messages: list[dict[str, object]]
+) -> dict[str, object] | None:
+    response_format = request.get("response_format")
+    if response_format is not None:
+        explicit = _object(response_format).get("json_schema")
+        if explicit is not None:
+            return _object(_object(explicit)["schema"])
+    return _schema_in_prompt(messages)
+
+
+def _resolve(schema: dict[str, object], root: dict[str, object]) -> dict[str, object]:
+    visited: set[str] = set()
+    while "$ref" in schema:
+        reference = schema["$ref"]
+        if not isinstance(reference, str) or not reference.startswith("#/"):
+            raise ValueError("Only local JSON references are supported")
+        if reference in visited:
+            raise ValueError("Cyclic JSON reference")
+        visited.add(reference)
+        target = root
+        for part in reference[2:].split("/"):
+            target = _object(target[part.replace("~1", "/").replace("~0", "~")])
+        schema = target
+    return schema
+
+
+def _minimal(schema: dict[str, object], root: dict[str, object]) -> object:
+    schema = _resolve(schema, root)
+    for union in ("anyOf", "oneOf"):
+        if union in schema:
+            alternatives = [_object(item) for item in _array(schema[union])]
+            selected = next(
+                (item for item in alternatives if _resolve(item, root).get("type") != "null"),
+                alternatives[0],
+            )
+            return _minimal(selected, root)
+    if "const" in schema:
+        return schema["const"]
+    if "enum" in schema:
+        return _array(schema["enum"])[0]
+    kind = schema.get("type")
+    if isinstance(kind, list):
+        kind = next((item for item in kind if item != "null"), "null")
+    if kind == "object" or "properties" in schema:
+        properties = _object(schema.get("properties", {}))
+        required = _array(schema.get("required", list(properties)))
+        return {
+            name: _minimal(_object(properties[name]), root)
+            for name in required
+            if isinstance(name, str)
+        }
+    if kind == "array":
+        return []
+    if kind == "string":
+        return ""
+    if kind in ("integer", "number"):
+        return 0
+    if kind == "boolean":
+        return False
+    if kind == "null" or not schema:
+        return None
+    raise ValueError("Unsupported JSON Schema")
+
+
+def _extraction_response(
+    schema: dict[str, object], messages: list[dict[str, object]]
+) -> dict[str, object]:
+    output = _object(_minimal(schema, schema))
+    user = next((message for message in messages if message["role"] == "user"), None)
+    content = user.get("content") if user is not None else None
+    properties = _object(schema.get("properties", {}))
+    if "facts" in properties and isinstance(content, str) and "Content:" in content:
+        items = _object(_object(properties["facts"])["items"])
+        facts = []
+        for line in content.split("Content:", 1)[1].splitlines():
+            if not line.strip():
+                continue
+            fact = _object(_minimal(items, schema))
+            fact["what"] = line.strip()
+            for field in ("when", "where", "who", "why"):
+                if field in fact and isinstance(fact[field], str):
+                    fact[field] = "N/A"
+            facts.append(fact)
+        output["facts"] = facts
+    return output
+
+
+def _consolidation_response(schema: dict[str, object]) -> dict[str, object]:
+    """Own consolidation fixtures separately so later issues can add their scenarios here."""
+    return _object(_minimal(schema, schema))
+
+
+def chat_completion(request: dict[str, object]) -> dict[str, object]:
+    messages = _messages(request)
+    schema = _select_schema(request, messages)
+    content = "ok"
+    if schema is not None:
+        consolidation = any(
+            isinstance(text := message.get("content"), str)
+            and text.startswith(CONSOLIDATION_PROMPT)
+            for message in messages
+        )
+        output = (
+            _consolidation_response(schema)
+            if consolidation
+            else _extraction_response(schema, messages)
+        )
+        content = json.dumps(output, ensure_ascii=False)
+    return {
+        "id": "stub",
+        "object": "chat.completion",
+        "created": 0,
+        "model": "stub",
+        "choices": [
+            {
+                "index": 0,
+                "finish_reason": "stop",
+                "message": {"role": "assistant", "content": content},
+            }
+        ],
+        "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+    }
+
+
+def embed(text: str) -> list[float]:
+    bounded = "\x02" + text + "\x03"
+    vector = [0.0] * DIMENSIONS
+    for left, right in zip(bounded, bounded[1:], strict=False):
+        digest = hashlib.sha256((left + right).encode("utf-8")).digest()
+        vector[int.from_bytes(digest[:4], "big") % DIMENSIONS] += 1.0
+    norm = math.sqrt(sum(value * value for value in vector))
+    return [value / norm for value in vector]
+
+
+def embeddings(request: dict[str, object]) -> dict[str, object]:
+    inputs = request["input"]
+    texts = [inputs] if isinstance(inputs, str) else _array(inputs)
+    if not all(isinstance(text, str) for text in texts):
+        raise ValueError("Embedding input must contain strings")
+    return {
+        "object": "list",
+        "model": "stub",
+        "data": [
+            {"object": "embedding", "index": index, "embedding": embed(cast(str, text))}
+            for index, text in enumerate(texts)
+        ],
+        "usage": {"prompt_tokens": 0, "total_tokens": 0},
+    }
+
+
+class StubServer(ThreadingHTTPServer):
+    def __init__(self, address: tuple[str, int], request_log: Path) -> None:
+        self.request_log = request_log
+        self.log_lock = threading.Lock()
+        request_log.parent.mkdir(parents=True, exist_ok=True)
+        request_log.touch()
+        super().__init__(address, Handler)
+
+
+class Handler(BaseHTTPRequestHandler):
+    server: StubServer
+
+    def _send(self, status: int, value: dict[str, object]) -> None:
+        body = json.dumps(value, ensure_ascii=False).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_GET(self) -> None:
+        if self.path == "/v1/models":
+            self._send(200, {"object": "list", "data": [{"id": "stub", "object": "model"}]})
+        else:
+            self._send(404, {"error": "Unknown endpoint"})
+
+    def do_POST(self) -> None:
+        if self.path not in (CHAT_PATH, EMBEDDINGS_PATH):
+            self._send(404, {"error": "Unknown endpoint"})
+            return
+        try:
+            request = _object(json.loads(self.rfile.read(int(self.headers["Content-Length"]))))
+            with self.server.log_lock, self.server.request_log.open("a", encoding="utf-8") as log:
+                log.write(
+                    json.dumps({"path": self.path, "req": request}, ensure_ascii=False) + "\n"
+                )
+            response = chat_completion(request) if self.path == CHAT_PATH else embeddings(request)
+        except (ValueError, KeyError, TypeError):
+            self._send(400, {"error": "Invalid fixture request"})
+            return
+        self._send(200, response)
+
+
+if __name__ == "__main__":
+    with StubServer(("0.0.0.0", 8080), Path(os.environ["STUB_REQUEST_LOG"])) as server:
+        server.serve_forever()

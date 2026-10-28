@@ -1,0 +1,10 @@
+.git
+.takt
+.venv
+.env
+.env.*
+.it1-artifacts
+**/__pycache__
+.pytest_cache
+.mypy_cache
+.ruff_cache

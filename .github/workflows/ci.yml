@@ -31,3 +31,12 @@ jobs:
           uv run --no-sync mypy
       - name: Required UT (no network)
         run: uv run --no-sync pytest -m 'ut and not it2 and not st' -q
+  it1:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Build and run isolated IT1
+        run: bash scripts/run-it1.sh
