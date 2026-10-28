@@ -54,7 +54,7 @@ IT2 / ST は CI で実行しません。required check 設定自体は所有者�
 | marker | 区分・依存 | CI |
 | --- | --- | --- |
 | `ut` | 単体。ネットワーク・実 DB・実モデルを使わない | 必須 |
-| `it1` | 実 PostgreSQL と Hindsight を使い、LLM・embedding は fixture にした結合。外部ネットワークに接続しない（AC-O2） | 必須（試験の追加時に CI へ加える） |
+| `it1` | 実 PostgreSQL と Hindsight を使い、LLM・embedding は fixture にした結合。外部ネットワークに接続しない（AC-O2） | 必須（`Checks / it1`） |
 | `it2` | 明示的に承認された実モデルによる結合 | 実行しない |
 | `st` | Core から呼ぶ E2E | 実行しない |
 
@@ -64,3 +64,28 @@ UT は pytest-socket でネットワーク socket を禁止します。
 marker で全件除外した場合も失敗です。FAIL・SKIP・NOT RUN は PASS ではありません。
 不足する検証は明示し、fixture の成功を実モデルの成功にしません。
 IT2 / ST は実行許可・対象環境・revision・日時・秘密を除いた入力と結果・費用や制約を記録します。
+
+## IT1の実行
+
+Docker EngineとDocker Composeを用意し、ローカル・CIとも次のコマンドで実行します。
+
+```sh
+bash scripts/run-it1.sh
+```
+
+共通スクリプトはDB・スタブ・サービスをビルドし、固定digestのHindsightを取得してから、
+`compose.it1.yml` のinternalネットワーク上で試験を実行します。ビルド・pullには外部接続が必要ですが、
+試験実行中のコンテナは内部ネットワークだけに接続します。
+pytestの既定 `--disable-socket` は変更せず、IT1にだけ
+`--allow-hosts=postgres,hindsight,service` を渡します。IT2・STや実モデルは実行しません。
+
+合成データだけを使い、要求ログはスタブ専用volumeから読みます。
+外部遮断はpytest-socketを読み込まない子プロセスの内部接続成功・外部TCP接続失敗で確認します。
+サービス・Alembic・試験はComposeが渡すDB設定と絶対パスの `PYTHONPATH=/app/src` を使います。
+Hindsightは自身のmigration履歴を持つため、台帳migrationの試験ではHindsight側のrevisionが
+upgrade前後で変わらないことを確認します。
+
+成功・失敗・通常の中断時にはログ取得後にComposeプロジェクトとvolumeを削除し、試験の終了コードを保ちます。
+ログは `.it1-artifacts/<実行名>/` に保存します（`IT1_ARTIFACT_DIR` で変更可能）。
+SIGKILL・ホスト停止では後片付けが実行されません。
+サービス単独の起動と台帳migrationの手順は [README](README.md#サービスの起動) を参照してください。

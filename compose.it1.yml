@@ -1,0 +1,97 @@
+services:
+  postgres:
+    build: docker/retrieval-postgres
+    environment:
+      POSTGRES_USER: it1
+      POSTGRES_DB: postgres
+      POSTGRES_HOST_AUTH_METHOD: trust
+    volumes:
+      - postgres-data:/var/lib/postgresql
+      - ./docker/it1/init-databases.sql:/docker-entrypoint-initdb.d/10-databases.sql:ro
+    networks: [it1]
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U it1 -d ledger"]
+      interval: 2s
+      timeout: 3s
+      retries: 60
+
+  stub:
+    build:
+      context: .
+      dockerfile: docker/openai-stub/Dockerfile
+    environment:
+      STUB_REQUEST_LOG: /requests/requests.jsonl
+    volumes: [stub-requests:/requests]
+    networks: [it1]
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://localhost:8080/v1/models', timeout=2).close()"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  hindsight:
+    image: ghcr.io/vectorize-io/hindsight:1.1.0-slim@sha256:fbc37d194bce007b6cce2fd9f66cd7f8c050bd18b80e662090a92835d9cb191d
+    environment:
+      HINDSIGHT_ENABLE_CP: "false"
+      HINDSIGHT_API_DATABASE_URL: postgresql://it1@postgres:5432/hindsight
+      HINDSIGHT_API_LLM_PROVIDER: openai
+      HINDSIGHT_API_LLM_BASE_URL: http://stub:8080/v1
+      HINDSIGHT_API_LLM_API_KEY: stub
+      HINDSIGHT_API_LLM_MODEL: stub
+      HINDSIGHT_API_EMBEDDINGS_PROVIDER: openai
+      HINDSIGHT_API_EMBEDDINGS_OPENAI_BASE_URL: http://stub:8080/v1
+      HINDSIGHT_API_EMBEDDINGS_OPENAI_API_KEY: stub
+      HINDSIGHT_API_EMBEDDINGS_OPENAI_MODEL: stub
+      HINDSIGHT_API_EMBEDDINGS_OPENAI_DIMENSIONS: "384"
+      HINDSIGHT_API_RERANKER_PROVIDER: rrf
+      HINDSIGHT_API_TEXT_SEARCH_EXTENSION: pgroonga
+    depends_on:
+      postgres:
+        condition: service_healthy
+      stub:
+        condition: service_healthy
+    networks: [it1]
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://localhost:8888/health', timeout=2).close()"]
+      interval: 3s
+      timeout: 5s
+      retries: 60
+
+  service:
+    image: dsm-hindsight-it1-runtime
+    build:
+      context: .
+      dockerfile: docker/it1/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://it1@postgres:5432/ledger
+    command: [bash, -c, "uv run --no-sync alembic upgrade head && exec bash scripts/run-service.sh"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [it1]
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2).close()"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  tests:
+    image: dsm-hindsight-it1-runtime
+    profiles: [test]
+    environment:
+      DATABASE_URL: postgresql://it1@postgres:5432/ledger
+      HINDSIGHT_DATABASE_URL: postgresql://it1@postgres:5432/hindsight
+      SERVICE_URL: http://service:8000
+      HINDSIGHT_URL: http://hindsight:8888
+      STUB_REQUEST_LOG: /requests/requests.jsonl
+    volumes: [stub-requests:/requests:ro]
+    networks: [it1]
+    command: [uv, run, --no-sync, pytest, -m, it1, "--allow-hosts=postgres,hindsight,service", -q]
+
+networks:
+  it1:
+    internal: true
+
+volumes:
+  postgres-data:
+  stub-requests:
