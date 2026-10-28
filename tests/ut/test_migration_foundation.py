@@ -14,7 +14,8 @@ ROOT = Path(__file__).resolve().parents[2]
 def test_initial_revision_offline_sql_only_changes_migration_history(
     tmp_path: Path, operation: str
 ) -> None:
-    target = "head" if operation == "upgrade" else "head:base"
+    initial = "0001_ledger_foundation"
+    target = initial if operation == "upgrade" else f"{initial}:base"
     result = subprocess.run(
         [
             sys.executable,
