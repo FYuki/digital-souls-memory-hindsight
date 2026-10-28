@@ -2,11 +2,13 @@
 
 from collections.abc import Iterator
 from contextlib import contextmanager
+from datetime import datetime
 
 import psycopg
 from psycopg.rows import class_row
 from psycopg.types.json import Jsonb
 
+from .evidence.delivery import DeliveryScope
 from .evidence.domain import (
     DeliveryReceipt,
     EvidenceValidationError,
@@ -121,6 +123,49 @@ class PostgresEvidenceStore:
         ):
             cursor.execute("SELECT * FROM turns WHERE turn_id = %s", (turn_id,))
             return cursor.fetchone()
+
+    def get_turn_for_update(self, turn_id: str) -> Turn | None:
+        with (
+            self._connection() as connection,
+            connection.cursor(row_factory=class_row(Turn)) as cursor,
+        ):
+            cursor.execute("SELECT * FROM turns WHERE turn_id = %s FOR UPDATE", (turn_id,))
+            return cursor.fetchone()
+
+    def add_delivery_scope(self, value: DeliveryScope) -> DeliveryScope:
+        with self._connection() as connection:
+            connection.execute(
+                "INSERT INTO delivery_scopes (turn_id, status, spoken_until, decided_at) "
+                "VALUES (%s, %s, %s, %s)",
+                (value.turn_id, value.status, value.spoken_until, value.decided_at),
+            )
+        return value
+
+    def get_delivery_scope(self, turn_id: str) -> DeliveryScope | None:
+        with (
+            self._connection() as connection,
+            connection.cursor(row_factory=class_row(DeliveryScope)) as cursor,
+        ):
+            cursor.execute(
+                "SELECT turn_id, status, spoken_until, decided_at FROM delivery_scopes "
+                "WHERE turn_id = %s ORDER BY scope_id DESC LIMIT 1",
+                (turn_id,),
+            )
+            return cursor.fetchone()
+
+    def list_pending_deliveries(self, cutoff: datetime) -> tuple[Turn, ...]:
+        with (
+            self._connection() as connection,
+            connection.cursor(row_factory=class_row(Turn)) as cursor,
+        ):
+            cursor.execute(
+                "SELECT t.* FROM turns t JOIN LATERAL ("
+                "SELECT status FROM delivery_scopes WHERE turn_id = t.turn_id "
+                "ORDER BY scope_id DESC LIMIT 1) s ON s.status = 'pending' "
+                "WHERE t.recorded_at <= %s ORDER BY t.recorded_at, t.turn_id",
+                (cutoff,),
+            )
+            return tuple(cursor.fetchall())
 
     def add_receipt(self, value: DeliveryReceipt) -> DeliveryReceipt:
         with self._connection() as connection:

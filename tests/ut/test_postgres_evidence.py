@@ -9,6 +9,7 @@ from unittest.mock import MagicMock
 import psycopg
 import pytest
 
+from digital_souls_memory_hindsight.evidence.delivery import DeliveryScope
 from digital_souls_memory_hindsight.evidence.domain import EvidenceValidationError, Session
 from digital_souls_memory_hindsight.evidence.ports import EvidenceUnavailable
 from digital_souls_memory_hindsight.postgres_evidence import PostgresEvidenceStore
@@ -53,3 +54,26 @@ def test_failed_commit_does_not_return_success(monkeypatch: pytest.MonkeyPatch) 
     arguments = connection.execute.call_args.args
     assert arguments[1] == (session.session_id, session.started_at, None, "Web", False)
     assert session.session_id not in arguments[0]
+
+
+@pytest.mark.parametrize("operation", ["write", "read", "lock", "pending"])
+@pytest.mark.parametrize("error", [psycopg.OperationalError, psycopg.IntegrityError])
+def test_delivery_storage_failures_preserve_error_translation(
+    monkeypatch: pytest.MonkeyPatch, operation: str, error: type[psycopg.Error]
+) -> None:
+    def connect(url: str, *, connect_timeout: int) -> None:
+        raise error("synthetic storage failure")
+
+    monkeypatch.setattr(psycopg, "connect", connect)
+    store = PostgresEvidenceStore("synthetic-db")
+    now = datetime(2026, 10, 28, tzinfo=UTC)
+    expected = EvidenceValidationError if error is psycopg.IntegrityError else EvidenceUnavailable
+    with pytest.raises(expected):
+        if operation == "write":
+            store.add_delivery_scope(DeliveryScope("t-1", "pending", None, now))
+        elif operation == "read":
+            store.get_delivery_scope("t-1")
+        elif operation == "lock":
+            store.get_turn_for_update("t-1")
+        else:
+            store.list_pending_deliveries(now)

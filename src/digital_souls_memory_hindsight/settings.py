@@ -5,11 +5,14 @@ import os
 import re
 from dataclasses import dataclass
 
+from .evidence.delivery import DEFAULT_DELIVERY_TIMEOUT_SECONDS
+
 
 @dataclass(frozen=True)
 class Settings:
     database_url: str
     character_ids: frozenset[str] | None
+    delivery_timeout_seconds: int
 
 
 def load_settings() -> Settings:
@@ -27,4 +30,11 @@ def load_settings() -> Settings:
             isinstance(value, str) and re.fullmatch(r"[A-Za-z0-9_-]+", value) for value in decoded
         ):
             character_ids = frozenset(decoded)
-    return Settings(database_url=database_url, character_ids=character_ids)
+    timeout = int(
+        os.environ.get("EVIDENCE_DELIVERY_TIMEOUT_SECONDS", str(DEFAULT_DELIVERY_TIMEOUT_SECONDS))
+    )
+    if timeout <= 0:
+        raise ValueError("EVIDENCE_DELIVERY_TIMEOUT_SECONDS must be positive")
+    return Settings(
+        database_url=database_url, character_ids=character_ids, delivery_timeout_seconds=timeout
+    )
