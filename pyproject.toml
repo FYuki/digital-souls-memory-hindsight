@@ -1,7 +1,3 @@
-[build-system]
-requires = ["hatchling==1.27.0"]
-build-backend = "hatchling.build"
-
 [project]
 name = "digital-souls-memory-hindsight"
 version = "0.1.0"
@@ -21,17 +17,9 @@ dev = [
 ]
 
 [tool.uv]
-# uv.lockはビルド環境を記録しないため、hatchlingの推移依存もここで固定する。
-build-constraint-dependencies = [
-  "hatchling==1.27.0",
-  "packaging==26.3",
-  "pathspec==1.1.1",
-  "pluggy==1.7.0",
-  "trove-classifiers==2026.9.21.13",
-]
-
-[tool.hatch.build.targets.wheel]
-packages = ["src/digital_souls_memory_hindsight"]
+# プロジェクト自体はビルドしない。ビルド依存はuv.lockのハッシュで検証できないため、
+# 導入物をすべてuv.lockの配布物ハッシュで固定する。コードはsrcから直接読み込む。
+package = false
 
 [tool.ruff]
 target-version = "py312"
@@ -44,9 +32,11 @@ select = ["E", "F", "I", "UP", "B", "ASYNC"]
 python_version = "3.12"
 strict = true
 files = ["src", "tests"]
+mypy_path = "src"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["src"]
 addopts = "--import-mode=importlib --strict-markers --disable-socket --allow-unix-socket -m 'not it2 and not st'"
 markers = [
   "ut: isolated unit tests without network",
