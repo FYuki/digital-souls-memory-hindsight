@@ -10,7 +10,9 @@ from digital_souls_memory_hindsight.settings import load_settings
 app = FastAPI()
 app.state.settings = load_settings()
 ledger_service = EvidenceService(
-    PostgresEvidenceStore(app.state.settings.database_url), app.state.settings.character_ids
+    PostgresEvidenceStore(app.state.settings.database_url),
+    app.state.settings.character_ids,
+    delivery_timeout_seconds=app.state.settings.delivery_timeout_seconds,
 )
 
 

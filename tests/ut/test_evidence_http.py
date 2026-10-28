@@ -4,6 +4,8 @@ The test store only retains values and arbitrates duplicate keys. It deliberatel
 does not validate turns, infer characters, or enforce receipt eligibility.
 """
 
+from __future__ import annotations
+
 import importlib
 import json
 from collections.abc import Iterator
@@ -11,7 +13,7 @@ from contextlib import contextmanager
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 import pytest
 from fastapi import FastAPI
@@ -24,6 +26,9 @@ from digital_souls_memory_hindsight.evidence.domain import (
     Turn,
 )
 from digital_souls_memory_hindsight.evidence.ports import EvidenceConflict, EvidenceStore
+
+if TYPE_CHECKING:
+    from digital_souls_memory_hindsight.evidence.delivery import DeliveryScope
 
 pytestmark = pytest.mark.ut
 STAMP = "2026-10-28T00:00:00Z"
@@ -76,10 +81,35 @@ class MemoryStore:
         self.turns: dict[str, Turn] = {}
         self.receipts: list[DeliveryReceipt] = []
         self.endings: dict[str, SessionEnding] = {}
+        self.delivery_scopes: list[DeliveryScope] = []
 
     @contextmanager
     def transaction(self) -> Iterator[EvidenceStore]:
-        yield self
+        turns, receipts, scopes = dict(self.turns), list(self.receipts), list(self.delivery_scopes)
+        try:
+            yield self
+        except Exception:
+            self.turns, self.receipts, self.delivery_scopes = turns, receipts, scopes
+            raise
+
+    def get_turn_for_update(self, turn_id: str) -> Turn | None:
+        return self.get_turn(turn_id)
+
+    def add_delivery_scope(self, value: DeliveryScope) -> DeliveryScope:
+        self.delivery_scopes.append(value)
+        return value
+
+    def get_delivery_scope(self, turn_id: str) -> DeliveryScope | None:
+        return next((v for v in reversed(self.delivery_scopes) if v.turn_id == turn_id), None)
+
+    def list_pending_deliveries(self, cutoff: datetime) -> tuple[Turn, ...]:
+        return tuple(
+            turn
+            for turn in self.turns.values()
+            if turn.recorded_at <= cutoff
+            and (scope := self.get_delivery_scope(turn.turn_id)) is not None
+            and scope.spoken_until is None
+        )
 
     def add_session(self, value: Session) -> Session:
         key = value.session_id

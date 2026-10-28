@@ -220,7 +220,7 @@ def test_service_commits_all_four_records_to_ledger_and_restores_them(client: ht
         for columns, key, identifier in [
             (("session_id", "reports_delivery"), "session_id", session_id),
             (("turn_id", "text"), "turn_id", turn_id),
-            (("turn_id", "spoken_until"), "turn_id", turn_id),
+            (("turn_id", "spoken_until", "reported_by"), "turn_id", turn_id),
             (("session_id", "reported_at", "ended_at"), "session_id", session_id),
         ]:
             table = evidence_table(connection, *columns)
@@ -317,7 +317,7 @@ def test_rejected_receipt_leaves_database_and_turn_unchanged(
     assert client.get(f"/turns/{turn_id}/receipts").json() == []
     assert client.get(f"/turns/{turn_id}").json() == first.json()
     with psycopg.connect(os.environ["DATABASE_URL"], connect_timeout=5) as connection:
-        table = evidence_table(connection, "turn_id", "spoken_until")
+        table = evidence_table(connection, "turn_id", "spoken_until", "reported_by")
         row = connection.execute(
             sql.SQL("SELECT count(*) FROM {} WHERE turn_id = %s").format(sql.Identifier(table)),
             (turn_id,),
@@ -375,7 +375,7 @@ def test_ledger_rejects_direct_modification_of_saved_evidence(
     columns, key, identifier = {
         "session": (("session_id", "reports_delivery"), "session_id", session_id),
         "turn": (("turn_id", "text"), "turn_id", turn_id),
-        "receipt": (("turn_id", "spoken_until"), "turn_id", turn_id),
+        "receipt": (("turn_id", "spoken_until", "reported_by"), "turn_id", turn_id),
         "ending": (("session_id", "reported_at", "ended_at"), "session_id", session_id),
     }[entity]
     with psycopg.connect(os.environ["DATABASE_URL"], connect_timeout=5) as connection:

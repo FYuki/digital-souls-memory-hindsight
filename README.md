@@ -60,7 +60,37 @@ Turnは原文と知覚範囲を追記保存し、同じ `turn_id`・同内容の
 Receiptは `status`、文字数の `spoken_until`、`reported_by`、タイムゾーン付き `reported_at` を受け付け、
 報告不要のSessionとthoughtには422を返します。原文・知覚範囲・宛先は変更しません。
 終了報告は `ended_at`・`reported_by` を受け付け、同内容の再送は元の `reported_at` を保持します。
-配達範囲の確定、投影、outboxは後続Issueの対象です。
+投影とoutboxは後続Issueの対象です。
+
+## 配達範囲と期限処理
+
+`0003_delivery_scope` はTurnとは別の追記専用テーブルに配達状態を保存します。
+状態は `immediate`（即時確定）、`pending`（保留）、`receipt_confirmed`（Receipt確定）、
+`assumed_confirmed`（みなし確定）です。thoughtには他キャラ向けの配達記録を作りません。
+
+`EVIDENCE_DELIVERY_TIMEOUT_SECONDS` は正の整数で、未指定時は600秒です。
+報告ありSessionのキャラ発話だけを保留し、利用者発話・observation・報告不要Sessionは
+登録時に全文を即時確定します。期限は `recorded_at` を基準にし、期限到達時に明示的な
+期限処理を呼ぶと未着のTurnを全文のみなし確定にします。
+
+同じサービス内の投影処理やworkerは、次の内部関数を利用します。
+
+```python
+from digital_souls_memory_hindsight.app import ledger_service
+
+scope = ledger_service.get_delivery_scope("synthetic-turn")
+text = ledger_service.get_projection_text("synthetic-turn", "char-b")
+confirmed_turn_ids = ledger_service.confirm_expired_deliveries()
+```
+
+問い合わせは保存済みの `perceived_by` を使い、発言者本人には全文、他キャラには確定範囲までを
+返します。Receipt noneは空文字列、保留・知覚範囲外は `None` です。原文APIは全文を保持します。
+Receiptと期限処理は同じTurnをロックし、既存の確定記録を上書きせず追記します。
+複数・遅着Receiptは台帳の受理順で最新範囲に反映し、先行するみなし確定の履歴を残します。
+配達記録がない既存Turnへのbackfillや全文確定の推測は行いません。
+
+テストでは `EvidenceService(..., clock=clock, delivery_timeout_seconds=42)` で時計と待機時間を
+注入できます。自動起動するworker・定期実行は後続Issueの対象です。
 
 ## IT1（実PostgreSQL・Hindsight、モデルはスタブ）
 
