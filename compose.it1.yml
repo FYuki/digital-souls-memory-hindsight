@@ -64,6 +64,7 @@ services:
       dockerfile: docker/it1/Dockerfile
     environment:
       DATABASE_URL: postgresql://it1@postgres:5432/ledger
+      EVIDENCE_CHARACTER_IDS: '["char-a","char-b"]'
     command: [bash, -c, "uv run --no-sync alembic upgrade head && exec bash scripts/run-service.sh"]
     depends_on:
       postgres:

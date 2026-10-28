@@ -28,13 +28,39 @@ uv run --no-sync pytest -m 'ut and not it2 and not st' -q
 
 ```sh
 export DATABASE_URL=postgresql://localhost/ledger
+export EVIDENCE_CHARACTER_IDS='["char-a","char-b"]'
 PYTHONPATH="$PWD/src" uv run --no-sync alembic upgrade head
 bash scripts/run-service.sh
 ```
 
 `GET http://localhost:8000/health` は `{"status":"ok"}` を返します。
 healthはプロセスの応答確認であり、DB接続の確認はIT1で行います。
-初期revisionは移行履歴だけを作り、業務テーブル・APIは後続Issueで追加します。
+初期revisionは移行履歴だけを作り、続くrevisionがSession・Turn・DeliveryReceipt・SessionEndingの
+4テーブルを台帳DBに作ります。通常のUPDATE・DELETE・TRUNCATEはDBでも拒否します。
+
+キャラ判定には `EVIDENCE_CHARACTER_IDS` のJSON配列を使います。入力本文からは推測しません。
+未設定・不正設定ではTurn登録を503にし、明示的な空配列 `[]` とは区別します。
+この設定はmigrationとhealthの利用条件ではありません。設定変更はサービス再起動時に読み込みます。
+
+## Evidence API
+
+| 操作 | 経路 | 成功時 |
+|---|---|---|
+| Session登録・取得 | `POST /sessions`、`GET /sessions/{session_id}` | 201・200 |
+| 終了報告・一覧 | `POST /sessions/{session_id}/endings`、`GET /sessions/{session_id}/endings` | 新規201・同一再送200・一覧200 |
+| Turn登録・取得 | `POST /turns`、`GET /turns/{turn_id}` | 201・200 |
+| Receipt登録・一覧 | `POST /turns/{turn_id}/receipts`、`GET /turns/{turn_id}/receipts` | 201・200 |
+| 知覚したTurnの一覧 | `GET /characters/{character_id}/turns` | 200 |
+
+Sessionは `session_id`、タイムゾーン付き `started_at`、`surface`、必須の真偽値
+`reports_delivery`、任意の `ended_at` を受け付けます。宣言の変更はできません。
+Turnは原文と知覚範囲を追記保存し、同じ `turn_id`・同内容の再送では元の `recorded_at` を返します。
+異なる内容の再登録は409です。Turnの内容を更新するAPIはありません。
+キャラの `address_mode` は必須で、利用者の省略・nullは宛先が空の場合だけbroadcastになります。
+Receiptは `status`、文字数の `spoken_until`、`reported_by`、タイムゾーン付き `reported_at` を受け付け、
+報告不要のSessionとthoughtには422を返します。原文・知覚範囲・宛先は変更しません。
+終了報告は `ended_at`・`reported_by` を受け付け、同内容の再送は元の `reported_at` を保持します。
+配達範囲の確定、投影、outboxは後続Issueの対象です。
 
 ## IT1（実PostgreSQL・Hindsight、モデルはスタブ）
 
