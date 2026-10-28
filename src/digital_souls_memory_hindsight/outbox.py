@@ -12,22 +12,34 @@ def operation_id(turn_id: str, bank_id: str, document_id: str) -> str:
 
 
 @dataclass(frozen=True)
-class RetainTarget:
-    bank_id: str
-    document_id: str
-    content: str
-
-
-@dataclass(frozen=True)
 class RetainOperation:
     turn_id: str
     bank_id: str
     document_id: str
     content: str
     occurred_at: datetime
+    update_mode: Literal["append", "replace", "delete"] = "append"
+    source_scope_id: int | None = None
 
     @property
     def operation_id(self) -> str:
+        if self.update_mode in {"replace", "delete"}:
+            if self.source_scope_id is None:
+                raise ValueError(f"{self.update_mode.capitalize()} requires a saved delivery scope")
+            return str(
+                uuid5(
+                    NAMESPACE_URL,
+                    json.dumps(
+                        [
+                            self.update_mode,
+                            self.turn_id,
+                            self.bank_id,
+                            self.document_id,
+                            self.source_scope_id,
+                        ]
+                    ),
+                )
+            )
         return operation_id(self.turn_id, self.bank_id, self.document_id)
 
 
@@ -45,11 +57,19 @@ class OutboxItem:
     lease_until: datetime | None
     last_error: str | None
     completed_at: datetime | None
+    update_mode: Literal["append", "replace", "delete"] = "append"
+    source_scope_id: int | None = None
 
     @property
     def operation(self) -> RetainOperation:
         return RetainOperation(
-            self.turn_id, self.bank_id, self.document_id, self.content, self.occurred_at
+            self.turn_id,
+            self.bank_id,
+            self.document_id,
+            self.content,
+            self.occurred_at,
+            self.update_mode,
+            self.source_scope_id,
         )
 
 

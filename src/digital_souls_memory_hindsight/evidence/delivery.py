@@ -16,6 +16,7 @@ class DeliveryScope:
     status: DeliveryStatus
     spoken_until: int | None
     decided_at: datetime
+    scope_id: int | None = None
 
 
 def initial_delivery_scope(turn: Turn, session: Session) -> DeliveryScope | None:

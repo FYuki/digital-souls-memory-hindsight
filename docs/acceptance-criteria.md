@@ -28,6 +28,7 @@
 | A12 | 台帳からHindsightへの投影・削除などの非同期処理は、PostgreSQLのoutboxテーブルと、同じサービス内のworkerで行う | 決定（2026-10-27、本人） |
 | A13 | 他キャラへのappendは配達範囲の確定順になり、occurred_atの順序とずれることを許容する。retainにはoccurred_atを時刻（timestamp）として渡し、時間の順序をappendの順に頼らない | 決定（2026-10-27、本人。U7の解決） |
 | A14 | IT2・STの実モデルはllama.cppで動かす（Hindsightの接続方式は `llamacpp`／OpenAI互換、rerankerはCohere互換）。embeddingはbge-m3、rerankerはbge-reranker-v2-m3とし、digital-souls-memoryの検索比較（memory-v2.1、IT2）の結果を参考にする。フレームワークによる差を見るため、digital-souls-memoryの自作実装との比較も行ってよい | 決定（2026-10-27、本人。U5・U6の解決。抽出・統合に使う生成モデルはU8） |
+| A15 | 投影後に他キャラ向けの配達範囲が変わった場合は、影響を受けるキャラのbankで、そのSessionのdocumentを台帳から作り直す（replace）。範囲が変わらないReceiptでは作り直さない | 決定（2026-10-28、本人） |
 
 ## 3. 受け入れ条件
 

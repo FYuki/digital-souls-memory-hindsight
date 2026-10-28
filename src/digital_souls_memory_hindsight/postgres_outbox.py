@@ -11,7 +11,7 @@ from .outbox import OutboxItem
 
 _COLUMNS = (
     "turn_id, bank_id, document_id, content, occurred_at, status, attempts, "
-    "available_at, lease_token, lease_until, last_error, completed_at"
+    "available_at, lease_token, lease_until, last_error, completed_at, update_mode, source_scope_id"
 )
 
 
@@ -37,10 +37,13 @@ class PostgresOutbox:
             with psycopg.connect(self._url, connect_timeout=5) as connection:
                 with connection.cursor(row_factory=class_row(OutboxItem)) as cursor:
                     cursor.execute(
-                        "WITH candidate AS (SELECT operation_id FROM outbox WHERE "
-                        "(status = 'pending' AND available_at <= %s) OR "
-                        "(status = 'processing' AND lease_until <= %s) "
-                        "ORDER BY available_at, operation_id FOR UPDATE SKIP LOCKED LIMIT 1) "
+                        "WITH candidate AS (SELECT o.operation_id FROM outbox o WHERE "
+                        "((o.status = 'pending' AND o.available_at <= %s) OR "
+                        "(o.status = 'processing' AND o.lease_until <= %s)) "
+                        "AND NOT EXISTS (SELECT 1 FROM outbox prior WHERE "
+                        "prior.bank_id = o.bank_id AND prior.sequence_id < o.sequence_id "
+                        "AND prior.status != 'completed') "
+                        "ORDER BY o.sequence_id FOR UPDATE OF o SKIP LOCKED LIMIT 1) "
                         "UPDATE outbox SET status = 'processing', attempts = attempts + 1, "
                         "lease_token = %s, lease_until = %s WHERE operation_id = "
                         "(SELECT operation_id FROM candidate) "

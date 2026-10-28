@@ -7,7 +7,7 @@ import select
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from threading import Barrier
 from unittest.mock import patch
@@ -18,14 +18,19 @@ import pytest
 from hindsight_client import Hindsight
 from psycopg import sql
 
-from digital_souls_memory_hindsight.evidence.domain import DeliveryReceipt, Session
+from digital_souls_memory_hindsight.evidence.delivery import initial_delivery_scope
+from digital_souls_memory_hindsight.evidence.domain import (
+    DeliveryReceipt,
+    Session,
+    Turn,
+    prepare_turn,
+)
 from digital_souls_memory_hindsight.evidence.ports import EvidenceConflict, EvidenceUnavailable
 from digital_souls_memory_hindsight.evidence.service import EvidenceService
 from digital_souls_memory_hindsight.hindsight_retain import HindsightRetain
 from digital_souls_memory_hindsight.outbox import (
     RetainOperation,
     RetainResult,
-    RetainTarget,
     operation_id,
 )
 from digital_souls_memory_hindsight.postgres_evidence import PostgresEvidenceStore
@@ -37,6 +42,13 @@ from tests.ut.test_delivery_scope import CHARACTERS, Clock, draft
 pytestmark = pytest.mark.it1
 
 
+@dataclass(frozen=True)
+class RetainTarget:
+    bank_id: str
+    document_id: str
+    content: str
+
+
 @pytest.mark.parametrize("different_operation", [False, True], ids=["same-id", "different-id"])
 def test_processing_operation_resend_preserves_append_identity(
     database: str, response_gate: ResponseGate, different_operation: bool
@@ -45,7 +57,7 @@ def test_processing_operation_resend_preserves_append_identity(
     clock = Clock(datetime.now(UTC) + timedelta(seconds=1))
     service = ledger(database, clock)
     content = f"架空の花子は識別子{response_gate.marker}のお茶が好きです。"
-    saved = service.add_turn(draft(), retain_targets=(RetainTarget(bank, "session", content),))
+    saved = seed_outbox(database, clock, (RetainTarget(bank, "session", content),))
     queue = PostgresOutbox(database)
     identifier = operation_id(saved.turn_id, bank, "session")
 
@@ -165,24 +177,48 @@ def ledger(url: str, clock: Clock) -> EvidenceService:
     return service
 
 
+def seed_outbox(url: str, clock: Clock, targets: tuple[RetainTarget, ...]) -> Turn:
+    """Seed adapter/worker fixtures below the automatic projection decision boundary."""
+    with PostgresEvidenceStore(url).transaction() as store:
+        saved = store.add_turn(prepare_turn(draft(), CHARACTERS, clock.now))
+        session = store.get_session(saved.session_id)
+        assert session is not None
+        if store.get_delivery_scope(saved.turn_id) is None:
+            scope = initial_delivery_scope(saved, session)
+            assert scope is not None
+            store.add_delivery_scope(scope)
+        for target in targets:
+            store.add_retain(
+                RetainOperation(
+                    saved.turn_id,
+                    target.bank_id,
+                    target.document_id,
+                    target.content,
+                    saved.occurred_at,
+                )
+            )
+    return saved
+
+
 def test_turn_and_outbox_commit_together_and_retry_cannot_change_payload(database: str) -> None:
     clock = Clock(datetime.now(UTC))
-    service = ledger(database, clock)
+    ledger(database, clock)
     target = RetainTarget("bank-a", "session", "架空のお茶")
-    saved = service.add_turn(draft(), retain_targets=(target,))
-    service.add_turn(draft(), retain_targets=(target,))
+    saved = seed_outbox(database, clock, (target,))
+    seed_outbox(database, clock, (target,))
     with psycopg.connect(database, connect_timeout=5) as connection:
         assert connection.execute("SELECT count(*) FROM turns").fetchone() == (1,)
         assert connection.execute("SELECT content, occurred_at FROM outbox").fetchall() == [
             (target.content, saved.occurred_at)
         ]
     with pytest.raises(EvidenceConflict):
-        service.add_turn(draft(), retain_targets=(replace(target, content="異なる本文"),))
+        seed_outbox(database, clock, (replace(target, content="異なる本文"),))
     assert PostgresOutbox(database).get(operation_id("t-1", "bank-a", "session")) is not None
 
 
 def test_outbox_insert_failure_rolls_back_real_turn_and_delivery(database: str) -> None:
-    service = ledger(database, Clock(datetime.now(UTC)))
+    clock = Clock(datetime.now(UTC))
+    ledger(database, clock)
     with psycopg.connect(database, connect_timeout=5) as connection:
         connection.execute("""
             CREATE FUNCTION reject_outbox_insert() RETURNS trigger LANGUAGE plpgsql AS $$
@@ -192,22 +228,23 @@ def test_outbox_insert_failure_rolls_back_real_turn_and_delivery(database: str) 
         """)
     target = RetainTarget("bank", "session", "架空のお茶")
     with pytest.raises(EvidenceUnavailable):
-        service.add_turn(draft(), retain_targets=(target,))
+        seed_outbox(database, clock, (target,))
     with psycopg.connect(database, connect_timeout=5) as connection:
         for table in ("turns", "delivery_scopes", "outbox"):
             assert connection.execute(
                 sql.SQL("SELECT count(*) FROM {}").format(sql.Identifier(table))
             ).fetchone() == (0,)
         connection.execute("DROP TRIGGER reject_outbox ON outbox")
-    service.add_turn(draft(), retain_targets=(target,))
+    seed_outbox(database, clock, (target,))
     assert PostgresOutbox(database).get(operation_id("t-1", "bank", "session")) is not None
 
 
 def test_claim_is_exclusive_and_expired_owner_cannot_finish_new_lease(database: str) -> None:
     now = datetime.now(UTC)
-    service = ledger(database, Clock(now))
+    clock = Clock(now)
+    ledger(database, clock)
     target = RetainTarget("bank", "session", "架空のお茶")
-    service.add_turn(draft(), retain_targets=(target,))
+    seed_outbox(database, clock, (target,))
     barrier = Barrier(2)
 
     def claim() -> object:
@@ -235,7 +272,7 @@ def test_claim_is_exclusive_and_expired_owner_cannot_finish_new_lease(database: 
 def test_worker_persists_transport_failure_then_retries_same_operation(database: str) -> None:
     clock = Clock(datetime.now(UTC) + timedelta(seconds=1))
     service = ledger(database, clock)
-    service.add_turn(draft(), retain_targets=(RetainTarget("bank", "session", "架空のお茶"),))
+    seed_outbox(database, clock, (RetainTarget("bank", "session", "架空のお茶"),))
     queue = PostgresOutbox(database)
 
     class UnavailableExecutor:
@@ -285,8 +322,8 @@ def test_outbox_projects_same_turn_to_each_explicit_bank_once(database: str) -> 
     service = ledger(database, clock)
     content = f"架空の花子は識別子{token}のお茶が好きです。"
     targets = tuple(RetainTarget(bank, "session", content) for bank in banks)
-    saved = service.add_turn(draft(), retain_targets=targets)
-    assert service.add_turn(draft(), retain_targets=targets) == saved
+    saved = seed_outbox(database, clock, targets)
+    assert seed_outbox(database, clock, targets) == saved
 
     async def exercise() -> None:
         client = Hindsight(base_url=os.environ["HINDSIGHT_URL"], timeout=15.0)
@@ -338,14 +375,15 @@ from datetime import UTC, datetime, timedelta
 from fastapi.testclient import TestClient
 from digital_souls_memory_hindsight.app import app, ledger_service
 from digital_souls_memory_hindsight.evidence.domain import Session
-from digital_souls_memory_hindsight.outbox import RetainTarget, operation_id
+from digital_souls_memory_hindsight.outbox import operation_id
 from digital_souls_memory_hindsight.postgres_outbox import PostgresOutbox
-from tests.ut.test_delivery_scope import draft
+from tests.it1.test_outbox_worker import RetainTarget, seed_outbox
+from tests.ut.test_delivery_scope import Clock
 with TestClient(app):
     started = datetime.now(UTC)-timedelta(days=2)
     ledger_service.add_session(Session('s-1', started, None, 'Web', True))
     target = RetainTarget(os.environ['TARGET_BANK'], 'session', os.environ['TARGET_CONTENT'])
-    saved = ledger_service.add_turn(draft(), retain_targets=(target,))
+    saved = seed_outbox(os.environ['DATABASE_URL'], Clock(datetime.now(UTC)), (target,))
     queue = PostgresOutbox(os.environ['DATABASE_URL'])
     deadline = time.monotonic() + 60
     while True:
@@ -405,7 +443,7 @@ def test_worker_process_restart_recovers_saved_operation_without_duplicate_appen
     service = ledger(database, clock)
     content = f"架空の花子は識別子{token}のお茶が好きです。"
     target = RetainTarget(bank, "session", content)
-    saved = service.add_turn(draft(), retain_targets=(target,))
+    saved = seed_outbox(database, clock, (target,))
     identifier = operation_id(saved.turn_id, bank, "session")
     script = """
 import asyncio, os, threading

@@ -56,7 +56,9 @@ def test_failed_commit_does_not_return_success(monkeypatch: pytest.MonkeyPatch) 
     assert session.session_id not in arguments[0]
 
 
-@pytest.mark.parametrize("operation", ["write", "read", "lock", "pending"])
+@pytest.mark.parametrize(
+    "operation", ["write", "read", "lock", "pending", "session-lock", "projection-turns"]
+)
 @pytest.mark.parametrize("error", [psycopg.OperationalError, psycopg.IntegrityError])
 def test_delivery_storage_failures_preserve_error_translation(
     monkeypatch: pytest.MonkeyPatch, operation: str, error: type[psycopg.Error]
@@ -75,5 +77,9 @@ def test_delivery_storage_failures_preserve_error_translation(
             store.get_delivery_scope("t-1")
         elif operation == "lock":
             store.get_turn_for_update("t-1")
+        elif operation == "session-lock":
+            store.lock_session("s-1")
+        elif operation == "projection-turns":
+            store.list_projection_turns("s-1", "bank")
         else:
             store.list_pending_deliveries(now)

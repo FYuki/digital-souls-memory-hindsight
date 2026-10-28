@@ -61,7 +61,7 @@ Turnは原文と知覚範囲を追記保存し、同じ `turn_id`・同内容の
 Receiptは `status`、文字数の `spoken_until`、`reported_by`、タイムゾーン付き `reported_at` を受け付け、
 報告不要のSessionとthoughtには422を返します。原文・知覚範囲・宛先は変更しません。
 終了報告は `ended_at`・`reported_by` を受け付け、同内容の再送は元の `reported_at` を保持します。
-キャラ別の投影先と本文の選択は後続Issueの対象です。
+キャラごとの bank への自動投影と本文の選択については、「outbox と worker」節を参照してください。
 
 ## 配達範囲と期限処理
 
@@ -95,9 +95,9 @@ Receiptと期限処理は同じTurnをロックし、既存の確定記録を上
 
 ## outbox と worker
 
-`0004_outbox` が台帳DBに操作を保存します。投影先・本文を決定した内部処理は、
-`ledger_service.add_turn(turn_input, retain_targets=(RetainTarget(bank_id, document_id, content),))`
-を呼びます。`RetainTarget` は `digital_souls_memory_hindsight.outbox` から読み込みます。
+`ledger_service.add_turn(turn_input)` または既存の HTTP API で Turn を登録すると、
+知覚者ごとの投影操作を台帳DBの outbox に自動保存します。キャラ ID から bank ID、
+Session ID から document ID を決定的に導き、初回の送信時に bank を作成します。
 Turn・初期配達範囲・操作は同じトランザクションで保存されます。HTTP の入力は変更しません。
 同じ Turn・bank・document の再送は同じ操作になり、本文の異なる再登録は拒否します。
 
@@ -106,7 +106,13 @@ worker は `run_once()` で1回だけ処理できます。各周期でみなし�
 別スレッドで実行します。取得は `FOR UPDATE SKIP LOCKED`、リースは60秒です。
 停止後は期限切れの操作を再取得し、旧所有者による完了・失敗の更新を拒否します。
 
-retain は非同期appendとして保存済みの operation_id・本文・occurred_at を送信します。
+通常の retain は非同期 append として保存済みの operation_id・本文・occurred_at を送信します。
+他キャラへの投影は配達範囲の確定まで保留し、本人には全文を送ります。
+投影後の配達範囲が変わると、影響するキャラの Session 文書を台帳から replace で
+作り直します。作り直す本文が空なら、同じ outbox・worker を通して document を削除します。
+同じ範囲の Receipt では再構築しません。再構築の本文も保存済みの
+snapshot を再送し、bank 内の先行操作・自動統合が完了するまで後続を進めません。
+bank の mission・disposition を人格の正本には使いません。
 受付だけでは完了にせず、operation の完了を確認します。処理中・通信失敗は1秒後に
 同じ識別子で再試行し、試行回数・次回時刻・原因の分類を保存します。
 Hindsight の failed／cancelled は outbox の failed に残し、自動で成功扱いにはしません。

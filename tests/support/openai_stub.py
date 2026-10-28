@@ -4,6 +4,7 @@ import hashlib
 import json
 import math
 import os
+import re
 import threading
 import time
 from collections.abc import Iterator
@@ -143,14 +144,31 @@ def _extraction_response(
     return output
 
 
-def _consolidation_response(schema: dict[str, object]) -> dict[str, object]:
-    """Own consolidation fixtures separately so later issues can add their scenarios here."""
-    return _object(_minimal(schema, schema))
+def _consolidation_response(
+    schema: dict[str, object], messages: list[dict[str, object]]
+) -> dict[str, object]:
+    output = _object(_minimal(schema, schema))
+    if "creates" not in _object(schema.get("properties", {})):
+        return output
+    user = next(message for message in messages if message["role"] == "user")
+    text = (
+        str(user["content"]).split("### New facts", 1)[1].split("### Existing observations", 1)[0]
+    )
+    creates = []
+    for identifier, fact in re.findall(r"^\[([0-9a-f-]{36})\] (.+)$", text, re.MULTILINE):
+        body = re.split(r" \(occurred_start=| \(occurred_end=| \(mentioned_at=", fact, maxsplit=1)[
+            0
+        ]
+        creates.append({"text": body, "source_fact_ids": [identifier], "reason": "fixture fact"})
+    output["creates"] = creates
+    output["updates"] = []
+    output["deletes"] = []
+    return output
 
 
 def chat_completion(request: dict[str, object]) -> dict[str, object]:
     messages = _messages(request)
-    schema = _select_schema(request, messages)
+    schema = None if request.get("tools") else _select_schema(request, messages)
     content = "ok"
     if schema is not None:
         consolidation = any(
@@ -159,11 +177,16 @@ def chat_completion(request: dict[str, object]) -> dict[str, object]:
             for message in messages
         )
         output = (
-            _consolidation_response(schema)
+            _consolidation_response(schema, messages)
             if consolidation
             else _extraction_response(schema, messages)
         )
         content = json.dumps(output, ensure_ascii=False)
+    message = (
+        _reflect_message(request, messages)
+        if request.get("tools")
+        else {"role": "assistant", "content": content}
+    )
     return {
         "id": "stub",
         "object": "chat.completion",
@@ -172,11 +195,81 @@ def chat_completion(request: dict[str, object]) -> dict[str, object]:
         "choices": [
             {
                 "index": 0,
-                "finish_reason": "stop",
-                "message": {"role": "assistant", "content": content},
+                "finish_reason": "tool_calls" if "tool_calls" in message else "stop",
+                "message": message,
             }
         ],
         "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+    }
+
+
+def _reflect_message(
+    request: dict[str, object], messages: list[dict[str, object]]
+) -> dict[str, object]:
+    available = {
+        str(_object(_object(tool)["function"])["name"]) for tool in _array(request["tools"])
+    }
+    used = {
+        str(_object(_object(call)["function"])["name"])
+        for message in messages
+        for call in _array(message.get("tool_calls", []))
+    }
+    memories: list[dict[str, object]] = []
+    observations: list[dict[str, object]] = []
+    for message in messages:
+        if message["role"] == "tool":
+            result = _object(json.loads(str(message["content"])))
+            memories.extend(_object(value) for value in _array(result.get("memories", [])))
+            observations.extend(_object(value) for value in _array(result.get("observations", [])))
+    choice = request.get("tool_choice")
+    if isinstance(choice, dict):
+        name = str(_object(choice["function"])["name"])
+    else:
+        name = next(
+            (
+                value
+                for value in (
+                    "search_mental_models",
+                    "search_observations",
+                    "recall",
+                    "answer_ready",
+                )
+                if value in available and value not in used
+            ),
+            "done",
+        )
+    if name in {"search_mental_models", "search_observations", "recall"}:
+        arguments: dict[str, object] = {
+            "reason": "fixture retrieval",
+            "query": "架空",
+            "max_tokens": 10000,
+        }
+        if name == "search_mental_models":
+            arguments.pop("max_tokens")
+    elif name == "answer_ready":
+        arguments = {"answer_found": bool(memories or observations)}
+    elif name == "done":
+        arguments = {
+            "answer": "\n".join(str(value["text"]) for value in memories + observations)
+            if memories or observations
+            else "知っている事実はありません。",
+            "answer_found": bool(memories or observations),
+            "memory_ids": [str(value["id"]) for value in memories],
+            "observation_ids": [str(value["id"]) for value in observations],
+            "mental_model_ids": [],
+        }
+    else:
+        raise ValueError("Unsupported fixture reflection tool")
+    return {
+        "role": "assistant",
+        "content": None,
+        "tool_calls": [
+            {
+                "id": "fixture-" + str(len(messages)),
+                "type": "function",
+                "function": {"name": name, "arguments": json.dumps(arguments, ensure_ascii=False)},
+            }
+        ],
     }
 
 

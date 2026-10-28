@@ -85,6 +85,18 @@ class MemoryStore:
         self.delivery_scopes: list[DeliveryScope] = []
         self.outbox: dict[str, RetainOperation] = {}
 
+    def lock_session(self, session_id: str) -> None:
+        self.get_session(session_id)
+
+    def list_projection_turns(self, session_id: str, bank_id: str) -> tuple[Turn, ...]:
+        return tuple(
+            self.turns[value.turn_id]
+            for value in self.outbox.values()
+            if value.bank_id == bank_id
+            and value.update_mode == "append"
+            and self.turns[value.turn_id].session_id == session_id
+        )
+
     @contextmanager
     def transaction(self) -> Iterator[EvidenceStore]:
         turns, receipts, scopes = dict(self.turns), list(self.receipts), list(self.delivery_scopes)
@@ -106,6 +118,7 @@ class MemoryStore:
         return self.get_turn(turn_id)
 
     def add_delivery_scope(self, value: DeliveryScope) -> DeliveryScope:
+        value = replace(value, scope_id=len(self.delivery_scopes) + 1)
         self.delivery_scopes.append(value)
         return value
 

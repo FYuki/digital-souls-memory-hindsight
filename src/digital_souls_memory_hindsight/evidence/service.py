@@ -3,7 +3,6 @@
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
-from ..outbox import RetainOperation, RetainTarget
 from .delivery import (
     DEFAULT_DELIVERY_TIMEOUT_SECONDS,
     DeliveryScope,
@@ -22,6 +21,7 @@ from .domain import (
     validate_receipt,
 )
 from .ports import EvidenceConflict, EvidenceNotFound, EvidenceStore, EvidenceUnavailable
+from .projection import enqueue_projection, update_projection
 
 
 def _utc_now() -> datetime:
@@ -53,7 +53,7 @@ class EvidenceService:
             raise EvidenceNotFound()
         return value
 
-    def add_turn(self, value: TurnInput, *, retain_targets: tuple[RetainTarget, ...] = ()) -> Turn:
+    def add_turn(self, value: TurnInput) -> Turn:
         if self._character_ids is None:
             raise EvidenceUnavailable()
         with self._store.transaction() as store:
@@ -61,9 +61,14 @@ class EvidenceService:
             if previous is not None:
                 if not matches_saved_turn(value, previous):
                     raise EvidenceConflict()
-                self._enqueue(store, previous, retain_targets)
                 return previous
             turn = prepare_turn(value, self._character_ids, self._clock())
+            store.lock_session(turn.session_id)
+            previous = store.get_turn(value.turn_id)
+            if previous is not None:
+                if not matches_saved_turn(value, previous):
+                    raise EvidenceConflict()
+                return previous
             session = store.get_session(turn.session_id)
             if session is None:
                 raise EvidenceNotFound()
@@ -74,21 +79,8 @@ class EvidenceService:
             initial = initial_delivery_scope(saved, session)
             if initial is not None and store.get_delivery_scope(saved.turn_id) is None:
                 store.add_delivery_scope(initial)
-            self._enqueue(store, saved, retain_targets)
+            enqueue_projection(store, saved, store.get_delivery_scope(saved.turn_id))
         return saved
-
-    @staticmethod
-    def _enqueue(store: EvidenceStore, turn: Turn, targets: tuple[RetainTarget, ...]) -> None:
-        for target in targets:
-            store.add_retain(
-                RetainOperation(
-                    turn.turn_id,
-                    target.bank_id,
-                    target.document_id,
-                    target.content,
-                    turn.occurred_at,
-                )
-            )
 
     def get_turn(self, turn_id: str) -> Turn:
         value = self._store.get_turn(turn_id)
@@ -98,6 +90,10 @@ class EvidenceService:
 
     def add_receipt(self, value: DeliveryReceipt) -> DeliveryReceipt:
         with self._store.transaction() as store:
+            turn = store.get_turn(value.turn_id)
+            if turn is None:
+                raise EvidenceNotFound()
+            store.lock_session(turn.session_id)
             turn = store.get_turn_for_update(value.turn_id)
             if turn is None:
                 raise EvidenceNotFound()
@@ -110,11 +106,13 @@ class EvidenceService:
                 raise EvidenceUnavailable("Delivery scope is missing")
             saved = store.add_receipt(value)
             if scope.status != "immediate":
-                store.add_delivery_scope(
+                latest = store.add_delivery_scope(
                     DeliveryScope(
                         turn.turn_id, "receipt_confirmed", value.spoken_until, self._clock()
                     )
                 )
+                if scope.spoken_until != latest.spoken_until:
+                    update_projection(store, turn, latest)
         return saved
 
     def get_delivery_scope(self, turn_id: str) -> DeliveryScope | None:
@@ -136,7 +134,11 @@ class EvidenceService:
         now = self._clock()
         confirmed: list[str] = []
         with self._store.transaction() as store:
-            for candidate in store.list_pending_deliveries(now - self._delivery_timeout):
+            candidates = store.list_pending_deliveries(now - self._delivery_timeout)
+            for candidate in sorted(
+                candidates, key=lambda value: (value.session_id, value.turn_id)
+            ):
+                store.lock_session(candidate.session_id)
                 turn = store.get_turn_for_update(candidate.turn_id)
                 if turn is None:
                     raise EvidenceNotFound()
@@ -144,9 +146,10 @@ class EvidenceService:
                 if scope is None:
                     raise EvidenceUnavailable("Delivery scope is missing")
                 if scope.status == "pending":
-                    store.add_delivery_scope(
+                    latest = store.add_delivery_scope(
                         DeliveryScope(turn.turn_id, "assumed_confirmed", len(turn.text), now)
                     )
+                    update_projection(store, turn, latest)
                     confirmed.append(turn.turn_id)
         return tuple(confirmed)
 
