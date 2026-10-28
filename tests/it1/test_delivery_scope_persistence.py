@@ -215,8 +215,9 @@ def test_database_rejects_modification_of_delivery_history(
 
 @pytest.mark.parametrize("operation", ["turn", "receipt", "expiry"])
 def test_delivery_failure_rolls_back_real_ledger_and_retry_succeeds(
-    monkeypatch: pytest.MonkeyPatch, operation: str
+    monkeypatch: pytest.MonkeyPatch, operation: str, database: str
 ) -> None:
+    monkeypatch.setenv("DATABASE_URL", database)
     clock = Clock(NOW)
     service = ledger(clock)
     session_id = "synthetic-" + uuid4().hex
@@ -304,7 +305,11 @@ def test_receipt_and_expiry_on_separate_connections_keep_receipt_as_final_range(
     assert delivery_rows(turn_id) == history
 
 
-def test_concurrent_identical_registration_creates_one_initial_decision() -> None:
+def test_concurrent_identical_registration_creates_one_initial_decision(
+    monkeypatch: pytest.MonkeyPatch,
+    database: str,
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", database)
     clock = Clock(NOW)
     service = ledger(clock)
     session_id = "synthetic-" + uuid4().hex

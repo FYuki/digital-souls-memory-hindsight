@@ -26,6 +26,7 @@ from digital_souls_memory_hindsight.evidence.domain import (
     Turn,
 )
 from digital_souls_memory_hindsight.evidence.ports import EvidenceConflict, EvidenceStore
+from digital_souls_memory_hindsight.outbox import RetainOperation
 
 if TYPE_CHECKING:
     from digital_souls_memory_hindsight.evidence.delivery import DeliveryScope
@@ -82,15 +83,24 @@ class MemoryStore:
         self.receipts: list[DeliveryReceipt] = []
         self.endings: dict[str, SessionEnding] = {}
         self.delivery_scopes: list[DeliveryScope] = []
+        self.outbox: dict[str, RetainOperation] = {}
 
     @contextmanager
     def transaction(self) -> Iterator[EvidenceStore]:
         turns, receipts, scopes = dict(self.turns), list(self.receipts), list(self.delivery_scopes)
+        outbox = dict(self.outbox)
         try:
             yield self
         except Exception:
             self.turns, self.receipts, self.delivery_scopes = turns, receipts, scopes
+            self.outbox = outbox
             raise
+
+    def add_retain(self, value: RetainOperation) -> None:
+        previous = self.outbox.get(value.operation_id)
+        if previous is not None and previous != value:
+            raise EvidenceConflict()
+        self.outbox[value.operation_id] = value
 
     def get_turn_for_update(self, turn_id: str) -> Turn | None:
         return self.get_turn(turn_id)

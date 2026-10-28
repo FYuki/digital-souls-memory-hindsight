@@ -1,13 +1,46 @@
 """HTTP entry point for the Phase 1 service."""
 
+import asyncio
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager, suppress
+
 from fastapi import FastAPI
+from hindsight_client import Hindsight
 
 from digital_souls_memory_hindsight.evidence.service import EvidenceService
 from digital_souls_memory_hindsight.evidence_http import evidence_router
+from digital_souls_memory_hindsight.hindsight_retain import HindsightRetain
 from digital_souls_memory_hindsight.postgres_evidence import PostgresEvidenceStore
+from digital_souls_memory_hindsight.postgres_outbox import PostgresOutbox
 from digital_souls_memory_hindsight.settings import load_settings
+from digital_souls_memory_hindsight.worker import Worker
 
-app = FastAPI()
+
+@asynccontextmanager
+async def lifespan(application: FastAPI) -> AsyncIterator[None]:
+    settings = application.state.settings
+    client = (
+        Hindsight(base_url=settings.hindsight_url, timeout=10.0) if settings.hindsight_url else None
+    )
+    worker = Worker(
+        PostgresOutbox(settings.database_url),
+        HindsightRetain(client) if client is not None else None,
+        ledger_service,
+    )
+    task = asyncio.create_task(worker.run())
+    try:
+        yield
+    finally:
+        task.cancel()
+        try:
+            with suppress(asyncio.CancelledError):
+                await task
+        finally:
+            if client is not None:
+                await client.aclose()  # type: ignore[no-untyped-call]
+
+
+app = FastAPI(lifespan=lifespan)
 app.state.settings = load_settings()
 ledger_service = EvidenceService(
     PostgresEvidenceStore(app.state.settings.database_url),

@@ -4,6 +4,7 @@ from contextlib import AbstractContextManager
 from datetime import datetime
 from typing import Protocol
 
+from ..outbox import RetainOperation
 from .delivery import DeliveryScope
 from .domain import DeliveryReceipt, Session, SessionEnding, Turn
 
@@ -21,6 +22,7 @@ class EvidenceUnavailable(Exception):
 
 
 class EvidenceStore(Protocol):
+    def add_retain(self, value: RetainOperation) -> None: ...
     def transaction(self) -> AbstractContextManager["EvidenceStore"]: ...
     def add_session(self, value: Session) -> Session: ...
     def get_session(self, session_id: str) -> Session | None: ...

@@ -29,6 +29,7 @@ uv run --no-sync pytest -m 'ut and not it2 and not st' -q
 ```sh
 export DATABASE_URL=postgresql://localhost/ledger
 export EVIDENCE_CHARACTER_IDS='["char-a","char-b"]'
+export HINDSIGHT_URL=http://localhost:8888
 PYTHONPATH="$PWD/src" uv run --no-sync alembic upgrade head
 bash scripts/run-service.sh
 ```
@@ -60,7 +61,7 @@ Turnは原文と知覚範囲を追記保存し、同じ `turn_id`・同内容の
 Receiptは `status`、文字数の `spoken_until`、`reported_by`、タイムゾーン付き `reported_at` を受け付け、
 報告不要のSessionとthoughtには422を返します。原文・知覚範囲・宛先は変更しません。
 終了報告は `ended_at`・`reported_by` を受け付け、同内容の再送は元の `reported_at` を保持します。
-投影とoutboxは後続Issueの対象です。
+キャラ別の投影先と本文の選択は後続Issueの対象です。
 
 ## 配達範囲と期限処理
 
@@ -90,7 +91,27 @@ Receiptと期限処理は同じTurnをロックし、既存の確定記録を上
 配達記録がない既存Turnへのbackfillや全文確定の推測は行いません。
 
 テストでは `EvidenceService(..., clock=clock, delivery_timeout_seconds=42)` で時計と待機時間を
-注入できます。自動起動するworker・定期実行は後続Issueの対象です。
+注入できます。同じプロセス内のworkerが各周期で期限処理を呼びます。
+
+## outbox と worker
+
+`0004_outbox` が台帳DBに操作を保存します。投影先・本文を決定した内部処理は、
+`ledger_service.add_turn(turn_input, retain_targets=(RetainTarget(bank_id, document_id, content),))`
+を呼びます。`RetainTarget` は `digital_souls_memory_hindsight.outbox` から読み込みます。
+Turn・初期配達範囲・操作は同じトランザクションで保存されます。HTTP の入力は変更しません。
+同じ Turn・bank・document の再送は同じ操作になり、本文の異なる再登録は拒否します。
+
+FastAPI の lifespan が worker を開始し、停止時にタスクと公式SDKクライアントを解放します。
+worker は `run_once()` で1回だけ処理できます。各周期でみなし確定も進め、DB処理は
+別スレッドで実行します。取得は `FOR UPDATE SKIP LOCKED`、リースは60秒です。
+停止後は期限切れの操作を再取得し、旧所有者による完了・失敗の更新を拒否します。
+
+retain は非同期appendとして保存済みの operation_id・本文・occurred_at を送信します。
+受付だけでは完了にせず、operation の完了を確認します。処理中・通信失敗は1秒後に
+同じ識別子で再試行し、試行回数・次回時刻・原因の分類を保存します。
+Hindsight の failed／cancelled は outbox の failed に残し、自動で成功扱いにはしません。
+`HINDSIGHT_URL` 未設定でもmigration・healthは利用できますが、取り込みは
+`not_configured` として再試行待ちになります。本文や未加工の外部例外は失敗情報へ保存しません。
 
 ## IT1（実PostgreSQL・Hindsight、モデルはスタブ）
 

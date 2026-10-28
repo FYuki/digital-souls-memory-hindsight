@@ -5,9 +5,13 @@ import json
 import math
 import os
 import threading
+import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import cast
+from uuid import uuid4
 
 DIMENSIONS = 384
 CHAT_PATH = "/v1/chat/completions"
@@ -202,10 +206,43 @@ def embeddings(request: dict[str, object]) -> dict[str, object]:
     }
 
 
+@contextmanager
+def hold_response(
+    control_dir: Path | None, request: dict[str, object], *, timeout_seconds: float = 60
+) -> Iterator[None]:
+    text = json.dumps(request, ensure_ascii=False)
+    gate = (
+        next((path for path in control_dir.iterdir() if path.is_dir() and path.name in text), None)
+        if control_dir is not None
+        else None
+    )
+    if gate is None:
+        yield
+        return
+    identifier = uuid4().hex
+    for name in ("entered", "finished"):
+        (gate / name).mkdir(exist_ok=True)
+    (gate / "entered" / identifier).touch()
+    deadline = time.monotonic() + timeout_seconds
+    try:
+        while not (gate / "release").exists():
+            if time.monotonic() >= deadline:
+                raise TimeoutError("Fixture response was not released")
+            threading.Event().wait(0.01)
+        yield
+    finally:
+        (gate / "finished" / identifier).touch()
+
+
 class StubServer(ThreadingHTTPServer):
-    def __init__(self, address: tuple[str, int], request_log: Path) -> None:
+    def __init__(
+        self, address: tuple[str, int], request_log: Path, control_dir: Path | None = None
+    ) -> None:
         self.request_log = request_log
         self.log_lock = threading.Lock()
+        self.control_dir = control_dir
+        if control_dir is not None:
+            control_dir.mkdir(parents=True, exist_ok=True)
         request_log.parent.mkdir(parents=True, exist_ok=True)
         request_log.touch()
         super().__init__(address, Handler)
@@ -238,13 +275,23 @@ class Handler(BaseHTTPRequestHandler):
                 log.write(
                     json.dumps({"path": self.path, "req": request}, ensure_ascii=False) + "\n"
                 )
-            response = chat_completion(request) if self.path == CHAT_PATH else embeddings(request)
+            if self.path == CHAT_PATH:
+                with hold_response(self.server.control_dir, request):
+                    self._send(200, chat_completion(request))
+            else:
+                self._send(200, embeddings(request))
+        except TimeoutError:
+            self._send(503, {"error": "Fixture response was not released"})
         except (ValueError, KeyError, TypeError):
             self._send(400, {"error": "Invalid fixture request"})
             return
-        self._send(200, response)
 
 
 if __name__ == "__main__":
-    with StubServer(("0.0.0.0", 8080), Path(os.environ["STUB_REQUEST_LOG"])) as server:
+    control = os.environ.get("STUB_CONTROL_DIR")
+    with StubServer(
+        ("0.0.0.0", 8080),
+        Path(os.environ["STUB_REQUEST_LOG"]),
+        Path(control) if control is not None else None,
+    ) as server:
         server.serve_forever()

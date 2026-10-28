@@ -18,6 +18,7 @@ from .evidence.domain import (
     matches_saved_turn,
 )
 from .evidence.ports import EvidenceConflict, EvidenceStore, EvidenceUnavailable
+from .outbox import RetainOperation
 
 
 class PostgresEvidenceStore:
@@ -45,6 +46,37 @@ class PostgresEvidenceStore:
     def transaction(self) -> Iterator[EvidenceStore]:
         with self._connection() as connection:
             yield PostgresEvidenceStore(self._url, connection)
+
+    def add_retain(self, value: RetainOperation) -> None:
+        with self._connection() as connection:
+            inserted = connection.execute(
+                "INSERT INTO outbox "
+                "(operation_id, turn_id, bank_id, document_id, content, occurred_at) "
+                "VALUES (%s, %s, %s, %s, %s, %s) "
+                "ON CONFLICT (operation_id) DO NOTHING RETURNING operation_id",
+                (
+                    value.operation_id,
+                    value.turn_id,
+                    value.bank_id,
+                    value.document_id,
+                    value.content,
+                    value.occurred_at,
+                ),
+            ).fetchone()
+            if inserted is None:
+                previous = connection.execute(
+                    "SELECT turn_id, bank_id, document_id, content, occurred_at "
+                    "FROM outbox WHERE operation_id = %s",
+                    (value.operation_id,),
+                ).fetchone()
+                if previous != (
+                    value.turn_id,
+                    value.bank_id,
+                    value.document_id,
+                    value.content,
+                    value.occurred_at,
+                ):
+                    raise EvidenceConflict()
 
     def add_session(self, value: Session) -> Session:
         with self._connection() as connection:

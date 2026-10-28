@@ -6,6 +6,9 @@ import socket
 import subprocess
 import sys
 import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import AbstractContextManager
 from http.server import BaseHTTPRequestHandler, HTTPServer, ThreadingHTTPServer
 from io import BytesIO
 from pathlib import Path
@@ -27,6 +30,10 @@ class Stub(Protocol):
     def embed(self, text: str) -> list[float]: ...
 
     def embeddings(self, request: dict[str, object]) -> dict[str, object]: ...
+
+    def hold_response(
+        self, control_dir: Path | None, request: dict[str, object], *, timeout_seconds: float = 60
+    ) -> AbstractContextManager[None]: ...
 
 
 @pytest.fixture
@@ -288,7 +295,7 @@ def test_http_handler_returns_protocol_response_and_records_received_request(
             output.extend(data)
 
     log = tmp_path / "requests.jsonl"
-    server = SimpleNamespace(request_log=log, log_lock=threading.Lock())
+    server = SimpleNamespace(request_log=log, log_lock=threading.Lock(), control_dir=None)
     stub.Handler(
         cast("socket.socket", Connection()), ("127.0.0.1", 12345), cast(HTTPServer, server)
     )
@@ -306,3 +313,53 @@ def test_http_handler_returns_protocol_response_and_records_received_request(
     ):
         records = [json.loads(line) for line in log.read_text().splitlines()]
         assert records == [{"path": path, "req": json.loads(body)}]
+
+
+def test_response_waits_for_release_and_records_completion(stub: Stub, tmp_path: Path) -> None:
+    gate = tmp_path / "synthetic-marker"
+    gate.mkdir()
+    request: dict[str, object] = {
+        "messages": [{"role": "user", "content": "Content: synthetic-marker"}]
+    }
+
+    def respond() -> dict[str, object]:
+        with stub.hold_response(tmp_path, request):
+            return stub.chat_completion(request)
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        future = pool.submit(respond)
+        try:
+            deadline = time.monotonic() + 5
+            while not list(gate.glob("entered/*")):
+                assert time.monotonic() < deadline
+                threading.Event().wait(0.01)
+            assert not future.done()
+        finally:
+            (gate / "release").touch()
+        assert future.result(timeout=5) == stub.chat_completion(request)
+    assert {p.name for p in (gate / "entered").iterdir()} == {
+        p.name for p in (gate / "finished").iterdir()
+    }
+
+
+@pytest.mark.parametrize(
+    ("configured", "content"),
+    [(False, "synthetic-marker"), (False, "Say ok"), (True, "Say ok")],
+)
+def test_response_gate_preserves_unselected_requests(
+    stub: Stub, tmp_path: Path, configured: bool, content: str
+) -> None:
+    (tmp_path / "synthetic-marker").mkdir()
+    request: dict[str, object] = {"messages": [{"role": "user", "content": content}]}
+    with stub.hold_response(tmp_path if configured else None, request):
+        assert completion_content(stub, request) == "ok"
+    assert not list(tmp_path.glob("*/entered/*"))
+
+
+def test_response_gate_timeout_finishes_without_success(stub: Stub, tmp_path: Path) -> None:
+    gate = tmp_path / "synthetic-marker"
+    gate.mkdir()
+    request: dict[str, object] = {"messages": [{"role": "user", "content": "synthetic-marker"}]}
+    with pytest.raises(TimeoutError), stub.hold_response(tmp_path, request, timeout_seconds=0):
+        pytest.fail("An unreleased request must not receive a fixture response")
+    assert len(list(gate.glob("entered/*"))) == len(list(gate.glob("finished/*"))) == 1
