@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from hindsight_client import Hindsight
 from hindsight_client_api.models.operation_status_response import OperationStatusResponse
+from hindsight_client_api.models.operations_list_response import OperationsListResponse
 from hindsight_client_api.models.retain_response import RetainResponse
 
 from digital_souls_memory_hindsight.outbox import RetainOperation
@@ -34,6 +35,7 @@ def test_retain_passes_saved_identity_payload_and_time_and_checks_completion(
         "turn", "bank", "session", "架空のお茶", datetime(2020, 1, 1, tzinfo=UTC)
     )
     client = MagicMock(spec=Hindsight)
+    client.acreate_bank = AsyncMock()
     client.aretain = AsyncMock(
         return_value=RetainResponse.model_validate(
             {
@@ -53,6 +55,7 @@ def test_retain_passes_saved_identity_payload_and_time_and_checks_completion(
     )
     result = asyncio.run(adapter.HindsightRetain(client).execute(operation))
     assert result.status == expected
+    client.acreate_bank.assert_awaited_once_with(bank_id="bank")
     client.aretain.assert_awaited_once_with(
         bank_id="bank",
         document_id="session",
@@ -100,3 +103,69 @@ def test_rejected_or_mismatched_operation_is_not_marked_complete(success: bool) 
     )
     with pytest.raises(RuntimeError):
         asyncio.run(adapter.HindsightRetain(client).execute(operation))
+
+
+@pytest.mark.parametrize("active", ["none", "own", "pending", "processing"])
+def test_replace_waits_for_other_work_but_not_its_own_operation(active: str) -> None:
+    from digital_souls_memory_hindsight.hindsight_retain import HindsightRetain
+
+    operation = RetainOperation(
+        "turn", "bank", "session", "架空のお茶", datetime(2020, 1, 1, tzinfo=UTC), "replace", 7
+    )
+    client = MagicMock(spec=Hindsight)
+    client.acreate_bank = AsyncMock()
+
+    async def list_operations(
+        bank_id: str, status: str, _request_timeout: float
+    ) -> OperationsListResponse:
+        included = status == active or (active == "own" and status == "pending")
+        return OperationsListResponse.model_validate(
+            {
+                "bank_id": bank_id,
+                "total": int(included),
+                "limit": 100,
+                "offset": 0,
+                "operations": [
+                    {
+                        "id": "synthetic-task",
+                        "operation_id": operation.operation_id if active == "own" else "other",
+                        "task_type": "retain" if active == "own" else "consolidation",
+                        "items_count": 1,
+                        "created_at": "2026-10-28T00:00:00Z",
+                        "status": status,
+                        "error_message": None,
+                    }
+                ]
+                if included
+                else [],
+            }
+        )
+
+    client.operations.list_operations = AsyncMock(side_effect=list_operations)
+    client.aretain = AsyncMock(
+        return_value=RetainResponse.model_validate(
+            {
+                "success": True,
+                "bank_id": "bank",
+                "items_count": 1,
+                "async": True,
+                "operation_id": operation.operation_id,
+            }
+        )
+    )
+    client.operations.get_operation_status = AsyncMock(
+        return_value=OperationStatusResponse(
+            operation_id=operation.operation_id, status="completed"
+        )
+    )
+    result = asyncio.run(HindsightRetain(client).execute(operation))
+    if active in {"pending", "processing"}:
+        assert result.status == "pending"
+        client.aretain.assert_not_awaited()
+    else:
+        assert result.status == "completed"
+        sent = client.aretain.await_args.kwargs
+        assert sent["update_mode"] == "replace"
+        assert sent["operation_id"] == operation.operation_id
+        assert sent["content"] == operation.content
+        assert sent["timestamp"] == operation.occurred_at

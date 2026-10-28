@@ -226,11 +226,13 @@ def test_rejected_receipt_does_not_append_delivery_record(
     service = service_with_session(store, Clock(), reports_delivery=reports_delivery)
     saved = service.add_turn(replace(draft(), kind=kind, perceived_by=("char-a",)))
     before = tuple(store.delivery_scopes)
+    before_outbox = dict(store.outbox)
     with pytest.raises(EvidenceValidationError):
         service.add_receipt(DeliveryReceipt("t-1", "none", 0, "Web", NOW))
     assert tuple(store.delivery_scopes) == before
     assert service.list_receipts("t-1") == ()
     assert service.get_turn("t-1") == saved
+    assert store.outbox == before_outbox
 
 
 @pytest.mark.parametrize("operation", ["turn", "receipt", "expiry"])

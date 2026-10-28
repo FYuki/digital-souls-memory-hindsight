@@ -2,7 +2,9 @@
 
 from collections.abc import Iterator
 from contextlib import contextmanager
+from dataclasses import replace
 from datetime import datetime
+from typing import cast
 
 import psycopg
 from psycopg.rows import class_row
@@ -47,12 +49,32 @@ class PostgresEvidenceStore:
         with self._connection() as connection:
             yield PostgresEvidenceStore(self._url, connection)
 
+    def lock_session(self, session_id: str) -> None:
+        with self._connection() as connection:
+            connection.execute(
+                "SELECT session_id FROM sessions WHERE session_id = %s FOR UPDATE", (session_id,)
+            ).fetchone()
+
+    def list_projection_turns(self, session_id: str, bank_id: str) -> tuple[Turn, ...]:
+        with (
+            self._connection() as connection,
+            connection.cursor(row_factory=class_row(Turn)) as cursor,
+        ):
+            cursor.execute(
+                "SELECT t.* FROM turns t JOIN outbox o ON o.turn_id = t.turn_id "
+                "WHERE t.session_id = %s AND o.bank_id = %s AND o.update_mode = 'append' "
+                "ORDER BY o.sequence_id",
+                (session_id, bank_id),
+            )
+            return tuple(cursor.fetchall())
+
     def add_retain(self, value: RetainOperation) -> None:
         with self._connection() as connection:
             inserted = connection.execute(
                 "INSERT INTO outbox "
-                "(operation_id, turn_id, bank_id, document_id, content, occurred_at) "
-                "VALUES (%s, %s, %s, %s, %s, %s) "
+                "(operation_id, turn_id, bank_id, document_id, content, occurred_at, "
+                "update_mode, source_scope_id) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s) "
                 "ON CONFLICT (operation_id) DO NOTHING RETURNING operation_id",
                 (
                     value.operation_id,
@@ -61,11 +83,14 @@ class PostgresEvidenceStore:
                     value.document_id,
                     value.content,
                     value.occurred_at,
+                    value.update_mode,
+                    value.source_scope_id,
                 ),
             ).fetchone()
             if inserted is None:
                 previous = connection.execute(
-                    "SELECT turn_id, bank_id, document_id, content, occurred_at "
+                    "SELECT turn_id, bank_id, document_id, content, occurred_at, "
+                    "update_mode, source_scope_id "
                     "FROM outbox WHERE operation_id = %s",
                     (value.operation_id,),
                 ).fetchone()
@@ -75,6 +100,8 @@ class PostgresEvidenceStore:
                     value.document_id,
                     value.content,
                     value.occurred_at,
+                    value.update_mode,
+                    value.source_scope_id,
                 ):
                     raise EvidenceConflict()
 
@@ -166,12 +193,14 @@ class PostgresEvidenceStore:
 
     def add_delivery_scope(self, value: DeliveryScope) -> DeliveryScope:
         with self._connection() as connection:
-            connection.execute(
+            row = connection.execute(
                 "INSERT INTO delivery_scopes (turn_id, status, spoken_until, decided_at) "
-                "VALUES (%s, %s, %s, %s)",
+                "VALUES (%s, %s, %s, %s) RETURNING scope_id",
                 (value.turn_id, value.status, value.spoken_until, value.decided_at),
-            )
-        return value
+            ).fetchone()
+            if row is None:
+                raise EvidenceUnavailable()
+        return replace(value, scope_id=cast(int, row[0]))
 
     def get_delivery_scope(self, turn_id: str) -> DeliveryScope | None:
         with (
@@ -179,7 +208,7 @@ class PostgresEvidenceStore:
             connection.cursor(row_factory=class_row(DeliveryScope)) as cursor,
         ):
             cursor.execute(
-                "SELECT turn_id, status, spoken_until, decided_at FROM delivery_scopes "
+                "SELECT turn_id, status, spoken_until, decided_at, scope_id FROM delivery_scopes "
                 "WHERE turn_id = %s ORDER BY scope_id DESC LIMIT 1",
                 (turn_id,),
             )

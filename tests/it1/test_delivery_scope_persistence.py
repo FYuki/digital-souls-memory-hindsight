@@ -13,7 +13,7 @@ import psycopg
 import pytest
 from psycopg import sql
 
-from digital_souls_memory_hindsight.evidence.domain import DeliveryReceipt, Session, Turn, TurnInput
+from digital_souls_memory_hindsight.evidence.domain import DeliveryReceipt, Session, TurnInput
 from digital_souls_memory_hindsight.evidence.ports import EvidenceUnavailable
 from digital_souls_memory_hindsight.evidence.service import EvidenceService
 from digital_souls_memory_hindsight.postgres_evidence import PostgresEvidenceStore
@@ -350,7 +350,7 @@ def test_concurrent_identical_registration_creates_one_initial_decision(
 
 
 @pytest.mark.parametrize("first_operation", ["receipt", "expiry"])
-def test_receipt_and_expiry_follow_each_turn_lock_order(
+def test_receipt_and_expiry_keep_accepted_range_in_both_serial_orders(
     client: httpx.Client, monkeypatch: pytest.MonkeyPatch, first_operation: str
 ) -> None:
     body = turn_body(create_session(client, True), perceived_by=["char-a", "char-b"])
@@ -359,20 +359,20 @@ def test_receipt_and_expiry_follow_each_turn_lock_order(
     turn_id = str(body["turn_id"])
     deadline = datetime.fromisoformat(response.json()["recorded_at"]) + timedelta(seconds=600)
     locked, attempted, release = Event(), Event(), Event()
-    original = PostgresEvidenceStore.get_turn_for_update
+    original = PostgresEvidenceStore.lock_session
 
-    def controlled_lock(self: PostgresEvidenceStore, identifier: str) -> Turn | None:
-        if identifier != turn_id:
+    def controlled_lock(self: PostgresEvidenceStore, identifier: str) -> None:
+        if identifier != body["session_id"]:
             return original(self, identifier)
         if current_thread().name.startswith("first-delivery"):
-            turn = original(self, identifier)
+            original(self, identifier)
             locked.set()
             assert release.wait(timeout=10)
-            return turn
+            return
         attempted.set()
         return original(self, identifier)
 
-    monkeypatch.setattr(PostgresEvidenceStore, "get_turn_for_update", controlled_lock)
+    monkeypatch.setattr(PostgresEvidenceStore, "lock_session", controlled_lock)
 
     def perform(operation: str) -> None:
         service = ledger(Clock(deadline))

@@ -175,6 +175,84 @@ def test_consolidation_returns_deterministic_schema_conforming_content(stub: Stu
     assert all(isinstance(item, str) for item in first["observations"])
 
 
+class ObservationCreate(BaseModel):
+    text: str
+    source_fact_ids: list[str]
+
+
+def test_reflect_fixture_requests_search_and_uses_only_returned_evidence(stub: Stub) -> None:
+    tools = [
+        {"type": "function", "function": {"name": name}}
+        for name in ("search_observations", "recall", "done")
+    ]
+    request: dict[str, object] = {
+        "tools": tools,
+        "messages": [{"role": "user", "content": "架空の秘密とお茶について"}],
+        "tool_choice": {"type": "function", "function": {"name": "search_observations"}},
+    }
+    response = stub.chat_completion(request)
+    choice = cast(list[dict[str, object]], response["choices"])[0]
+    message = cast(dict[str, object], choice["message"])
+    calls = cast(list[dict[str, object]], message["tool_calls"])
+    assert choice["finish_reason"] == "tool_calls"
+    assert cast(dict[str, object], calls[0]["function"])["name"] == "search_observations"
+    messages = cast(list[dict[str, object]], request["messages"])
+    messages.extend(
+        [
+            message,
+            {
+                "role": "tool",
+                "content": json.dumps(
+                    {"observations": [{"id": "synthetic-observation", "text": "架空のお茶。"}]}
+                ),
+            },
+        ]
+    )
+    request["tool_choice"] = {"type": "function", "function": {"name": "done"}}
+    response = stub.chat_completion(request)
+    choice = cast(list[dict[str, object]], response["choices"])[0]
+    message = cast(dict[str, object], choice["message"])
+    calls = cast(list[dict[str, object]], message["tool_calls"])
+    result = json.loads(str(cast(dict[str, object], calls[0]["function"])["arguments"]))
+    assert result["answer"] == "架空のお茶。"
+    assert result["observation_ids"] == ["synthetic-observation"]
+    assert result["memory_ids"] == []
+
+
+class Consolidation(BaseModel):
+    creates: list[ObservationCreate]
+    updates: list[dict[str, object]]
+    deletes: list[dict[str, object]]
+
+
+def test_consolidation_creates_nonempty_observations_from_actual_fact_ids_and_text(
+    stub: Stub,
+) -> None:
+    # Input headings and create fields match the pinned server's consolidation prompt/model.
+    identifiers = ["bbfcf3a2-aa74-47bf-8011-0ecfeff6ae69", "35666a7c-8cbc-48e8-aa4d-2e46c1f1d936"]
+    lines = ["架空の花子は翡翠茶を飲みます。", "架空の太郎は琥珀珈琲を飲みます。"]
+    request: dict[str, object] = {
+        "messages": [
+            {"role": "system", "content": "You are a memory consolidation system"},
+            {
+                "role": "user",
+                "content": "## INPUT\n\n### New facts\n\n"
+                + "\n".join(f"[{key}] {text}" for key, text in zip(identifiers, lines, strict=True))
+                + "\n\n### Existing observations\n\n[]",
+            },
+        ],
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": {"schema": Consolidation.model_json_schema()},
+        },
+    }
+    result = Consolidation.model_validate_json(completion_content(stub, request))
+    assert result.creates
+    assert {key for item in result.creates for key in item.source_fact_ids} == set(identifiers)
+    assert {item.text for item in result.creates} == set(lines)
+    assert result.updates == result.deletes == []
+
+
 @pytest.mark.parametrize("text", ["", "茶", "架空の花子はお茶が好きです。"])
 def test_embedding_is_finite_normalized_and_384_dimensional(stub: Stub, text: str) -> None:
     vector = stub.embed(text)
