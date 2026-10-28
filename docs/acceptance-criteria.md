@@ -148,3 +148,36 @@ FAIL・SKIP・NOT RUNはPASSと区別して報告する。
 - 該当する記憶のない問い合わせ（「コーヒー」）にも結果が返った。棄権（AC-R4）はHindsightの外側か `min_scores` で扱う必要がある
 - `retain` は `operation_id` を引数に取れる。K6の冪等化に使えるかは未検証（NOT RUN）
 - fullイメージは試していない（slimで足りるため、NOT RUN）
+
+### 2026-10-28 operation_id の実測（K6）
+
+`tests/it1/test_hindsight_operation_id.py` を既存の IT1 runner で実行し、3件 PASS。
+サーバーは上記と同じ固定digestの `1.1.0-slim`、公式クライアントは `1.1.0`。
+実PostgreSQL・OpenAI互換スタブと内部ネットワークを使い、合成データだけを送信した。
+
+- `retain_async=True`、`update_mode="append"` と turn・bank・document から導いた
+  UUID の `operation_id`、固定の `timestamp` を指定した。
+- 最初の operation が `completed` になった後、同じ識別子・本文を再送した。
+  再送後も `completed` を確認し、document の `original_text` は変化せず、本文は1回だけ存在した（PASS）。
+- 同じ本文でも別 Turn の識別子では2回追記され、同じ Turn の別 bank では各文書に1回ずつ存在した（PASS）。
+- 以上はHindsight側の能力確認であり、本番outbox経由の停止復旧とは別の試験である。
+  同期retainや実モデルの試験結果には読み替えない。
+
+### 2026-10-28 処理中の operation_id 再送の実測（P1）
+
+`tests/it1/test_outbox_worker.py::test_processing_operation_resend_preserves_append_identity`
+で、上記と同じ固定版サーバー・公式クライアント・実PostgreSQLを使用した。
+合成本文に固有マーカーを含め、その要求に対するモデルスタブの応答だけを
+制御用volumeの解除通知まで待機させた。retainの応答やoperationの状態は置き換えていない。
+
+- 台帳登録からoutboxへの保存、取得、実retain、deferを通した後、同じworkerの
+  次周期で同じ保存操作を再送した。実SDKへ委譲するspyで2回の送信を確認し、
+  operation_id・bank・document・本文・timestampが同じであることを検証した。
+- 最初のoperationは再送前後とも実状態が `pending` だった。解除後にoperationと
+  outboxが `completed` となり、documentの `original_text` に本文は1回だけ存在した（PASS）。
+- 比較試験ではbank・document・本文・timestampと初回の処理中条件を固定し、
+  2回目のoperation_idだけを別Turn由来へ変えた。最初のoperationは2回目の送信前後とも
+  `pending` で、解除後に両operationの完了を待つと本文は2回存在した（PASS）。
+- 再送前に `completed` となった場合は前提不成立として失敗する。
+  この処理中再送の結果は、既存の完了後再送の確認と区別する。
+  本実測では重複する欠陥は観測されず、製品コードの変更は行っていない。

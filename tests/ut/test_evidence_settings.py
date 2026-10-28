@@ -12,6 +12,7 @@ pytestmark = pytest.mark.ut
 class Settings(Protocol):
     character_ids: frozenset[str] | None
     delivery_timeout_seconds: int
+    hindsight_url: str | None
 
 
 class SettingsModule(Protocol):
@@ -79,3 +80,23 @@ def test_delivery_timeout_rejects_invalid_or_nonpositive_values(
     )
     with pytest.raises(ValueError):
         module.load_settings()
+
+
+@pytest.mark.parametrize("raw", [None, "http://hindsight:8888", "", "   "])
+def test_hindsight_url_is_optional_for_migrations_but_cannot_be_empty(
+    monkeypatch: pytest.MonkeyPatch,
+    raw: str | None,
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", "postgresql://it1@postgres:5432/synthetic_ledger")
+    if raw is None:
+        monkeypatch.delenv("HINDSIGHT_URL", raising=False)
+    else:
+        monkeypatch.setenv("HINDSIGHT_URL", raw)
+    module = cast(
+        SettingsModule, importlib.import_module("digital_souls_memory_hindsight.settings")
+    )
+    if raw is not None and not raw.strip():
+        with pytest.raises(ValueError):
+            module.load_settings()
+    else:
+        assert module.load_settings().hindsight_url == raw

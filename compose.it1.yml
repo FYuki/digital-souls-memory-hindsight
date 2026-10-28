@@ -21,7 +21,8 @@ services:
       dockerfile: docker/openai-stub/Dockerfile
     environment:
       STUB_REQUEST_LOG: /requests/requests.jsonl
-    volumes: [stub-requests:/requests]
+      STUB_CONTROL_DIR: /control
+    volumes: [stub-requests:/requests, stub-control:/control]
     networks: [it1]
     healthcheck:
       test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://localhost:8080/v1/models', timeout=2).close()"]
@@ -65,6 +66,7 @@ services:
     environment:
       DATABASE_URL: postgresql://it1@postgres:5432/ledger
       EVIDENCE_CHARACTER_IDS: '["char-a","char-b"]'
+      HINDSIGHT_URL: http://hindsight:8888
     command: [bash, -c, "uv run --no-sync alembic upgrade head && exec bash scripts/run-service.sh"]
     depends_on:
       postgres:
@@ -85,7 +87,8 @@ services:
       SERVICE_URL: http://service:8000
       HINDSIGHT_URL: http://hindsight:8888
       STUB_REQUEST_LOG: /requests/requests.jsonl
-    volumes: [stub-requests:/requests:ro]
+      STUB_CONTROL_DIR: /control
+    volumes: [stub-requests:/requests:ro, stub-control:/control]
     networks: [it1]
     command: [uv, run, --no-sync, pytest, -m, it1, "--allow-hosts=postgres,hindsight,service", -q]
 
@@ -96,3 +99,4 @@ networks:
 volumes:
   postgres-data:
   stub-requests:
+  stub-control:

@@ -3,6 +3,7 @@
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
+from ..outbox import RetainOperation, RetainTarget
 from .delivery import (
     DEFAULT_DELIVERY_TIMEOUT_SECONDS,
     DeliveryScope,
@@ -52,7 +53,7 @@ class EvidenceService:
             raise EvidenceNotFound()
         return value
 
-    def add_turn(self, value: TurnInput) -> Turn:
+    def add_turn(self, value: TurnInput, *, retain_targets: tuple[RetainTarget, ...] = ()) -> Turn:
         if self._character_ids is None:
             raise EvidenceUnavailable()
         with self._store.transaction() as store:
@@ -60,6 +61,7 @@ class EvidenceService:
             if previous is not None:
                 if not matches_saved_turn(value, previous):
                     raise EvidenceConflict()
+                self._enqueue(store, previous, retain_targets)
                 return previous
             turn = prepare_turn(value, self._character_ids, self._clock())
             session = store.get_session(turn.session_id)
@@ -72,7 +74,21 @@ class EvidenceService:
             initial = initial_delivery_scope(saved, session)
             if initial is not None and store.get_delivery_scope(saved.turn_id) is None:
                 store.add_delivery_scope(initial)
+            self._enqueue(store, saved, retain_targets)
         return saved
+
+    @staticmethod
+    def _enqueue(store: EvidenceStore, turn: Turn, targets: tuple[RetainTarget, ...]) -> None:
+        for target in targets:
+            store.add_retain(
+                RetainOperation(
+                    turn.turn_id,
+                    target.bank_id,
+                    target.document_id,
+                    target.content,
+                    turn.occurred_at,
+                )
+            )
 
     def get_turn(self, turn_id: str) -> Turn:
         value = self._store.get_turn(turn_id)

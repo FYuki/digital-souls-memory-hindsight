@@ -13,6 +13,7 @@ class Settings:
     database_url: str
     character_ids: frozenset[str] | None
     delivery_timeout_seconds: int
+    hindsight_url: str | None
 
 
 def load_settings() -> Settings:
@@ -35,6 +36,12 @@ def load_settings() -> Settings:
     )
     if timeout <= 0:
         raise ValueError("EVIDENCE_DELIVERY_TIMEOUT_SECONDS must be positive")
+    hindsight_url = os.environ.get("HINDSIGHT_URL")
+    if hindsight_url is not None and not hindsight_url.strip():
+        raise ValueError("HINDSIGHT_URL must not be empty")
     return Settings(
-        database_url=database_url, character_ids=character_ids, delivery_timeout_seconds=timeout
+        database_url=database_url,
+        character_ids=character_ids,
+        delivery_timeout_seconds=timeout,
+        hindsight_url=hindsight_url,
     )
