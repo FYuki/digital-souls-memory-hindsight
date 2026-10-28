@@ -18,6 +18,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from hindsight_client import Hindsight
+from hindsight_client_api.exceptions import NotFoundException
 
 from digital_souls_memory_hindsight.evidence.domain import DeliveryReceipt
 from digital_souls_memory_hindsight.evidence.service import EvidenceService
@@ -496,6 +497,9 @@ def test_replace_snapshot_and_identity_survive_retry_and_return_to_previous_rang
             break
         assert queue.complete(item, p.clock.now)
     first = item
+    before_retry = p.operation_ids()
+    PostgresEvidenceStore(p.database).add_retain(first.operation)
+    assert p.operation_ids() == before_retry
     assert first.bank_id != speaker_bank
     assert first.content == TEA
     assert queue.defer(first, p.clock.now, p.clock.now + timedelta(seconds=30), "transport_error")
@@ -514,14 +518,40 @@ def test_replace_snapshot_and_identity_survive_retry_and_return_to_previous_rang
     assert shrunk is not None and shrunk.content == TEA
     assert shrunk.operation.operation_id != first.operation.operation_id
     assert shrunk.document_id == first.document_id and shrunk.bank_id == first.bank_id
+    assert queue.complete(shrunk, p.clock.now)
+    p.receipt("spoken", 0, len(full))
+    deleted = queue.claim(p.clock.now, timedelta(seconds=60))
+    assert deleted is not None and deleted.update_mode == "delete"
+    assert deleted.content == ""
+    assert (deleted.bank_id, deleted.document_id) == (first.bank_id, first.document_id)
+    before_retry = p.operation_ids()
+    PostgresEvidenceStore(p.database).add_retain(deleted.operation)
+    assert p.operation_ids() == before_retry
+    assert queue.defer(deleted, p.clock.now, p.clock.now + timedelta(seconds=30), "transport_error")
+    p.receipt("spoken", len(full), len(full))
+    p.post_turn("after-delete", actor=c, perceived_by=[c], text=MOON, kind="thought")
+    assert queue.claim(p.clock.now, timedelta(seconds=60)) is None
+    p.clock.now += timedelta(seconds=30)
+    retried_delete = queue.claim(p.clock.now, timedelta(seconds=60))
+    assert retried_delete is not None and retried_delete.operation == deleted.operation
+    assert queue.complete(retried_delete, p.clock.now)
+    restored = queue.claim(p.clock.now, timedelta(seconds=60))
+    assert restored is not None and restored.update_mode == "replace" and restored.content == full
+    assert queue.complete(restored, p.clock.now)
+    appended = queue.claim(p.clock.now, timedelta(seconds=60))
+    assert appended is not None and appended.update_mode == "append" and appended.content == MOON
+    assert (appended.bank_id, appended.document_id) == (deleted.bank_id, deleted.document_id)
 
 
-def test_none_receipt_replaces_an_entirely_empty_session_document(projection: Projection) -> None:
+def test_none_receipt_deletes_document_then_expansion_restores_same_document(
+    projection: Projection,
+) -> None:
     p = projection
     a, _, c = p.characters
     p.post_turn("speaker", text=MOON, kind="thought")
     speaker_bank, _ = p.target("speaker")
-    p.post_turn("spoken", text=TEA, perceived_by=[a, c])
+    full = TEA + "\n" + SECRET
+    p.post_turn("spoken", text=full, perceived_by=[a, c])
     p.clock.now += timedelta(seconds=600)
     p.service.confirm_expired_deliveries()
     with psycopg.connect(p.database, connect_timeout=5) as connection:
@@ -536,23 +566,44 @@ def test_none_receipt_replaces_an_entirely_empty_session_document(projection: Pr
         async with hindsight_client() as client:
             await p.drain(client)
             await assert_search_isolated(client, listener, "翡翠茶", ())
-            p.receipt("spoken", 0, len(TEA))
-            with patch.object(client, "aretain", wraps=client.aretain) as sent:
+            p.receipt("spoken", 0, len(full))
+            with (
+                patch.object(client, "aretain", wraps=client.aretain) as sent,
+                patch.object(
+                    client.documents, "delete_document", wraps=client.documents.delete_document
+                ) as deleted,
+            ):
                 await p.drain(client)
-            assert sent.await_args_list and all(
-                call.kwargs["content"] == "" and call.kwargs["update_mode"] == "replace"
-                for call in sent.await_args_list
-            )
+            sent.assert_not_awaited()
+            deleted.assert_awaited_once()
+            assert deleted.await_args is not None
+            assert deleted.await_args.kwargs["bank_id"] == listener[0]
+            assert deleted.await_args.kwargs["document_id"] == listener[1]
             await wait_idle(client, listener[0])
-            assert await document_text(client, listener) == ""
+            with pytest.raises(NotFoundException):
+                await document_text(client, listener)
             recalled = await client.arecall(
-                bank_id=listener[0], query="翡翠茶", include_chunks=True, include_source_facts=True
+                bank_id=listener[0],
+                query="翡翠茶 金庫",
+                include_chunks=True,
+                include_source_facts=True,
+                types=["world", "experience", "observation"],
             )
-            assert_no_private_tokens(recalled.to_dict(), ("翡翠茶",))
+            assert_no_private_tokens(recalled.to_dict(), ("翡翠茶", "金庫", "七九三"))
             reflected = await client.areflect(
-                bank_id=listener[0], query="翡翠茶", include_facts=True, include_tool_calls=True
+                bank_id=listener[0],
+                query="知っている架空の事実を答えてください。",
+                include_facts=True,
+                include_tool_calls=True,
             )
-            assert_no_private_tokens(reflected.to_dict(), ("翡翠茶",))
+            assert_no_private_tokens(reflected.to_dict(), ("翡翠茶", "金庫", "七九三"))
+            before = p.operation_ids()
+            p.receipt("spoken", 0, len(full))
+            assert p.operation_ids() == before
+            p.receipt("spoken", len(TEA), len(full))
+            await p.drain(client)
+            assert (await document_text(client, listener)).strip() == TEA
+            await assert_search_isolated(client, listener, "翡翠茶", ("金庫", "七九三"))
 
     asyncio.run(exercise())
 

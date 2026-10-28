@@ -61,7 +61,7 @@ Turnは原文と知覚範囲を追記保存し、同じ `turn_id`・同内容の
 Receiptは `status`、文字数の `spoken_until`、`reported_by`、タイムゾーン付き `reported_at` を受け付け、
 報告不要のSessionとthoughtには422を返します。原文・知覚範囲・宛先は変更しません。
 終了報告は `ended_at`・`reported_by` を受け付け、同内容の再送は元の `reported_at` を保持します。
-キャラ別の投影先と本文の選択は後続Issueの対象です。
+キャラごとの bank への自動投影と本文の選択については、「outbox と worker」節を参照してください。
 
 ## 配達範囲と期限処理
 
@@ -109,7 +109,8 @@ worker は `run_once()` で1回だけ処理できます。各周期でみなし�
 通常の retain は非同期 append として保存済みの operation_id・本文・occurred_at を送信します。
 他キャラへの投影は配達範囲の確定まで保留し、本人には全文を送ります。
 投影後の配達範囲が変わると、影響するキャラの Session 文書を台帳から replace で
-作り直します。同じ範囲の Receipt では再構築しません。再構築の本文も保存済みの
+作り直します。作り直す本文が空なら、同じ outbox・worker を通して document を削除します。
+同じ範囲の Receipt では再構築しません。再構築の本文も保存済みの
 snapshot を再送し、bank 内の先行操作・自動統合が完了するまで後続を進めません。
 bank の mission・disposition を人格の正本には使いません。
 受付だけでは完了にせず、operation の完了を確認します。処理中・通信失敗は1秒後に

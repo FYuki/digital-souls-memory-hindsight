@@ -213,3 +213,39 @@ def test_changed_receipts_snapshot_latest_session_text_and_keep_distinct_replace
     ]
     assert len({(value.bank_id, value.document_id) for value in replacements}) == 1
     assert service.get_turn("t-1").text == TEXT
+
+
+def test_none_receipt_deletes_previously_projected_document_and_expansion_rebuilds_it() -> None:
+    store = MemoryStore()
+    service = service_with_session(store, Clock())
+    saved = service.add_turn(draft())
+    service.add_receipt(DeliveryReceipt("t-1", "full", len(TEXT), "Web", NOW))
+    initial = list(store.outbox.values())
+    listener = initial[-1]
+    service.add_receipt(DeliveryReceipt("t-1", "none", 0, "Web", NOW))
+    deleted = list(store.outbox.values())[-1]
+    assert len(store.outbox) == len(initial) + 1
+    assert deleted.update_mode == "delete"
+    assert deleted.content == ""
+    assert (deleted.bank_id, deleted.document_id) == (listener.bank_id, listener.document_id)
+    scope = service.get_delivery_scope("t-1")
+    assert scope is not None and deleted.source_scope_id == scope.scope_id
+    before = dict(store.outbox)
+    service.add_receipt(DeliveryReceipt("t-1", "none", 0, "Web", NOW))
+    assert store.outbox == before
+    service.add_receipt(DeliveryReceipt("t-1", "partial", 3, "Web", NOW))
+    restored = list(store.outbox.values())[-1]
+    assert len(store.outbox) == len(before) + 1
+    assert restored.update_mode == "replace"
+    assert restored.content == TEXT[:3]
+    assert (restored.bank_id, restored.document_id) == (listener.bank_id, listener.document_id)
+    assert service.get_turn("t-1") == saved
+
+
+def test_none_receipt_before_any_listener_projection_enqueues_no_deletion() -> None:
+    store = MemoryStore()
+    service = service_with_session(store, Clock())
+    service.add_turn(draft())
+    before = dict(store.outbox)
+    service.add_receipt(DeliveryReceipt("t-1", "none", 0, "Web", NOW))
+    assert store.outbox == before

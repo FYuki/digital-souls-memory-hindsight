@@ -219,6 +219,31 @@ def test_reflect_fixture_requests_search_and_uses_only_returned_evidence(stub: S
     assert result["memory_ids"] == []
 
 
+def test_reflect_without_evidence_does_not_echo_query_as_memory(stub: Stub) -> None:
+    request: dict[str, object] = {
+        "tools": [{"type": "function", "function": {"name": "done"}}],
+        "messages": [
+            {"role": "user", "content": "架空の翡翠茶と金庫の七九三について"},
+            {"role": "tool", "content": json.dumps({"observations": [], "memories": []})},
+        ],
+        "tool_choice": {"type": "function", "function": {"name": "done"}},
+    }
+    response = stub.chat_completion(request)
+    assert response == stub.chat_completion(request)
+    choice = cast(list[dict[str, object]], response["choices"])[0]
+    message = cast(dict[str, object], choice["message"])
+    calls = cast(list[dict[str, object]], message["tool_calls"])
+    function = cast(dict[str, object], calls[0]["function"])
+    result = json.loads(str(function["arguments"]))
+    assert function["name"] == "done"
+    assert result["answer_found"] is False
+    assert result["memory_ids"] == result["observation_ids"] == result["mental_model_ids"] == []
+    assert isinstance(result["answer"], str) and result["answer"]
+    normalized = "".join(result["answer"].split()).casefold()
+    for token in ("翡翠茶", "金庫", "七九三"):
+        assert token.casefold() not in normalized
+
+
 class Consolidation(BaseModel):
     creates: list[ObservationCreate]
     updates: list[dict[str, object]]

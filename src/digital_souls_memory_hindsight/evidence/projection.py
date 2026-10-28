@@ -60,7 +60,7 @@ def update_projection(store: EvidenceStore, turn: Turn, scope: DeliveryScope) ->
                 document_id(turn.session_id),
                 "\n\n".join(parts),
                 turn.occurred_at,
-                "replace",
+                "replace" if parts else "delete",
                 scope.scope_id,
             )
         )

@@ -18,20 +18,20 @@ class RetainOperation:
     document_id: str
     content: str
     occurred_at: datetime
-    update_mode: Literal["append", "replace"] = "append"
+    update_mode: Literal["append", "replace", "delete"] = "append"
     source_scope_id: int | None = None
 
     @property
     def operation_id(self) -> str:
-        if self.update_mode == "replace":
+        if self.update_mode in {"replace", "delete"}:
             if self.source_scope_id is None:
-                raise ValueError("Replace requires a saved delivery scope")
+                raise ValueError(f"{self.update_mode.capitalize()} requires a saved delivery scope")
             return str(
                 uuid5(
                     NAMESPACE_URL,
                     json.dumps(
                         [
-                            "replace",
+                            self.update_mode,
                             self.turn_id,
                             self.bank_id,
                             self.document_id,
@@ -57,7 +57,7 @@ class OutboxItem:
     lease_until: datetime | None
     last_error: str | None
     completed_at: datetime | None
-    update_mode: Literal["append", "replace"] = "append"
+    update_mode: Literal["append", "replace", "delete"] = "append"
     source_scope_id: int | None = None
 
     @property
