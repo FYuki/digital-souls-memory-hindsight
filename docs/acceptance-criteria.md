@@ -15,13 +15,19 @@
 | # | 前提 | 状態 |
 | --- | --- | --- |
 | A1 | Hindsightはフォークせず、別プロセスのサーバー＋公式クライアントとして利用する。サーバーはイメージ `ghcr.io/vectorize-io/hindsight:1.1.0-slim`（digestも固定）か、pipの `hindsight-api-slim==1.1.0` を使う。クライアントは `hindsight-client==1.1.0` に固定する。上流の修正が必要なら、外側で回避するか上流へ報告する | 決定（2026-10-26、本人） |
-| A2 | 会話の正本（Evidence台帳）はHindsightの外側に置き、追記専用にする。Hindsightのdocumentは作り直せる検索用のコピーとする | 調査の推奨 |
+| A2 | 会話の正本（Evidence台帳）はHindsightの外側に置き、追記専用にする。Hindsightは台帳から投影した本文をもとに、エピソード記憶と意味記憶を抽出する仕組みとして使う。Hindsightのdocumentは作り直せる検索用のコピーとする | 決定（2026-10-26、本人） |
 | A3 | キャラごとの知覚範囲（M6）は、1キャラ＝1 bankとし、そのキャラが知覚した本文だけを各bankへ投影して表す（案A） | 決定（2026-10-26、本人） |
 | A4 | Turn単位の厳密な出典（source_turn_idsの精度）は求めない。会話を削除したら、関連する記憶をさかのぼって消せればよい。作り直し方式でかまわない | 本人が明示 |
 | A5 | 再強化（スコアの加算・last_reinforced_at）は求めない。同じFactへの複数言及が、非同期の統合によって1つの事実として扱えればよい | 本人が明示 |
 | A6 | Hindsightの統合（consolidation）は、標準の自動実行（取り込みのたびに非同期で実行）をそのまま使う。内省と記憶整理（Phase 2）はHindsightの外側で別途行う | 決定（2026-10-26、本人） |
 | A7 | 試験は合成データで行う。実モデルを使う試験（IT2・ST）は、別途許可を得てから実施する | 既定 |
 | A8 | 投影の単位は、Hindsightの想定に合わせて「1キャラbank × 1 Session ＝ 1 document」とし、知覚したTurnをappendで追加する。1往復単位にはこだわらない。Turnを削除したときは、台帳に残ったTurnからそのSessionのdocumentをreplaceで作り直す | 決定（2026-10-26、本人がHindsightに合わせると明示。具体の単位はAIの提案） |
+| A9 | Coreが呼ぶHTTP APIは、既存digital-souls-memoryのエンドポイントとスキーマに合わせ、内部の実装は新しく作る。Core側も開発途中のため、STでの接続確認はCoreで実装済みの機能に限り、それ以外はIT1で確認する | 決定（2026-10-27、本人） |
+| A10 | IT1では、外部ネットワークに接続しないコンテナ網に、OpenAI互換のスタブ（LLM・embedding）を置き、Hindsightサーバーの接続先をそこへ向ける。rerankerは `rrf`（モデルを使わない）とする。サーバーはslimイメージを使う（スタブで動くことを確認済み、7章） | 決定（2026-10-27、本人がスタブ方式とslim/fullの判断を委任。slimはAIが動作確認で判断） |
+| A11 | PostgreSQLは台帳とHindsightで同じインスタンスを使い、データベースを分ける。イメージはpgvectorとPGroongaを入れたものをこのリポジトリでビルドし、版とdigestを固定する。Hindsightの全文検索は `HINDSIGHT_API_TEXT_SEARCH_EXTENSION=pgroonga` とする | 決定（2026-10-27、本人） |
+| A12 | 台帳からHindsightへの投影・削除などの非同期処理は、PostgreSQLのoutboxテーブルと、同じサービス内のworkerで行う | 決定（2026-10-27、本人） |
+| A13 | 他キャラへのappendは配達範囲の確定順になり、occurred_atの順序とずれることを許容する。retainにはoccurred_atを時刻（timestamp）として渡し、時間の順序をappendの順に頼らない | 決定（2026-10-27、本人。U7の解決） |
+| A14 | IT2・STの実モデルはllama.cppで動かす（Hindsightの接続方式は `llamacpp`／OpenAI互換、rerankerはCohere互換）。embeddingはbge-m3、rerankerはbge-reranker-v2-m3とし、digital-souls-memoryの検索比較（memory-v2.1、IT2）の結果を参考にする。フレームワークによる差を見るため、digital-souls-memoryの自作実装との比較も行ってよい | 決定（2026-10-27、本人。U5・U6の解決。抽出・統合に使う生成モデルはU8） |
 
 ## 3. 受け入れ条件
 
@@ -51,7 +57,7 @@ FAIL・SKIP・NOT RUNはPASSと区別して報告する。
 | AC-P1 | 各キャラのbankには、そのキャラがperceived_byに含まれるTurnの本文だけを投影する。thoughtは本人のbankだけに入れ、perceived_byが空のTurnはどのbankにも入れない | IT1 |
 | AC-P2 | キャラA・Bと「途中まで届いた相手」の3パターンで、範囲外の本文・抽出Fact・統合済みFact・chunkが、recall・文書取得・reflectのどの経路でも返らない | IT1 |
 | AC-P3 | 台帳への追記からbankへの投影はoutboxを通し、再試行してもappendを二重に行わない。turn_idから導いたoperation_idによるHindsightの冪等化が使えるかをまず検証し、使えない場合は外側で冪等にする | IT1 |
-| AC-P4 | 共有bank（案B）を採る場合に限り、observation_scopesはキャラ単位（per_tag、または明示のcustom）とし、combined・sharedは使わない。読み書きの範囲は拡張で強制する | IT1（案Bの場合） |
+| AC-P4 | **対象外（A3で案Aを採用したため）。** 記録として残す：共有bank（案B）を採る場合に限り、observation_scopesはキャラ単位（per_tag、または明示のcustom）とし、combined・sharedは使わない。読み書きの範囲は拡張で強制する | なし（案Bの場合のみIT1） |
 
 ### 3.3 派生記憶と同じFactの統合
 
@@ -69,8 +75,8 @@ FAIL・SKIP・NOT RUNはPASSと区別して報告する。
 | --- | --- | --- |
 | AC-R1 | 派生記憶をキーとして使い、知覚範囲内の原文区間を値として返す（M2） | IT1 |
 | AC-R2 | 約束・記念日の問い合わせには、VerbatimAnchorの原文を必ず含める | IT1 |
-| AC-R3 | 日本語の固有名・日付・逐語表現を保つ。全文検索にはPGroongaを使う | IT1, IT2 |
-| AC-R4 | 該当する記憶がない場合は、空の結果を返せる（棄権できる） | IT1, IT2 |
+| AC-R3 | 日本語の固有名・日付・逐語表現を保つ。全文検索にはPGroongaを使う（Hindsightのtext search extension、A11） | IT1, IT2 |
+| AC-R4 | 該当する記憶がない場合は、空の結果を返せる（棄権できる）。Hindsightのrecallは該当がなくても上位の結果を返すため（7章）、`min_scores` か外側の閾値で判定する | IT1, IT2 |
 | AC-R5 | ターン想起は、100件と1,000件の記憶で必達p95 600ms以内に収まる。目標値p50 150ms／p95 300msも計測して記録する。対象は、原文の取得・提供記録の保存・通信を含む全経路 | IT2（性能） |
 
 ### 3.5 削除（作者による削除）
@@ -122,12 +128,23 @@ FAIL・SKIP・NOT RUNはPASSと区別して報告する。
 
 ## 6. 未決事項（質疑中）
 
-- 解決済み：U1（利用形態 → A1）、U2（案A → A3）、U3（投影の単位 → A8）、U4（統合の実行 → A6）
-- U5：IT2・STで使う実モデル（抽出・統合・embedding・reranker）と、その実行許可
-- U6：日本語向けのembedding（bge-m3）とreranker（bge-reranker-v2-m3）をどう動かすか。slimイメージは外部のプロバイダ（TEIなど）が必要。fullイメージは標準モデルが英語用なので、モデルの差し替えが必要
-- U7：配達範囲が確定するのを待つ間、他のキャラのdocumentへのappendは確定順になる。その結果、occurred_atの順序とずれることを許容するか
+- 解決済み：U1（利用形態 → A1）、U2（案A → A3）、U3（投影の単位 → A8）、U4（統合の実行 → A6）、台帳の位置づけ（→ A2）、AC-P4の扱い（案Aでは対象外）、U5・U6（実モデル → A14）、U7（appendの順序 → A13）
+- U8：抽出・統合に使う生成モデル（llama.cppで動かすGGUF）。digital-souls-memoryの調査では生成モデルを比較していない
+- U9：IT2・STの実行許可。実行の時期・対象環境を本人が確認してから行う（A7）
 
 ## 7. 引継ぎメモ
 
-- 2026-10-26までの決定（A1・A3・A6・A8、K1の対策）を反映した版。以降の質疑と決定は、このファイルとこのリポジトリのIssue・PRで管理する。
+- 2026-10-27までの決定（A1〜A3・A6・A8〜A14、AC-P4の扱い、K1の対策）を反映した版。以降の質疑と決定は、このファイルとこのリポジトリのIssue・PRで管理する。
 - 調査の詳細・再現用probe・結果JSONは「根拠とした調査」を参照する。
+
+### 2026-10-27 サーバー構成の動作確認（スパイク）
+
+試験用の使い捨てコンテナで行った確認。合成データだけを使い、実モデルは使っていない。
+
+- 構成：`ghcr.io/vectorize-io/hindsight:1.1.0-slim`（`sha256:fbc37d194bce007b6cce2fd9f66cd7f8c050bd18b80e662090a92835d9cb191d`）、`hindsight-client==1.1.0`、OpenAI互換スタブ（LLM・embedding）、外部ネットワークに接続しないDockerネットワーク
+- 起動時の疎通確認、retain（抽出→Fact保存）、自動の統合、recallが、スタブだけで通った（PASS）。抽出はjson_objectモードで、Factの形はプロンプト内のJSON Schemaで指定される。スタブはそれに合わせて応答する必要がある
+- 既定の全文検索（native、english）では、日本語の部分一致（「お茶」）が返らなかった
+- pgvectorとPGroongaを入れたイメージ（digital-souls-memoryの `docker/retrieval-postgres` と同じ構成）で `HINDSIGHT_API_TEXT_SEARCH_EXTENSION=pgroonga` にすると、「お茶」「東京タワー」「土曜日の約束」が該当する記憶を返した（PASS）
+- 該当する記憶のない問い合わせ（「コーヒー」）にも結果が返った。棄権（AC-R4）はHindsightの外側か `min_scores` で扱う必要がある
+- `retain` は `operation_id` を引数に取れる。K6の冪等化に使えるかは未検証（NOT RUN）
+- fullイメージは試していない（slimで足りるため、NOT RUN）

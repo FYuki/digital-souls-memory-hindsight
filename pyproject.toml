@@ -1,0 +1,46 @@
+[project]
+name = "digital-souls-memory-hindsight"
+version = "0.1.0"
+description = "Prototype of the Digital Souls memory domain built around Hindsight"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "hindsight-client==1.1.0",
+]
+
+[dependency-groups]
+dev = [
+  "mypy==1.18.2",
+  "pytest==8.4.2",
+  "pytest-socket==0.7.0",
+  "ruff==0.13.2",
+]
+
+[tool.uv]
+# プロジェクト自体はビルドしない。ビルド依存はuv.lockのハッシュで検証できないため、
+# 導入物をすべてuv.lockの配布物ハッシュで固定する。コードはsrcから直接読み込む。
+package = false
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src", "tests"]
+mypy_path = "src"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "--import-mode=importlib --strict-markers --disable-socket --allow-unix-socket -m 'not it2 and not st'"
+markers = [
+  "ut: isolated unit tests without network",
+  "it1: real PostgreSQL and Hindsight with fixture LLM/embedding, without external network",
+  "it2: explicitly approved real-model integration (not run in CI)",
+  "st: end-to-end tests called from Core (not run in CI)",
+]
