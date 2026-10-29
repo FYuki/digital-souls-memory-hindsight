@@ -133,3 +133,52 @@ def test_missing_bank_is_an_empty_result() -> None:
     client = MagicMock(spec=Hindsight)
     client.arecall = AsyncMock(side_effect=NotFoundException(status=404))
     assert asyncio.run(module.HindsightRecall(client).recall("bank", "query")) == ()
+
+
+@pytest.mark.parametrize("kind", ["world", "experience", "observation"])
+@pytest.mark.parametrize("score", [0.49, 0.5, 0.9, None])
+def test_reranker_threshold_filters_each_result_kind(kind: str, score: float | None) -> None:
+    module = importlib.import_module("digital_souls_memory_hindsight.hindsight_recall")
+    payload = sdk_response().model_dump()
+    result = next(item for item in payload["results"] if item["type"] == kind)
+    result["scores"] = {"reranker": score, "final": 1.0, "semantic": 1.0}
+    payload["results"] = [result]
+    # The observation's own score decides; source fact scores must not override it.
+    payload["source_facts"]["source-a"]["scores"] = {
+        "reranker": 0.0 if score is not None and score >= 0.5 else 1.0,
+        "final": 1.0,
+    }
+    client = MagicMock(spec=Hindsight)
+    client.arecall = AsyncMock(return_value=RecallResponse.model_validate(payload))
+    facts = asyncio.run(
+        module.HindsightRecall(client, min_reranker_score=0.5).recall("bank", "query")
+    )
+    assert [fact.id for fact in facts] == ([kind] if score is not None and score >= 0.5 else [])
+
+
+def test_threshold_preserves_only_qualifying_candidates_in_response_order() -> None:
+    module = importlib.import_module("digital_souls_memory_hindsight.hindsight_recall")
+    payload = sdk_response().model_dump()
+    for result, score in zip(payload["results"], [0.49, 0.5, 0.9], strict=True):
+        result["scores"] = {"reranker": score, "final": 1.0}
+    client = MagicMock(spec=Hindsight)
+    client.arecall = AsyncMock(return_value=RecallResponse.model_validate(payload))
+    facts = asyncio.run(
+        module.HindsightRecall(client, min_reranker_score=0.5).recall("bank", "query")
+    )
+    assert [fact.id for fact in facts] == ["experience", "observation"]
+
+
+@pytest.mark.parametrize("threshold", [None, 0.5])
+def test_missing_scores_are_allowed_only_when_threshold_is_disabled(
+    threshold: float | None,
+) -> None:
+    module = importlib.import_module("digital_souls_memory_hindsight.hindsight_recall")
+    client = MagicMock(spec=Hindsight)
+    client.arecall = AsyncMock(return_value=sdk_response())
+    facts = asyncio.run(
+        module.HindsightRecall(client, min_reranker_score=threshold).recall("bank", "query")
+    )
+    assert [fact.id for fact in facts] == (
+        ["world", "experience", "observation"] if threshold is None else []
+    )

@@ -1,11 +1,15 @@
 """Environment settings shared by the service and ledger migrations."""
 
 import json
+import math
 import os
 import re
 from dataclasses import dataclass
 
 from .evidence.delivery import DEFAULT_DELIVERY_TIMEOUT_SECONDS
+
+# 仮の既定値。epic 5 の IT2 で実モデルを使って決める。
+DEFAULT_RECALL_MIN_RERANKER_SCORE = 0.5
 
 
 @dataclass(frozen=True)
@@ -14,6 +18,7 @@ class Settings:
     character_ids: frozenset[str] | None
     delivery_timeout_seconds: int
     hindsight_url: str | None
+    recall_min_reranker_score: float
 
 
 def load_settings() -> Settings:
@@ -39,9 +44,15 @@ def load_settings() -> Settings:
     hindsight_url = os.environ.get("HINDSIGHT_URL")
     if hindsight_url is not None and not hindsight_url.strip():
         raise ValueError("HINDSIGHT_URL must not be empty")
+    recall_min_reranker_score = float(
+        os.environ.get("RECALL_MIN_RERANKER_SCORE", str(DEFAULT_RECALL_MIN_RERANKER_SCORE))
+    )
+    if not math.isfinite(recall_min_reranker_score) or not 0 <= recall_min_reranker_score <= 1:
+        raise ValueError("RECALL_MIN_RERANKER_SCORE must be finite and between 0 and 1")
     return Settings(
         database_url=database_url,
         character_ids=character_ids,
         delivery_timeout_seconds=timeout,
         hindsight_url=hindsight_url,
+        recall_min_reranker_score=recall_min_reranker_score,
     )
