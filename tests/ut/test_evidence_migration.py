@@ -76,3 +76,32 @@ def test_delivery_revision_offline_changes_only_delivery_storage(
     assert result.returncode == 0, result.stdout + result.stderr
     changes = re.findall(r"(?:CREATE|DROP|ALTER) TABLE\s+(\w+)", result.stdout)
     assert changes == ["delivery_scopes"]
+
+
+def test_provision_revision_upgrades_from_bank_projection_offline(tmp_path: Path) -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "alembic",
+            "-c",
+            str(ROOT / "alembic.ini"),
+            "upgrade",
+            "0005_bank_projection:0006_provision_records",
+            "--sql",
+        ],
+        cwd=tmp_path,
+        env={
+            "PATH": os.defpath,
+            "HOME": str(tmp_path),
+            "PYTHONPATH": str(ROOT / "src"),
+            "DATABASE_URL": "postgresql://it1@postgres:5432/synthetic_ledger",
+        },
+        capture_output=True,
+        text=True,
+        timeout=15,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    changes = re.findall(r"(?:CREATE|DROP|ALTER) TABLE\s+(\w+)", result.stdout)
+    assert changes == ["provision_records"]

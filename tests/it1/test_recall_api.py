@@ -5,13 +5,16 @@ import importlib
 import os
 import shutil
 from collections.abc import Iterator
+from dataclasses import replace
 from pathlib import Path
 from uuid import uuid4
 
 import httpx
+import psycopg
 import pytest
 from fastapi import FastAPI
 from hindsight_client import Hindsight
+from psycopg.rows import dict_row
 
 from digital_souls_memory_hindsight.evidence.projection import bank_id
 from tests.it1 import test_bank_projection as projection_tests
@@ -45,13 +48,19 @@ def consolidation_gate() -> Iterator[ResponseGate]:
 
 
 async def recall(
-    p: Projection, client: Hindsight, character: str, query: str, **changes: object
+    p: Projection, client: Hindsight, character: str, query_text: str, **changes: object
 ) -> httpx.Response:
     adapter = importlib.import_module("digital_souls_memory_hindsight.hindsight_recall")
     service = importlib.import_module("digital_souls_memory_hindsight.recall.service")
     http = importlib.import_module("digital_souls_memory_hindsight.recall_http")
     app = FastAPI()
-    instance = service.RecallService(p.service, adapter.HindsightRecall(client))
+    storage = importlib.import_module("digital_souls_memory_hindsight.postgres_provision")
+    instance = service.RecallService(
+        p.service,
+        adapter.HindsightRecall(client),
+        storage.PostgresProvisionStore(p.database),
+        clock=p.clock,
+    )
     app.include_router(http.recall_router(lambda: instance))
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://service"
@@ -61,7 +70,7 @@ async def recall(
             json={
                 "session_id": p.session,
                 "format": "assembled",
-                "query": query,
+                "query": query_text,
                 "sensitivity": "public",
                 "classifier_version": "fixture-1",
                 **changes,
@@ -201,3 +210,65 @@ def test_recall_http_errors_use_the_public_contract(projection: Projection) -> N
             assert empty.json()["context"] == ""
 
     asyncio.run(exercise())
+
+
+@pytest.mark.parametrize("use_turn", [False, True])
+def test_recall_persists_response_and_duplicate_keeps_original_row(
+    projection: Projection, use_turn: bool
+) -> None:
+    p = projection
+    p.post_turn("provision-source", text=JAPANESE)
+
+    async def exercise() -> httpx.Response:
+        async with hindsight_client() as client:
+            await p.drain(client)
+            changes: dict[str, object] = (
+                {"query": None, "turn_id": "provision-source"} if use_turn else {}
+            )
+            return await recall(p, client, p.characters[0], "東京タワー", **changes)
+
+    response = asyncio.run(exercise())
+    assert_sources(response, {"provision-source": JAPANESE})
+    body = response.json()
+    with psycopg.connect(p.database, row_factory=dict_row, connect_timeout=5) as connection:
+        rows = connection.execute(
+            "SELECT * FROM provision_records WHERE provision_id = %s", (body["provision_id"],)
+        ).fetchall()
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["kind"] == "turn"
+    assert (row["character_id"], row["session_id"], row["surface"]) == (
+        p.characters[0],
+        p.session,
+        "Web",
+    )
+    assert row["query"] == (None if use_turn else "東京タワー")
+    assert row["turn_id"] == ("provision-source" if use_turn else None)
+    assert row["sensitivity"] == (None if use_turn else "public")
+    assert row["classifier_version"] == (None if use_turn else "fixture-1")
+    assert row["memory_ids"] == [memory["id"] for memory in body["memories"]]
+    assert row["source_spans"] == [
+        {key: span[key] for key in ("turn_id", "start", "end")} for span in body["source_spans"]
+    ]
+    assert row["verbatim_anchor_ids"] == []
+    assert row["temperament_version"] is row["personality_version"] is None
+    assert row["created_at"] == p.clock.now
+
+    ports = importlib.import_module("digital_souls_memory_hindsight.recall.ports")
+    storage = importlib.import_module("digital_souls_memory_hindsight.postgres_provision")
+    record = ports.ProvisionRecord(
+        **{
+            **row,
+            "memory_ids": tuple(row["memory_ids"]),
+            "source_spans": tuple(ports.ProvisionSpan(**span) for span in row["source_spans"]),
+            "verbatim_anchor_ids": tuple(row["verbatim_anchor_ids"]),
+        }
+    )
+    for duplicate in (record, replace(record, memory_ids=("replacement-forbidden",))):
+        with pytest.raises(ports.ProvisionConflict):
+            storage.PostgresProvisionStore(p.database).add(duplicate)
+    with psycopg.connect(p.database, row_factory=dict_row, connect_timeout=5) as connection:
+        after = connection.execute(
+            "SELECT * FROM provision_records WHERE provision_id = %s", (body["provision_id"],)
+        ).fetchall()
+    assert after == rows

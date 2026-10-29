@@ -13,6 +13,7 @@ from digital_souls_memory_hindsight.hindsight_recall import HindsightRecall
 from digital_souls_memory_hindsight.hindsight_retain import HindsightRetain
 from digital_souls_memory_hindsight.postgres_evidence import PostgresEvidenceStore
 from digital_souls_memory_hindsight.postgres_outbox import PostgresOutbox
+from digital_souls_memory_hindsight.postgres_provision import PostgresProvisionStore
 from digital_souls_memory_hindsight.recall.service import RecallService
 from digital_souls_memory_hindsight.recall_http import recall_router
 from digital_souls_memory_hindsight.settings import load_settings
@@ -26,7 +27,9 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
         Hindsight(base_url=settings.hindsight_url, timeout=10.0) if settings.hindsight_url else None
     )
     application.state.recall_service = RecallService(
-        ledger_service, HindsightRecall(client) if client is not None else None
+        ledger_service,
+        HindsightRecall(client) if client is not None else None,
+        PostgresProvisionStore(settings.database_url),
     )
     worker = Worker(
         PostgresOutbox(settings.database_url),
