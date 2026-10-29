@@ -1,8 +1,11 @@
 """Recall contracts at HTTP, with the real evidence service and isolated I/O."""
 
+from __future__ import annotations
+
 import asyncio
 import importlib
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock
 from uuid import UUID
 
@@ -15,7 +18,11 @@ from digital_souls_memory_hindsight.evidence.ports import EvidenceUnavailable
 from digital_souls_memory_hindsight.evidence.projection import bank_id, document_id
 from digital_souls_memory_hindsight.evidence.service import EvidenceService
 from digital_souls_memory_hindsight.evidence_http import evidence_router
+from tests.ut.test_delivery_scope import NOW, Clock
 from tests.ut.test_evidence_http import MemoryStore, receipt_body, session_body, turn_body
+
+if TYPE_CHECKING:
+    from digital_souls_memory_hindsight.recall.ports import ProvisionRecord
 
 pytestmark = pytest.mark.ut
 TEA = "架空の花子は翡翠茶を飲みます。"
@@ -48,9 +55,24 @@ class MemoryRecall:
 
 
 @dataclass
+class ProvisionStore:
+    records: dict[str, ProvisionRecord] = field(default_factory=dict)
+    error: Exception | None = None
+
+    def add(self, value: ProvisionRecord) -> None:
+        if self.error is not None:
+            raise self.error
+        if value.provision_id in self.records:
+            ports = importlib.import_module("digital_souls_memory_hindsight.recall.ports")
+            raise ports.ProvisionConflict()
+        self.records[value.provision_id] = value
+
+
+@dataclass
 class RecallHTTP:
     app: FastAPI
     memory: MemoryRecall
+    provisions: ProvisionStore
 
     def turn(self, client: TestClient, **changes: object) -> None:
         response = client.post("/turns", json=turn_body(**{"text": TEA, **changes}))
@@ -81,11 +103,14 @@ def application(
     store = store if store is not None else MemoryStore()
     evidence = EvidenceService(store, characters)
     memory = MemoryRecall()
-    service = service_module.RecallService(evidence, memory if configured else None)
+    provisions = ProvisionStore()
+    service = service_module.RecallService(
+        evidence, memory if configured else None, provisions, clock=Clock()
+    )
     app = FastAPI()
     app.include_router(evidence_router(lambda: evidence))
     app.include_router(http_module.recall_router(lambda: service))
-    return RecallHTTP(app, memory)
+    return RecallHTTP(app, memory, provisions)
 
 
 def start(client: TestClient, **changes: object) -> None:
@@ -123,6 +148,7 @@ def test_invalid_recall_requests_are_422_without_search(
         response = client.post("/characters/char-a/recall", json=body)
     assert response.status_code == 422
     assert h.memory.calls == []
+    assert h.provisions.records == {}
 
 
 def test_query_strings_are_stripped_before_lookup_and_search() -> None:
@@ -218,6 +244,14 @@ def test_each_response_has_a_new_uuid() -> None:
         second = client.post("/characters/char-a/recall", json=recall_body())
     assert first.status_code == second.status_code == 200
     assert UUID(first.json()["provision_id"]) != UUID(second.json()["provision_id"])
+    assert set(h.provisions.records) == {
+        first.json()["provision_id"],
+        second.json()["provision_id"],
+    }
+    assert all(
+        record.memory_ids == () and record.source_spans == ()
+        for record in h.provisions.records.values()
+    )
 
 
 def test_chunk_overlap_maps_sources_and_preserves_fact_order() -> None:
@@ -341,6 +375,7 @@ def test_missing_or_unperceived_sources_are_404_without_search(source: str) -> N
     assert response.status_code == 404
     assert response.json() == {"detail": "Recall source not found"}
     assert h.memory.calls == []
+    assert h.provisions.records == {}
 
 
 @pytest.mark.parametrize("failure", ["ledger", "characters", "memory", "search"])
@@ -362,6 +397,7 @@ def test_unavailable_dependencies_return_sanitized_503(failure: str) -> None:
         response = client.post("/characters/char-a/recall", json=recall_body())
     assert response.status_code == 503
     assert response.json() == {"detail": "Recall unavailable"}
+    assert h.provisions.records == {}
 
 
 def test_labels_do_not_change_search_destination_or_arguments() -> None:
@@ -398,3 +434,118 @@ def test_production_app_exposes_recall_and_unconfigured_memory_is_503(
                 assert response.json() == {"detail": "Recall unavailable"}
 
     asyncio.run(exercise())
+
+
+@pytest.mark.parametrize("format", ["materials", "assembled"])
+def test_query_provision_saves_response_order_metadata_and_service_time(format: str) -> None:
+    h = application()
+    h.memory.facts = (
+        h.fact("z-moon", chunk_text=MOON, text=MOON),
+        h.fact("a-tea"),
+        h.fact("excluded", chunk_text="架空の砂漠の旅の話。"),
+    )
+    with TestClient(h.app) as client:
+        start(client, surface="SyntheticSurface")
+        h.turn(client)
+        h.turn(client, turn_id="moon-turn", text=MOON)
+        response = client.post(
+            "/characters/char-a/recall",
+            json=recall_body(
+                format=format,
+                query=" 翡翠茶 ",
+                sensitivity=" private ",
+                classifier_version=" classifier-2 ",
+            ),
+        )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert len(h.provisions.records) == 1
+    record = h.provisions.records[body["provision_id"]]
+    assert (record.kind, record.character_id, record.session_id, record.surface) == (
+        "turn",
+        "char-a",
+        "s-1",
+        "SyntheticSurface",
+    )
+    assert (record.query, record.turn_id, record.sensitivity, record.classifier_version) == (
+        "翡翠茶",
+        None,
+        "private",
+        "classifier-2",
+    )
+    assert record.memory_ids == tuple(memory["id"] for memory in body["memories"])
+    assert record.memory_ids == ("z-moon", "a-tea")
+    assert [asdict(span) for span in record.source_spans] == [
+        {key: span[key] for key in ("turn_id", "start", "end")} for span in body["source_spans"]
+    ]
+    assert len(record.source_spans) == 2
+    assert record.verbatim_anchor_ids == ()
+    assert record.temperament_version is record.personality_version is None
+    assert record.created_at == NOW
+    assert h.memory.calls == [(bank_id("char-a"), "翡翠茶")]
+
+
+@pytest.mark.parametrize("with_classification", [False, True])
+def test_turn_provision_saves_turn_id_without_query_or_classification(
+    with_classification: bool,
+) -> None:
+    h = application()
+    h.memory.facts = (h.fact("tea"),)
+    body: dict[str, object] = {"session_id": "s-1", "format": "materials", "turn_id": " t-1 "}
+    if with_classification:
+        body.update(sensitivity="private", classifier_version="ignored-classifier")
+    with TestClient(h.app) as client:
+        start(client)
+        h.turn(client)
+        response = client.post("/characters/char-a/recall", json=body)
+    assert response.status_code == 200, response.text
+    assert len(h.provisions.records) == 1
+    record = h.provisions.records[response.json()["provision_id"]]
+    assert record.turn_id == "t-1"
+    assert record.query is record.sensitivity is record.classifier_version is None
+    assert record.memory_ids == ("tea",)
+    assert [asdict(span) for span in record.source_spans] == [
+        {"turn_id": "t-1", "start": 0, "end": len(TEA)}
+    ]
+
+
+def test_save_failure_returns_only_503_and_next_request_can_save() -> None:
+    h = application()
+    h.provisions.error = EvidenceUnavailable("synthetic private storage detail")
+    with TestClient(h.app) as client:
+        start(client)
+        failed = client.post("/characters/char-a/recall", json=recall_body())
+        assert failed.status_code == 503
+        assert failed.json() == {"detail": "Recall unavailable"}
+        assert h.provisions.records == {}
+        h.provisions.error = None
+        success = client.post("/characters/char-a/recall", json=recall_body())
+    assert success.status_code == 200, success.text
+    assert set(h.provisions.records) == {success.json()["provision_id"]}
+
+
+def test_duplicate_provision_returns_409_without_overwriting_first_record(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = importlib.import_module("digital_souls_memory_hindsight.recall.service")
+    monkeypatch.setattr(module, "uuid4", lambda: UUID(int=1))
+    h = application()
+    with TestClient(h.app) as client:
+        start(client)
+        first = client.post("/characters/char-a/recall", json=recall_body())
+        assert first.status_code == 200, first.text
+        original = h.provisions.records[first.json()["provision_id"]]
+        duplicate = client.post("/characters/char-a/recall", json=recall_body(query="別の検索"))
+    assert duplicate.status_code == 409
+    assert duplicate.json() == {"detail": "Provision already exists"}
+    assert list(h.provisions.records.values()) == [original]
+    assert original.query == "翡翠茶"
+
+
+def test_recall_router_exposes_only_the_existing_post() -> None:
+    module = importlib.import_module("digital_souls_memory_hindsight.recall_http")
+    app = FastAPI()
+    app.include_router(module.recall_router(lambda: None))
+    paths = app.openapi()["paths"]
+    assert set(paths) == {"/characters/{character_id}/recall"}
+    assert set(paths["/characters/{character_id}/recall"]) == {"post"}

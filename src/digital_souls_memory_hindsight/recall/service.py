@@ -1,15 +1,25 @@
 """Match recalled facts to current, perceived ledger text."""
 
 import asyncio
+from collections.abc import Callable
 from dataclasses import dataclass, replace
+from datetime import UTC, datetime
 from typing import Literal
 from uuid import uuid4
 
-from ..evidence.domain import EvidenceValidationError
+from ..evidence.domain import EvidenceValidationError, Session
 from ..evidence.ports import EvidenceNotFound, EvidenceUnavailable
 from ..evidence.projection import bank_id
 from ..evidence.service import EvidenceService, ProjectionSource
-from .ports import MemoryRecall, RecalledFact, RecallSourceNotFound, RecallUnavailable
+from .ports import (
+    MemoryRecall,
+    ProvisionRecord,
+    ProvisionSpan,
+    ProvisionStore,
+    RecalledFact,
+    RecallSourceNotFound,
+    RecallUnavailable,
+)
 
 MIN_OVERLAP = 8
 
@@ -100,23 +110,68 @@ def _assemble(
     )
 
 
+def provision_record(
+    provision: RecallProvision,
+    *,
+    character_id: str,
+    session: Session,
+    query: str | None,
+    turn_id: str | None,
+    sensitivity: str | None,
+    classifier_version: str | None,
+    created_at: datetime,
+) -> ProvisionRecord:
+    return ProvisionRecord(
+        provision_id=provision.provision_id,
+        kind="turn",
+        character_id=character_id,
+        session_id=session.session_id,
+        surface=session.surface,
+        query=query,
+        turn_id=turn_id,
+        sensitivity=sensitivity if query is not None else None,
+        classifier_version=classifier_version if query is not None else None,
+        memory_ids=tuple(memory.id for memory in provision.memories),
+        source_spans=tuple(
+            ProvisionSpan(span.turn_id, span.start, span.end) for span in provision.source_spans
+        ),
+        verbatim_anchor_ids=(),
+        temperament_version=None,
+        personality_version=None,
+        created_at=created_at,
+    )
+
+
+def _utc_now() -> datetime:
+    return datetime.now(UTC)
+
+
 class RecallService:
-    def __init__(self, evidence: EvidenceService, memory: MemoryRecall | None) -> None:
+    def __init__(
+        self,
+        evidence: EvidenceService,
+        memory: MemoryRecall | None,
+        provisions: ProvisionStore,
+        *,
+        clock: Callable[[], datetime] = _utc_now,
+    ) -> None:
         self._evidence = evidence
         self._memory = memory
+        self._provisions = provisions
+        self._clock = clock
 
     def _query(
         self, character_id: str, session_id: str, query: str | None, turn_id: str | None
-    ) -> str:
+    ) -> tuple[str, Session]:
         self._evidence.require_character(character_id)
-        self._evidence.get_session(session_id)
+        session = self._evidence.get_session(session_id)
         if query is not None:
-            return query
+            return query, session
         assert turn_id is not None
         text = self._evidence.get_projection_text(turn_id, character_id)
         if not text:
             raise RecallSourceNotFound()
-        return text
+        return text, session
 
     async def recall(
         self,
@@ -125,9 +180,13 @@ class RecallService:
         format: Literal["materials", "assembled"],
         query: str | None,
         turn_id: str | None,
+        sensitivity: str | None,
+        classifier_version: str | None,
     ) -> RecallProvision:
         try:
-            search = await asyncio.to_thread(self._query, character_id, session_id, query, turn_id)
+            search, session = await asyncio.to_thread(
+                self._query, character_id, session_id, query, turn_id
+            )
             if self._memory is None:
                 raise RecallUnavailable()
             facts = await self._memory.recall(bank_id(character_id), search)
@@ -137,7 +196,19 @@ class RecallService:
                 if documents
                 else {}
             )
-            return _assemble(facts, candidates, format)
+            provision = _assemble(facts, candidates, format)
+            record = provision_record(
+                provision,
+                character_id=character_id,
+                session=session,
+                query=query,
+                turn_id=turn_id,
+                sensitivity=sensitivity,
+                classifier_version=classifier_version,
+                created_at=self._clock(),
+            )
+            await asyncio.to_thread(self._provisions.add, record)
+            return provision
         except EvidenceNotFound:
             raise RecallSourceNotFound() from None
         except (EvidenceUnavailable, EvidenceValidationError):
