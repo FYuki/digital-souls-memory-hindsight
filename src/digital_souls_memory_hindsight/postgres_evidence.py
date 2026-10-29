@@ -55,6 +55,15 @@ class PostgresEvidenceStore:
                 "SELECT session_id FROM sessions WHERE session_id = %s FOR UPDATE", (session_id,)
             ).fetchone()
 
+    def list_projection_sessions(self, bank_id: str) -> tuple[str, ...]:
+        with self._connection() as connection:
+            rows = connection.execute(
+                "SELECT DISTINCT t.session_id FROM turns t JOIN outbox o ON o.turn_id = t.turn_id "
+                "WHERE o.bank_id = %s AND o.update_mode = 'append' ORDER BY t.session_id",
+                (bank_id,),
+            ).fetchall()
+            return tuple(str(row[0]) for row in rows)
+
     def list_projection_turns(self, session_id: str, bank_id: str) -> tuple[Turn, ...]:
         with (
             self._connection() as connection,

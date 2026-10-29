@@ -17,6 +17,16 @@ from digital_souls_memory_hindsight.postgres_evidence import PostgresEvidenceSto
 pytestmark = pytest.mark.ut
 
 
+def test_projection_sessions_returns_rows_for_the_bound_bank() -> None:
+    connection = MagicMock(spec=psycopg.Connection)
+    connection.execute.return_value.fetchall.return_value = [("s-1",), ("s-2",)]
+    store = PostgresEvidenceStore("synthetic-db", connection)
+    assert store.list_projection_sessions("requested-bank") == ("s-1", "s-2")
+    query, parameters = connection.execute.call_args.args
+    assert parameters == ("requested-bank",)
+    assert "requested-bank" not in query
+
+
 @pytest.mark.parametrize("error", [psycopg.OperationalError, psycopg.IntegrityError])
 def test_database_failure_is_translated_at_storage_boundary(
     monkeypatch: pytest.MonkeyPatch, error: type[psycopg.Error]
@@ -57,7 +67,8 @@ def test_failed_commit_does_not_return_success(monkeypatch: pytest.MonkeyPatch) 
 
 
 @pytest.mark.parametrize(
-    "operation", ["write", "read", "lock", "pending", "session-lock", "projection-turns"]
+    "operation",
+    ["write", "read", "lock", "pending", "session-lock", "projection-turns", "projection-sessions"],
 )
 @pytest.mark.parametrize("error", [psycopg.OperationalError, psycopg.IntegrityError])
 def test_delivery_storage_failures_preserve_error_translation(
@@ -81,5 +92,7 @@ def test_delivery_storage_failures_preserve_error_translation(
             store.lock_session("s-1")
         elif operation == "projection-turns":
             store.list_projection_turns("s-1", "bank")
+        elif operation == "projection-sessions":
+            store.list_projection_sessions("bank")
         else:
             store.list_pending_deliveries(now)

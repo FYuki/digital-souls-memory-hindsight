@@ -88,6 +88,15 @@ class MemoryStore:
     def lock_session(self, session_id: str) -> None:
         self.get_session(session_id)
 
+    def list_projection_sessions(self, bank_id: str) -> tuple[str, ...]:
+        return tuple(
+            dict.fromkeys(
+                self.turns[value.turn_id].session_id
+                for value in self.outbox.values()
+                if value.bank_id == bank_id and value.update_mode == "append"
+            )
+        )
+
     def list_projection_turns(self, session_id: str, bank_id: str) -> tuple[Turn, ...]:
         return tuple(
             self.turns[value.turn_id]

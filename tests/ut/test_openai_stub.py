@@ -466,3 +466,30 @@ def test_response_gate_timeout_finishes_without_success(stub: Stub, tmp_path: Pa
     with pytest.raises(TimeoutError), stub.hold_response(tmp_path, request, timeout_seconds=0):
         pytest.fail("An unreleased request must not receive a fixture response")
     assert len(list(gate.glob("entered/*"))) == len(list(gate.glob("finished/*"))) == 1
+
+
+@pytest.mark.parametrize("consolidation", [False, True])
+def test_consolidation_gate_holds_only_consolidation(
+    stub: Stub, tmp_path: Path, consolidation: bool
+) -> None:
+    gate = tmp_path / "consolidation-synthetic-marker"
+    gate.mkdir()
+    request: dict[str, object] = {
+        "messages": [
+            {
+                "role": "system",
+                "content": "You are a memory consolidation system"
+                if consolidation
+                else "Extract facts.",
+            },
+            {"role": "user", "content": "Content: " + gate.name},
+        ]
+    }
+    if consolidation:
+        with pytest.raises(TimeoutError), stub.hold_response(tmp_path, request, timeout_seconds=0):
+            pytest.fail("Consolidation must remain blocked until release")
+        assert len(list(gate.glob("entered/*"))) == len(list(gate.glob("finished/*"))) == 1
+    else:
+        with stub.hold_response(tmp_path, request, timeout_seconds=0):
+            pass
+        assert not list(gate.glob("entered/*"))
