@@ -305,7 +305,16 @@ def hold_response(
 ) -> Iterator[None]:
     text = json.dumps(request, ensure_ascii=False)
     gate = (
-        next((path for path in control_dir.iterdir() if path.is_dir() and path.name in text), None)
+        next(
+            (
+                path
+                for path in control_dir.iterdir()
+                if path.is_dir()
+                and path.name in text
+                and (not path.name.startswith("consolidation-") or CONSOLIDATION_PROMPT in text)
+            ),
+            None,
+        )
         if control_dir is not None
         else None
     )

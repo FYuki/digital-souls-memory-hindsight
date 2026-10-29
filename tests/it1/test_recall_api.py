@@ -1,0 +1,203 @@
+"""Recall through HTTP, the real ledger, and the pinned fixture-backed Hindsight."""
+
+import asyncio
+import importlib
+import os
+import shutil
+from collections.abc import Iterator
+from pathlib import Path
+from uuid import uuid4
+
+import httpx
+import pytest
+from fastapi import FastAPI
+from hindsight_client import Hindsight
+
+from digital_souls_memory_hindsight.evidence.projection import bank_id
+from tests.it1 import test_bank_projection as projection_tests
+from tests.it1.conftest import ResponseGate
+from tests.it1.test_bank_projection import (
+    COFFEE,
+    SECRET,
+    TEA,
+    Projection,
+    assert_no_private_tokens,
+    hindsight_client,
+    wait_idle,
+)
+
+pytestmark = pytest.mark.it1
+projection = projection_tests.projection
+JAPANESE = "架空の花子は10月31日に東京タワーで土曜日の約束を守ります。"
+
+
+@pytest.fixture
+def consolidation_gate() -> Iterator[ResponseGate]:
+    path = Path(os.environ["STUB_CONTROL_DIR"]) / ("consolidation-" + uuid4().hex)
+    path.mkdir()
+    gate = ResponseGate(path)
+    try:
+        yield gate
+    finally:
+        gate.release()
+        asyncio.run(gate.wait_finished())
+        shutil.rmtree(path)
+
+
+async def recall(
+    p: Projection, client: Hindsight, character: str, query: str, **changes: object
+) -> httpx.Response:
+    adapter = importlib.import_module("digital_souls_memory_hindsight.hindsight_recall")
+    service = importlib.import_module("digital_souls_memory_hindsight.recall.service")
+    http = importlib.import_module("digital_souls_memory_hindsight.recall_http")
+    app = FastAPI()
+    instance = service.RecallService(p.service, adapter.HindsightRecall(client))
+    app.include_router(http.recall_router(lambda: instance))
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://service"
+    ) as transport:
+        return await transport.post(
+            f"/characters/{character}/recall",
+            json={
+                "session_id": p.session,
+                "format": "assembled",
+                "query": query,
+                "sensitivity": "public",
+                "classifier_version": "fixture-1",
+                **changes,
+            },
+        )
+
+
+async def wait_consolidated(client: Hindsight, bank: str) -> None:
+    deadline = asyncio.get_running_loop().time() + 60
+    while True:
+        operations = await client.operations.list_operations(
+            bank_id=bank, type="consolidation", _request_timeout=5.0
+        )
+        assert all(item.status not in {"failed", "cancelled"} for item in operations.operations)
+        if operations.operations and all(
+            item.status == "completed" for item in operations.operations
+        ):
+            return
+        assert asyncio.get_running_loop().time() < deadline, operations.to_dict()
+        await asyncio.sleep(0.1)
+
+
+def assert_sources(response: httpx.Response, expected: dict[str, str]) -> None:
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["memories"], body
+    spans = {span["turn_id"]: span for span in body["source_spans"]}
+    assert spans, body
+    for memory in body["memories"]:
+        assert memory["source_turn_ids"], memory
+        assert set(memory["source_turn_ids"]) <= spans.keys()
+    for turn, span in spans.items():
+        assert span["text"] == expected[turn]
+        assert span["text"] == expected[turn][span["start"] : span["end"]]
+    assert body["context"] == "\n".join(span["text"] for span in body["source_spans"])
+
+
+def test_consolidated_recall_returns_ledger_sources_and_verbatim_japanese(
+    projection: Projection,
+) -> None:
+    p = projection
+    p.post_turn("japanese", text=JAPANESE)
+
+    async def exercise() -> None:
+        async with hindsight_client() as client:
+            await p.drain(client)
+            await wait_consolidated(client, bank_id(p.characters[0]))
+            for query in ("東京タワー", "10月31日", "土曜日の約束"):
+                response = await recall(p, client, p.characters[0], query)
+                assert_sources(response, {"japanese": JAPANESE})
+                assert any(span["text"] == JAPANESE for span in response.json()["source_spans"])
+                assert any(
+                    memory["kind"] == "observation" for memory in response.json()["memories"]
+                )
+
+    asyncio.run(exercise())
+
+
+def test_recall_isolates_speaker_other_character_and_partial_recipient(
+    projection: Projection,
+) -> None:
+    p = projection
+    a, b, c = p.characters
+    p.post_turn("spoken", text=TEA + "\n" + SECRET, perceived_by=[a, c])
+    p.receipt("spoken", len(TEA), len(TEA + "\n" + SECRET))
+    p.post_turn("other", actor=b, text=COFFEE, perceived_by=[b])
+
+    async def exercise() -> None:
+        async with hindsight_client() as client:
+            await p.drain(client)
+            for character in p.characters:
+                await wait_consolidated(client, bank_id(character))
+            query = "架空の花子、太郎、お茶、珈琲、金庫について"
+            speaker = await recall(p, client, a, query)
+            assert_sources(speaker, {"spoken": TEA + "\n" + SECRET})
+            assert any(SECRET in span["text"] for span in speaker.json()["source_spans"])
+            other = await recall(p, client, b, query)
+            assert_sources(other, {"other": COFFEE})
+            partial = await recall(p, client, c, query)
+            assert_sources(partial, {"spoken": TEA})
+            for field in ("source_spans", "memories", "context"):
+                assert_no_private_tokens(other.json()[field], ("翡翠茶", "金庫", "七九三"))
+                assert_no_private_tokens(
+                    partial.json()[field], ("金庫", "暗証番号", "七九三", "琥珀珈琲")
+                )
+
+    asyncio.run(exercise())
+
+
+def test_new_facts_are_recalled_while_consolidation_remains_blocked(
+    projection: Projection,
+    consolidation_gate: ResponseGate,
+) -> None:
+    p = projection
+    p.post_turn("fresh", text=TEA + "\n" + consolidation_gate.marker)
+
+    async def exercise() -> None:
+        async with hindsight_client() as client:
+            bank = bank_id(p.characters[0])
+            try:
+                await p.drain(client)
+                await consolidation_gate.wait_entered()
+                operations = await client.operations.list_operations(
+                    bank_id=bank, type="consolidation", _request_timeout=5.0
+                )
+                assert operations.operations, operations.to_dict()
+                assert any(
+                    item.status in {"pending", "processing"} for item in operations.operations
+                )
+                assert all(item.status != "completed" for item in operations.operations)
+                response = await recall(p, client, p.characters[0], "翡翠茶")
+                assert_sources(response, {"fresh": TEA + "\n" + consolidation_gate.marker})
+                assert any(TEA in memory["content"] for memory in response.json()["memories"])
+            finally:
+                consolidation_gate.release()
+                await consolidation_gate.wait_finished()
+                await wait_idle(client, bank)
+
+    asyncio.run(exercise())
+
+
+def test_recall_http_errors_use_the_public_contract(projection: Projection) -> None:
+    async def exercise() -> None:
+        async with hindsight_client() as client:
+            missing = await recall(
+                projection, client, projection.characters[0], "翡翠茶", session_id="missing"
+            )
+            assert missing.status_code == 404
+            assert missing.json() == {"detail": "Recall source not found"}
+            invalid = await recall(
+                projection, client, projection.characters[0], "翡翠茶", turn_id="missing"
+            )
+            assert invalid.status_code == 422
+            empty = await recall(projection, client, projection.characters[0], "翡翠茶")
+            assert empty.status_code == 200, empty.text
+            assert empty.json()["memories"] == empty.json()["source_spans"] == []
+            assert empty.json()["context"] == ""
+
+    asyncio.run(exercise())

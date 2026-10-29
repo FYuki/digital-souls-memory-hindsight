@@ -21,7 +21,9 @@ from .domain import (
     validate_receipt,
 )
 from .ports import EvidenceConflict, EvidenceNotFound, EvidenceStore, EvidenceUnavailable
-from .projection import enqueue_projection, update_projection
+from .projection import bank_id, document_id, enqueue_projection, update_projection
+
+ProjectionSource = tuple[Turn, str]
 
 
 def _utc_now() -> datetime:
@@ -129,6 +131,29 @@ class EvidenceService:
         needs_scope = character_id in turn.perceived_by and character_id != turn.actor
         scope = self.get_delivery_scope(turn_id) if needs_scope else None
         return projection_text(turn, character_id, scope)
+
+    def require_character(self, character_id: str) -> None:
+        if self._character_ids is None:
+            raise EvidenceUnavailable()
+        if character_id not in self._character_ids:
+            raise EvidenceNotFound()
+
+    def projection_sources(
+        self, character_id: str, document_ids: frozenset[str]
+    ) -> dict[str, tuple[ProjectionSource, ...]]:
+        bank = bank_id(character_id)
+        sources: dict[str, tuple[ProjectionSource, ...]] = {}
+        for session in self._store.list_projection_sessions(bank):
+            document = document_id(session)
+            if document not in document_ids:
+                continue
+            candidates: list[ProjectionSource] = []
+            for turn in self._store.list_projection_turns(session, bank):
+                text = self.get_projection_text(turn.turn_id, character_id)
+                if text:
+                    candidates.append((turn, text))
+            sources[document] = tuple(candidates)
+        return sources
 
     def confirm_expired_deliveries(self) -> tuple[str, ...]:
         now = self._clock()
