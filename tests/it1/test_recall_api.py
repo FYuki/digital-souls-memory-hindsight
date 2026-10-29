@@ -2,6 +2,7 @@
 
 import asyncio
 import importlib
+import json
 import os
 import shutil
 from collections.abc import Iterator
@@ -14,6 +15,7 @@ import psycopg
 import pytest
 from fastapi import FastAPI
 from hindsight_client import Hindsight
+from hindsight_client_api.models.update_memory_request import UpdateMemoryRequest
 from psycopg.rows import dict_row
 
 from digital_souls_memory_hindsight.evidence.projection import bank_id
@@ -48,7 +50,13 @@ def consolidation_gate() -> Iterator[ResponseGate]:
 
 
 async def recall(
-    p: Projection, client: Hindsight, character: str, query_text: str, **changes: object
+    p: Projection,
+    client: Hindsight,
+    character: str,
+    query_text: str,
+    *,
+    min_reranker_score: float | None = None,
+    **changes: object,
 ) -> httpx.Response:
     adapter = importlib.import_module("digital_souls_memory_hindsight.hindsight_recall")
     service = importlib.import_module("digital_souls_memory_hindsight.recall.service")
@@ -57,7 +65,7 @@ async def recall(
     storage = importlib.import_module("digital_souls_memory_hindsight.postgres_provision")
     instance = service.RecallService(
         p.service,
-        adapter.HindsightRecall(client),
+        adapter.HindsightRecall(client, min_reranker_score=min_reranker_score),
         storage.PostgresProvisionStore(p.database),
         clock=p.clock,
     )
@@ -222,10 +230,14 @@ def test_recall_persists_response_and_duplicate_keeps_original_row(
     async def exercise() -> httpx.Response:
         async with hindsight_client() as client:
             await p.drain(client)
-            changes: dict[str, object] = (
-                {"query": None, "turn_id": "provision-source"} if use_turn else {}
+            return await recall(
+                p,
+                client,
+                p.characters[0],
+                "東京タワー",
+                query=None if use_turn else "東京タワー",
+                turn_id="provision-source" if use_turn else None,
             )
-            return await recall(p, client, p.characters[0], "東京タワー", **changes)
 
     response = asyncio.run(exercise())
     assert_sources(response, {"provision-source": JAPANESE})
@@ -272,3 +284,141 @@ def test_recall_persists_response_and_duplicate_keeps_original_row(
             "SELECT * FROM provision_records WHERE provision_id = %s", (body["provision_id"],)
         ).fetchall()
     assert after == rows
+
+
+@pytest.mark.parametrize("format", ["assembled", "materials"])
+def test_reranker_abstains_on_unrelated_query_and_persists_empty_provision(
+    projection: Projection, format: str
+) -> None:
+    p = projection
+    p.post_turn("tea", text=TEA)
+    p.post_turn("japanese", text=JAPANESE)
+    settings = importlib.import_module("digital_souls_memory_hindsight.settings")
+    threshold = settings.load_settings().recall_min_reranker_score
+
+    async def exercise() -> str:
+        async with hindsight_client() as client:
+            await p.drain(client)
+            bank = bank_id(p.characters[0])
+            await wait_consolidated(client, bank)
+            raw = await client.arecall(
+                bank_id=bank, query="コーヒー", types=["world", "experience", "observation"]
+            )
+            assert raw.results, "The unfiltered bank must return unrelated candidates"
+            assert all(
+                result.scores is not None and result.scores.reranker is not None
+                for result in raw.results
+            ), raw.to_dict()
+            unfiltered = await recall(p, client, p.characters[0], "コーヒー", format=format)
+            assert unfiltered.status_code == 200, unfiltered.text
+            assert unfiltered.json()["memories"], unfiltered.text
+            filtered = await recall(
+                p,
+                client,
+                p.characters[0],
+                "コーヒー",
+                min_reranker_score=threshold,
+                format=format,
+            )
+            assert filtered.status_code == 200, filtered.text
+            body = filtered.json()
+            assert body["memories"] == body["source_spans"] == body["verbatim_anchors"] == []
+            assert body["context"] == ("" if format == "assembled" else None)
+            for query in ("翡翠茶", "東京タワー"):
+                related = await recall(
+                    p, client, p.characters[0], query, min_reranker_score=threshold
+                )
+                assert_sources(related, {"tea": TEA, "japanese": JAPANESE})
+                assert any(
+                    memory["kind"] == "observation" for memory in related.json()["memories"]
+                ), related.text
+            return str(body["provision_id"])
+
+    provision_id = asyncio.run(exercise())
+    with psycopg.connect(p.database, row_factory=dict_row, connect_timeout=5) as connection:
+        rows = connection.execute(
+            "SELECT memory_ids, source_spans FROM provision_records WHERE provision_id = %s",
+            (provision_id,),
+        ).fetchall()
+    assert rows == [{"memory_ids": [], "source_spans": []}]
+    records = [
+        json.loads(line) for line in Path(os.environ["STUB_REQUEST_LOG"]).read_text().splitlines()
+    ]
+    assert any(
+        record["path"] == "/v1/rerank" and record["req"]["query"] == "コーヒー"
+        for record in records
+    )
+
+
+def test_reranker_scores_support_outer_and_server_thresholds(projection: Projection) -> None:
+    p = projection
+    experience = "架空の太郎は翡翠茶の試飲を経験しました。"
+    p.post_turn("tea", text=TEA)
+    p.post_turn("japanese", text=JAPANESE)
+    p.post_turn("experience", text=experience)
+    settings = importlib.import_module("digital_souls_memory_hindsight.settings")
+    threshold = settings.load_settings().recall_min_reranker_score
+
+    async def exercise() -> None:
+        async with hindsight_client() as client:
+            await p.drain(client)
+            bank = bank_id(p.characters[0])
+            await wait_consolidated(client, bank)
+            initial = await client.arecall(bank_id=bank, query=experience, types=["world"])
+            fact = next(item for item in initial.results if experience in item.text)
+            # Use the official curation API to prepare an experience fact without
+            # changing the extraction stub or Hindsight's implementation.
+            await client.memory.update_memory(
+                bank_id=bank,
+                memory_id=fact.id,
+                update_memory_request=UpdateMemoryRequest(text=fact.text, fact_type="experience"),
+                _request_timeout=10.0,
+            )
+            await wait_idle(client, bank)
+            seen_types: set[str | None] = set()
+            for query in ("コーヒー", "翡翠茶", "東京タワー", experience):
+                raw = await client.arecall(
+                    bank_id=bank, query=query, types=["world", "experience", "observation"]
+                )
+                assert raw.results
+                seen_types.update(item.type for item in raw.results)
+                assert all(
+                    item.scores is not None and item.scores.reranker is not None
+                    for item in raw.results
+                ), raw.to_dict()
+                server = await client.arecall(
+                    bank_id=bank,
+                    query=query,
+                    types=["world", "experience", "observation"],
+                    min_scores={"reranker": threshold},
+                )
+                expected = {
+                    item.id
+                    for item in raw.results
+                    if item.scores is not None
+                    and item.scores.reranker is not None
+                    and item.scores.reranker >= threshold
+                }
+                assert {item.id for item in server.results} == expected
+                if query == "コーヒー":
+                    assert server.results == []
+                else:
+                    assert server.results
+                print(
+                    json.dumps(
+                        {
+                            "query": query,
+                            "threshold": threshold,
+                            "scores": [
+                                {"type": item.type, "reranker": item.scores.reranker}
+                                for item in raw.results
+                                if item.scores is not None
+                            ],
+                            "server_results": len(server.results),
+                        },
+                        ensure_ascii=False,
+                    )
+                )
+            assert seen_types == {"world", "experience", "observation"}
+
+    asyncio.run(exercise())

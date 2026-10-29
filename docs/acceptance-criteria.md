@@ -23,7 +23,7 @@
 | A7 | 試験は合成データで行う。実モデルを使う試験（IT2・ST）は、別途許可を得てから実施する | 既定 |
 | A8 | 投影の単位は、Hindsightの想定に合わせて「1キャラbank × 1 Session ＝ 1 document」とし、知覚したTurnをappendで追加する。1往復単位にはこだわらない。Turnを削除したときは、台帳に残ったTurnからそのSessionのdocumentをreplaceで作り直す | 決定（2026-10-26、本人がHindsightに合わせると明示。具体の単位はAIの提案） |
 | A9 | Coreが呼ぶHTTP APIは、既存digital-souls-memoryのエンドポイントとスキーマに合わせ、内部の実装は新しく作る。Core側も開発途中のため、STでの接続確認はCoreで実装済みの機能に限り、それ以外はIT1で確認する | 決定（2026-10-27、本人） |
-| A10 | IT1では、外部ネットワークに接続しないコンテナ網に、OpenAI互換のスタブ（LLM・embedding）を置き、Hindsightサーバーの接続先をそこへ向ける。rerankerは `rrf`（モデルを使わない）とする。サーバーはslimイメージを使う（スタブで動くことを確認済み、7章） | 決定（2026-10-27、本人がスタブ方式とslim/fullの判断を委任。slimはAIが動作確認で判断） |
+| A10 | IT1では、外部ネットワークに接続しないコンテナ網に、OpenAI互換のスタブ（LLM・embedding）とCohere互換のスタブrerankerを置き、Hindsightサーバーの接続先をそこへ向ける。棄権はrerankerのスコアで判定する。rrfとスタブembeddingでは棄権を判定できないため変更した。サーバーはslimイメージを使う（スタブで動くことを確認済み、7章） | 決定（2026-10-29、本人。slimは2026-10-27の委任に基づきAIが動作確認で判断） |
 | A11 | PostgreSQLは台帳とHindsightで同じインスタンスを使い、データベースを分ける。イメージはpgvectorとPGroongaを入れたものをこのリポジトリでビルドし、版とdigestを固定する。Hindsightの全文検索は `HINDSIGHT_API_TEXT_SEARCH_EXTENSION=pgroonga` とする | 決定（2026-10-27、本人） |
 | A12 | 台帳からHindsightへの投影・削除などの非同期処理は、PostgreSQLのoutboxテーブルと、同じサービス内のworkerで行う | 決定（2026-10-27、本人） |
 | A13 | 他キャラへのappendは配達範囲の確定順になり、occurred_atの順序とずれることを許容する。retainにはoccurred_atを時刻（timestamp）として渡し、時間の順序をappendの順に頼らない | 決定（2026-10-27、本人。U7の解決） |

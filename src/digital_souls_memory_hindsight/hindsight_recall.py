@@ -8,8 +8,9 @@ from .recall.ports import RecalledFact, RecallUnavailable
 
 
 class HindsightRecall:
-    def __init__(self, client: Hindsight) -> None:
+    def __init__(self, client: Hindsight, *, min_reranker_score: float | None = None) -> None:
         self._client = client
+        self._min_reranker_score = min_reranker_score
 
     async def recall(self, bank_id: str, query: str) -> tuple[RecalledFact, ...]:
         try:
@@ -29,6 +30,12 @@ class HindsightRecall:
         facts: list[RecalledFact] = []
         for result in response.results:
             if result.type not in {"world", "experience", "observation"}:
+                continue
+            if self._min_reranker_score is not None and (
+                result.scores is None
+                or result.scores.reranker is None
+                or result.scores.reranker < self._min_reranker_score
+            ):
                 continue
             direct = result.document_id and result.chunk_id in chunks
             sources = (

@@ -13,6 +13,7 @@ class Settings(Protocol):
     character_ids: frozenset[str] | None
     delivery_timeout_seconds: int
     hindsight_url: str | None
+    recall_min_reranker_score: float
 
 
 class SettingsModule(Protocol):
@@ -100,3 +101,38 @@ def test_hindsight_url_is_optional_for_migrations_but_cannot_be_empty(
             module.load_settings()
     else:
         assert module.load_settings().hindsight_url == raw
+
+
+@pytest.mark.parametrize("raw", [None, "0", "0.73", "1"])
+def test_recall_threshold_default_and_override(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, raw: str | None
+) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("DATABASE_URL", "postgresql://it1@postgres:5432/synthetic_ledger")
+    if raw is None:
+        monkeypatch.delenv("RECALL_MIN_RERANKER_SCORE", raising=False)
+    else:
+        monkeypatch.setenv("RECALL_MIN_RERANKER_SCORE", raw)
+    module = cast(
+        SettingsModule, importlib.import_module("digital_souls_memory_hindsight.settings")
+    )
+    value = module.load_settings().recall_min_reranker_score
+    if raw is None:
+        # The numerical default remains provisional until IT2 calibration.
+        assert 0 < value <= 1
+    else:
+        assert value == float(raw)
+
+
+@pytest.mark.parametrize("raw", ["", " ", "invalid", "nan", "inf", "-inf", "-0.1", "1.1"])
+def test_recall_threshold_rejects_invalid_values(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, raw: str
+) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("DATABASE_URL", "postgresql://it1@postgres:5432/synthetic_ledger")
+    monkeypatch.setenv("RECALL_MIN_RERANKER_SCORE", raw)
+    module = cast(
+        SettingsModule, importlib.import_module("digital_souls_memory_hindsight.settings")
+    )
+    with pytest.raises(ValueError):
+        module.load_settings()

@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import importlib
 from dataclasses import asdict, dataclass, field
+from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock
 from uuid import UUID
@@ -13,6 +14,8 @@ import httpx
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from hindsight_client import Hindsight
+from hindsight_client_api.models.recall_response import RecallResponse as SDKRecallResponse
 
 from digital_souls_memory_hindsight.evidence.ports import EvidenceUnavailable
 from digital_souls_memory_hindsight.evidence.projection import bank_id, document_id
@@ -549,3 +552,80 @@ def test_recall_router_exposes_only_the_existing_post() -> None:
     paths = app.openapi()["paths"]
     assert set(paths) == {"/characters/{character_id}/recall"}
     assert set(paths["/characters/{character_id}/recall"]) == {"post"}
+
+
+@pytest.mark.parametrize("format", ["materials", "assembled"])
+@pytest.mark.parametrize("threshold", ["0.5", "0.9"])
+def test_production_threshold_controls_response_and_records_abstention(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, format: str, threshold: str
+) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("DATABASE_URL", "postgresql://it1@postgres:5432/synthetic_ledger")
+    monkeypatch.setenv("EVIDENCE_CHARACTER_IDS", '["char-a"]')
+    monkeypatch.setenv("HINDSIGHT_URL", "http://hindsight:8888")
+    monkeypatch.setenv("RECALL_MIN_RERANKER_SCORE", threshold)
+    module = importlib.reload(importlib.import_module("digital_souls_memory_hindsight.app"))
+    evidence = EvidenceService(MemoryStore(), frozenset({"char-a"}))
+    sources = MagicMock(wraps=evidence.projection_sources)
+    monkeypatch.setattr(evidence, "projection_sources", sources)
+    monkeypatch.setattr(module, "ledger_service", evidence)
+    provisions = ProvisionStore()
+    monkeypatch.setattr(module, "PostgresProvisionStore", MagicMock(return_value=provisions))
+    sdk = MagicMock(spec=Hindsight)
+    sdk.aclose = AsyncMock()
+    sdk.arecall = AsyncMock(
+        return_value=SDKRecallResponse.model_validate(
+            {
+                "results": [
+                    {
+                        "id": "tea",
+                        "type": "world",
+                        "text": TEA,
+                        "document_id": document_id("s-1"),
+                        "chunk_id": "chunk-tea",
+                        "scores": {"reranker": 0.75, "final": 1.0},
+                    }
+                ],
+                "chunks": {
+                    "chunk-tea": {
+                        "id": "chunk-tea",
+                        "text": TEA,
+                        "chunk_index": 0,
+                        "truncated": False,
+                    }
+                },
+            }
+        )
+    )
+    monkeypatch.setattr(module, "Hindsight", MagicMock(return_value=sdk))
+    worker = MagicMock()
+    worker.run = AsyncMock()
+    monkeypatch.setattr(module, "Worker", MagicMock(return_value=worker))
+
+    async def exercise() -> None:
+        async with module.app.router.lifespan_context(module.app):
+            async with httpx.AsyncClient(
+                transport=httpx.ASGITransport(app=module.app), base_url="http://service"
+            ) as client:
+                assert (await client.post("/sessions", json=session_body())).status_code == 201
+                assert (await client.post("/turns", json=turn_body(text=TEA))).status_code == 201
+                response = await client.post(
+                    "/characters/char-a/recall", json=recall_body(format=format)
+                )
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert len(provisions.records) == 1
+        record = provisions.records[body["provision_id"]]
+        if threshold == "0.9":
+            assert body["memories"] == body["source_spans"] == body["verbatim_anchors"] == []
+            assert body["context"] == ("" if format == "assembled" else None)
+            assert record.memory_ids == ()
+            assert record.source_spans == ()
+            sources.assert_not_called()
+        else:
+            assert [memory["id"] for memory in body["memories"]] == ["tea"]
+            assert [span["text"] for span in body["source_spans"]] == [TEA]
+            assert body["context"] == (TEA if format == "assembled" else None)
+            assert record.memory_ids == ("tea",)
+
+    asyncio.run(exercise())

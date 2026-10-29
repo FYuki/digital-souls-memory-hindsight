@@ -119,6 +119,18 @@ Hindsight の failed／cancelled は outbox の failed に残し、自動で成�
 `HINDSIGHT_URL` 未設定でもmigration・healthは利用できますが、取り込みは
 `not_configured` として再試行待ちになります。本文や未加工の外部例外は失敗情報へ保存しません。
 
+## 想起の棄権
+
+`POST /characters/{character_id}/recall` は、Hindsightの候補自身の `scores.reranker` が
+`RECALL_MIN_RERANKER_SCORE` 未満なら、原文への対応付け前に除外します。
+world・experience・observationに同じ判定を使い、スコアがない候補も除外します。
+閾値はサービス起動時に読み込み、未設定なら仮の既定値0.5を使います。
+実際の値はepic 5のIT2で実モデルを使って決めます。
+有限な0〜1の数値だけを受け付け、空・非数値・非有限・範囲外は起動時に拒否します。
+
+全候補を除外してもHTTPは200で、`memories`・`source_spans`・`verbatim_anchors` は空配列です。
+`context` はassembledなら空文字、materialsならnullとなり、空の提供内容も1件記録します。
+
 ## IT1（実PostgreSQL・Hindsight、モデルはスタブ）
 
 Docker EngineとDocker Composeを用意し、次を実行します。CIの `it1` も同じ入口を使います。
@@ -131,8 +143,9 @@ bash scripts/run-it1.sh
 `internal: true` の専用ネットワークで起動します。ホストへのポート公開はしません。
 台帳の `ledger` とHindsightの `hindsight` は同一PostgreSQLインスタンス上の別DBです。
 DBのDockerfileとpackages.lockは `digital-souls-memory@a5e386c` から変更せず取り込んでいます。
-Hindsightは指定digestの `1.1.0-slim`、全文検索はPGroonga、rerankerはrrfを使い、
-LLM・embeddingだけを標準ライブラリ製のOpenAI互換スタブへ向けます。自動統合は有効のままです。
+Hindsightは指定digestの `1.1.0-slim`、全文検索はPGroongaを使います。
+LLM・embeddingは標準ライブラリ製のOpenAI互換スタブ、rerankerは同じスタブの
+Cohere互換エンドポイントへ向けます。自動統合は有効のままです。
 
 試験はhealth、Alembic upgrade、日本語のretain・recall、自動統合の要求記録、外部TCP接続の
 失敗を確認します。スタブの成功は実モデルの精度・性能の証拠ではありません。実モデルは呼びません。

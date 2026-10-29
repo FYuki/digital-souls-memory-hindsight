@@ -28,7 +28,9 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
     )
     application.state.recall_service = RecallService(
         ledger_service,
-        HindsightRecall(client) if client is not None else None,
+        HindsightRecall(client, min_reranker_score=settings.recall_min_reranker_score)
+        if client is not None
+        else None,
         PostgresProvisionStore(settings.database_url),
     )
     worker = Worker(
