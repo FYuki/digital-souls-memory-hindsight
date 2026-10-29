@@ -348,6 +348,13 @@ def configured_service(*args, **kwargs):
     return real_service(*args, clock=clock, **kwargs)
 service.EvidenceService = configured_service
 from digital_souls_memory_hindsight.app import app, ledger_service
+from digital_souls_memory_hindsight.worker import Worker
+
+async def idle_run(self):
+    return None
+
+# The test drives expiry itself; the lifespan worker would race it.
+Worker.run = idle_run
 with TestClient(app) as client:
     assert client.post('/sessions', json=session_body()).status_code == 201
     response = client.post('/turns', json=turn_body(perceived_by=['char-a', 'char-b']))
