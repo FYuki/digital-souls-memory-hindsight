@@ -66,4 +66,7 @@ class Worker:
                 await self.run_once()
             except EvidenceUnavailable:
                 logger.warning("Worker storage cycle failed; retrying")
+            except Exception as error:
+                # The message can contain content or credentials; log only the type.
+                logger.error("Worker cycle failed unexpectedly: %s", type(error).__name__)
             await asyncio.sleep(1)

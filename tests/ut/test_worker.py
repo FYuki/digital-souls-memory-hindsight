@@ -171,3 +171,39 @@ def test_periodic_worker_recovers_after_a_temporary_storage_failure() -> None:
                 await task
 
     asyncio.run(exercise())
+
+
+def test_periodic_worker_survives_an_unexpected_error_without_logging_its_text(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    worker_module = importlib.import_module("digital_souls_memory_hindsight.worker")
+    service = service_with_session(MemoryStore(), Clock())
+
+    async def exercise() -> None:
+        queue = MagicMock()
+        recovered = asyncio.Event()
+        loop = asyncio.get_running_loop()
+        attempts = 0
+
+        def claim(now: object, lease_for: object) -> None:
+            nonlocal attempts
+            attempts += 1
+            if attempts == 1:
+                raise RuntimeError("synthetic-secret-text")
+            loop.call_soon_threadsafe(recovered.set)
+
+        queue.claim.side_effect = claim
+        worker = worker_module.Worker(queue, None, service, clock=Clock())
+        task = asyncio.create_task(worker.run())
+        try:
+            await asyncio.wait_for(recovered.wait(), timeout=3)
+            assert attempts >= 2
+        finally:
+            task.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await task
+
+    with caplog.at_level("ERROR", logger="digital_souls_memory_hindsight.worker"):
+        asyncio.run(exercise())
+    assert "RuntimeError" in caplog.text
+    assert "synthetic-secret-text" not in caplog.text
