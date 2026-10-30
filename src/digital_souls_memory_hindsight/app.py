@@ -9,10 +9,12 @@ from hindsight_client import Hindsight
 
 from digital_souls_memory_hindsight.anchor_http import anchor_router
 from digital_souls_memory_hindsight.anchors.service import AnchorService
+from digital_souls_memory_hindsight.deletion.execution import DeletionExecutor
 from digital_souls_memory_hindsight.deletion.service import DeletionService
 from digital_souls_memory_hindsight.deletion_http import AuthorCredentials, deletion_router
 from digital_souls_memory_hindsight.evidence.service import EvidenceService
 from digital_souls_memory_hindsight.evidence_http import evidence_router
+from digital_souls_memory_hindsight.hindsight_deletion import HindsightDeletion
 from digital_souls_memory_hindsight.hindsight_recall import HindsightRecall
 from digital_souls_memory_hindsight.hindsight_retain import HindsightRetain
 from digital_souls_memory_hindsight.postgres_anchors import PostgresAnchorStore
@@ -35,9 +37,8 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
     application.state.anchor_service = AnchorService(
         PostgresAnchorStore(settings.database_url), ledger_service
     )
-    application.state.deletion_service = DeletionService(
-        PostgresDeletionStore(settings.database_url), ledger_service
-    )
+    deletion_store = PostgresDeletionStore(settings.database_url)
+    application.state.deletion_service = DeletionService(deletion_store, ledger_service)
     application.state.recall_service = RecallService(
         ledger_service,
         HindsightRecall(client, min_reranker_score=settings.recall_min_reranker_score)
@@ -51,6 +52,11 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
         PostgresOutbox(settings.database_url),
         HindsightRetain(client) if client is not None else None,
         ledger_service,
+        deletion=DeletionExecutor(
+            application.state.deletion_service,
+            deletion_store,
+            HindsightDeletion(client) if client is not None else None,
+        ),
     )
     task = asyncio.create_task(worker.run())
     try:

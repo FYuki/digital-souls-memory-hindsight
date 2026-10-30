@@ -13,6 +13,45 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 @pytest.mark.parametrize("operation", ["upgrade", "downgrade"])
+def test_deletion_execution_revision_generates_reversible_storage_changes(
+    tmp_path: Path, operation: str
+) -> None:
+    target = (
+        "0009_deletion_requests:0010_deletion_execution"
+        if operation == "upgrade"
+        else "0010_deletion_execution:0009_deletion_requests"
+    )
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "alembic",
+            "-c",
+            str(ROOT / "alembic.ini"),
+            operation,
+            target,
+            "--sql",
+        ],
+        cwd=tmp_path,
+        env={
+            "PATH": os.defpath,
+            "HOME": str(tmp_path),
+            "PYTHONPATH": str(ROOT / "src"),
+            "DATABASE_URL": "postgresql://it1@postgres:5432/synthetic_ledger",
+        },
+        capture_output=True,
+        text=True,
+        timeout=15,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    verb = "CREATE" if operation == "upgrade" else "DROP"
+    tables = set(re.findall(rf"{verb} TABLE\s+(\w+)", result.stdout, re.IGNORECASE))
+    assert {"turn_tombstones", "deletion_outbox"} <= tables
+    assert "ALTER TABLE outbox" in result.stdout
+
+
+@pytest.mark.parametrize("operation", ["upgrade", "downgrade"])
 def test_deletion_revision_offline_changes_only_deletion_storage(
     tmp_path: Path, operation: str
 ) -> None:
