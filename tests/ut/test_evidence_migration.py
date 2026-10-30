@@ -105,3 +105,46 @@ def test_provision_revision_upgrades_from_bank_projection_offline(tmp_path: Path
     assert result.returncode == 0, result.stdout + result.stderr
     changes = re.findall(r"(?:CREATE|DROP|ALTER) TABLE\s+(\w+)", result.stdout)
     assert changes == ["provision_records"]
+
+
+@pytest.mark.parametrize("operation", ["upgrade", "downgrade"])
+def test_anchor_revision_offline_changes_only_anchor_storage(
+    tmp_path: Path, operation: str
+) -> None:
+    target = (
+        "0006_provision_records:0007_verbatim_anchors"
+        if operation == "upgrade"
+        else "0007_verbatim_anchors:0006_provision_records"
+    )
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "alembic",
+            "-c",
+            str(ROOT / "alembic.ini"),
+            operation,
+            target,
+            "--sql",
+        ],
+        cwd=tmp_path,
+        env={
+            "PATH": os.defpath,
+            "HOME": str(tmp_path),
+            "PYTHONPATH": str(ROOT / "src"),
+            "DATABASE_URL": "postgresql://it1@postgres:5432/synthetic_ledger",
+        },
+        capture_output=True,
+        text=True,
+        timeout=15,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    changes = re.findall(r"(?:CREATE|DROP|ALTER) TABLE\s+(\w+)", result.stdout)
+    assert changes == ["verbatim_anchors"]
+    extension = (
+        r"CREATE EXTENSION (?:IF NOT EXISTS )?pgroonga"
+        if operation == "upgrade"
+        else r"DROP EXTENSION pgroonga"
+    )
+    assert re.search(extension, result.stdout, re.IGNORECASE)

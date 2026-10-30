@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from typing import Literal
 from uuid import uuid4
 
+from ..anchors.service import AnchorItem, AnchorService
 from ..evidence.domain import EvidenceValidationError, Session
 from ..evidence.ports import EvidenceNotFound, EvidenceUnavailable
 from ..evidence.projection import bank_id
@@ -51,6 +52,7 @@ class RecallProvision:
     memories: tuple[MemoryItem, ...]
     source_spans: tuple[SourceSpan, ...]
     context: str | None
+    verbatim_anchors: tuple[AnchorItem, ...]
 
 
 def match_sources(
@@ -80,7 +82,6 @@ def match_sources(
 def _assemble(
     facts: tuple[RecalledFact, ...],
     candidates: dict[str, tuple[ProjectionSource, ...]],
-    format: Literal["materials", "assembled"],
 ) -> RecallProvision:
     memories: dict[str, MemoryItem] = {}
     spans: dict[str, SourceSpan] = {}
@@ -106,7 +107,8 @@ def _assemble(
         str(uuid4()),
         tuple(memories.values()),
         tuple(spans.values()),
-        "\n".join(span.text for span in spans.values()) if format == "assembled" else None,
+        None,
+        (),
     )
 
 
@@ -135,7 +137,7 @@ def provision_record(
         source_spans=tuple(
             ProvisionSpan(span.turn_id, span.start, span.end) for span in provision.source_spans
         ),
-        verbatim_anchor_ids=(),
+        verbatim_anchor_ids=tuple(anchor.anchor_id for anchor in provision.verbatim_anchors),
         temperament_version=None,
         personality_version=None,
         created_at=created_at,
@@ -152,12 +154,14 @@ class RecallService:
         evidence: EvidenceService,
         memory: MemoryRecall | None,
         provisions: ProvisionStore,
+        anchors: AnchorService,
         *,
         clock: Callable[[], datetime] = _utc_now,
     ) -> None:
         self._evidence = evidence
         self._memory = memory
         self._provisions = provisions
+        self._anchors = anchors
         self._clock = clock
 
     def _query(
@@ -196,7 +200,14 @@ class RecallService:
                 if documents
                 else {}
             )
-            provision = _assemble(facts, candidates, format)
+            provision = _assemble(facts, candidates)
+            anchors = await asyncio.to_thread(
+                self._anchors.for_recall,
+                character_id,
+                search,
+                frozenset(turn for memory in provision.memories for turn in memory.source_turn_ids),
+            )
+            provision = await asyncio.to_thread(self._with_anchors, provision, anchors, format)
             record = provision_record(
                 provision,
                 character_id=character_id,
@@ -213,3 +224,26 @@ class RecallService:
             raise RecallSourceNotFound() from None
         except (EvidenceUnavailable, EvidenceValidationError):
             raise RecallUnavailable() from None
+
+    def _with_anchors(
+        self,
+        provision: RecallProvision,
+        anchors: tuple[AnchorItem, ...],
+        format: Literal["materials", "assembled"],
+    ) -> RecallProvision:
+        spans = {span.turn_id: span for span in provision.source_spans}
+        for anchor in anchors:
+            if anchor.turn_id not in spans:
+                turn = self._evidence.get_turn(anchor.turn_id)
+                text = anchor.text
+                spans[turn.turn_id] = SourceSpan(
+                    turn.turn_id, 0, len(text), text, turn.actor, turn.language, False, 0, len(text)
+                )
+        return replace(
+            provision,
+            verbatim_anchors=anchors,
+            source_spans=tuple(spans.values()),
+            context="\n".join(span.text for span in spans.values())
+            if format == "assembled"
+            else None,
+        )

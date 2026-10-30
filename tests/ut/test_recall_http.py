@@ -21,6 +21,7 @@ from digital_souls_memory_hindsight.evidence.ports import EvidenceUnavailable
 from digital_souls_memory_hindsight.evidence.projection import bank_id, document_id
 from digital_souls_memory_hindsight.evidence.service import EvidenceService
 from digital_souls_memory_hindsight.evidence_http import evidence_router
+from tests.ut.test_anchor_http import AnchorStore, anchor_body
 from tests.ut.test_delivery_scope import NOW, Clock
 from tests.ut.test_evidence_http import MemoryStore, receipt_body, session_body, turn_body
 
@@ -76,6 +77,7 @@ class RecallHTTP:
     app: FastAPI
     memory: MemoryRecall
     provisions: ProvisionStore
+    anchors: AnchorStore
 
     def turn(self, client: TestClient, **changes: object) -> None:
         response = client.post("/turns", json=turn_body(**{"text": TEA, **changes}))
@@ -103,17 +105,22 @@ def application(
 ) -> RecallHTTP:
     service_module = importlib.import_module("digital_souls_memory_hindsight.recall.service")
     http_module = importlib.import_module("digital_souls_memory_hindsight.recall_http")
+    anchor_service = importlib.import_module("digital_souls_memory_hindsight.anchors.service")
+    anchor_http = importlib.import_module("digital_souls_memory_hindsight.anchor_http")
     store = store if store is not None else MemoryStore()
     evidence = EvidenceService(store, characters)
     memory = MemoryRecall()
     provisions = ProvisionStore()
+    anchors = AnchorStore()
+    anchor_instance = anchor_service.AnchorService(anchors, evidence, clock=Clock())
     service = service_module.RecallService(
-        evidence, memory if configured else None, provisions, clock=Clock()
+        evidence, memory if configured else None, provisions, anchor_instance, clock=Clock()
     )
     app = FastAPI()
     app.include_router(evidence_router(lambda: evidence))
     app.include_router(http_module.recall_router(lambda: service))
-    return RecallHTTP(app, memory, provisions)
+    app.include_router(anchor_http.anchor_router(lambda: anchor_instance))
+    return RecallHTTP(app, memory, provisions, anchors)
 
 
 def start(client: TestClient, **changes: object) -> None:
@@ -255,6 +262,7 @@ def test_each_response_has_a_new_uuid() -> None:
         record.memory_ids == () and record.source_spans == ()
         for record in h.provisions.records.values()
     )
+    assert h.anchors.matches == []
 
 
 def test_chunk_overlap_maps_sources_and_preserves_fact_order() -> None:
@@ -420,6 +428,7 @@ def test_production_app_exposes_recall_and_unconfigured_memory_is_503(
     monkeypatch.setenv("EVIDENCE_CHARACTER_IDS", '["char-a"]')
     monkeypatch.delenv("HINDSIGHT_URL", raising=False)
     module = importlib.reload(importlib.import_module("digital_souls_memory_hindsight.app"))
+    monkeypatch.setattr(module, "PostgresAnchorStore", MagicMock(return_value=AnchorStore()))
     store = MemoryStore()
     monkeypatch.setattr(module, "ledger_service", EvidenceService(store, frozenset({"char-a"})))
     worker = MagicMock()
@@ -432,11 +441,180 @@ def test_production_app_exposes_recall_and_unconfigured_memory_is_503(
                 transport=httpx.ASGITransport(app=module.app), base_url="http://service"
             ) as client:
                 assert (await client.post("/sessions", json=session_body())).status_code == 201
+                assert (await client.post("/turns", json=turn_body())).status_code == 201
+                anchor = await client.post(
+                    "/characters/char-a/verbatim-anchors", json=anchor_body()
+                )
+                assert anchor.status_code == 201, anchor.text
+                assert (
+                    await client.get("/characters/char-a/verbatim-anchors/anchor-1")
+                ).json() == anchor.json()
+                assert (await client.get("/characters/char-a/verbatim-anchors")).json() == [
+                    anchor.json()
+                ]
                 response = await client.post("/characters/char-a/recall", json=recall_body())
                 assert response.status_code == 503
                 assert response.json() == {"detail": "Recall unavailable"}
 
     asyncio.run(exercise())
+
+
+@pytest.mark.parametrize(
+    ("with_fact", "query"), [(True, "無関係な検索"), (True, "翡翠茶"), (False, "翡翠茶")]
+)
+@pytest.mark.parametrize("format", ["materials", "assembled"])
+def test_anchors_from_sources_or_query_are_returned_once_with_spans_and_record(
+    with_fact: bool, query: str, format: str
+) -> None:
+    h = application()
+    if with_fact:
+        h.memory.facts = (h.fact("tea"),)
+    with TestClient(h.app) as client:
+        start(client)
+        h.turn(client)
+        h.turn(client, turn_id="moon", text=MOON)
+        for identifier, turn in (("a-tea", "t-1"), ("b-tea", "t-1"), ("z-moon", "moon")):
+            response = client.post(
+                "/characters/char-a/verbatim-anchors",
+                json=anchor_body(anchor_id=identifier, turn_id=turn),
+            )
+            assert response.status_code == 201, response.text
+        response = client.post(
+            "/characters/char-a/recall", json=recall_body(query=query, format=format)
+        )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["verbatim_anchors"] == [
+        {"anchor_id": identifier, "turn_id": "t-1", "text": TEA}
+        for identifier in ("a-tea", "b-tea")
+    ]
+    assert len(body["memories"]) == (1 if with_fact else 0)
+    assert body["source_spans"] == [
+        {
+            "turn_id": "t-1",
+            "start": 0,
+            "end": len(TEA),
+            "text": TEA,
+            "actor": "char-a",
+            "language": "ja",
+            "truncated": False,
+            "original_start": 0,
+            "original_end": len(TEA),
+        }
+    ]
+    assert body["context"] == (TEA if format == "assembled" else None)
+    record = h.provisions.records[body["provision_id"]]
+    assert record.verbatim_anchor_ids == ("a-tea", "b-tea")
+    assert [asdict(span) for span in record.source_spans] == [
+        {"turn_id": "t-1", "start": 0, "end": len(TEA)}
+    ]
+
+
+def test_anchor_only_source_is_appended_to_existing_spans_and_assembled_context() -> None:
+    h = application()
+    h.memory.facts = (h.fact("moon", text=MOON, chunk_text=MOON),)
+    with TestClient(h.app) as client:
+        start(client)
+        h.turn(client)
+        h.turn(client, turn_id="moon", text=MOON)
+        created = client.post("/characters/char-a/verbatim-anchors", json=anchor_body())
+        assert created.status_code == 201, created.text
+        response = client.post("/characters/char-a/recall", json=recall_body(format="assembled"))
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert [s["turn_id"] for s in body["source_spans"]] == ["moon", "t-1"]
+    assert body["context"] == MOON + "\n" + TEA
+    assert body["verbatim_anchors"] == [{"anchor_id": "anchor-1", "turn_id": "t-1", "text": TEA}]
+
+
+def test_turn_query_matches_anchors_using_delivered_query_text() -> None:
+    h = application()
+    with TestClient(h.app) as client:
+        start(client)
+        h.turn(client, perceived_by=["char-a", "char-c"])
+        assert (
+            client.post(
+                "/turns/t-1/receipts", json=receipt_body(status="full", spoken_until=len(TEA))
+            ).status_code
+            == 201
+        )
+        created = client.post("/characters/char-c/verbatim-anchors", json=anchor_body())
+        assert created.status_code == 201, created.text
+        h.turn(
+            client, turn_id="query-turn", text="翡翠茶" + SECRET, perceived_by=["char-a", "char-c"]
+        )
+        assert (
+            client.post(
+                "/turns/query-turn/receipts",
+                json=receipt_body(status="partial", spoken_until=len("翡翠茶")),
+            ).status_code
+            == 201
+        )
+        response = client.post(
+            "/characters/char-c/recall",
+            json={"session_id": "s-1", "format": "materials", "turn_id": "query-turn"},
+        )
+    assert response.status_code == 200, response.text
+    assert response.json()["verbatim_anchors"] == [
+        {"anchor_id": "anchor-1", "turn_id": "t-1", "text": TEA}
+    ]
+    assert h.anchors.matches == [((("anchor-1", TEA),), "翡翠茶")]
+
+
+def test_same_anchor_follows_full_partial_and_revoked_delivery_across_recalls() -> None:
+    h = application()
+    h.memory.facts = (h.fact("tea", chunk_text=TEA + SECRET),)
+    with TestClient(h.app) as client:
+        start(client)
+        h.turn(client, text=TEA + SECRET, perceived_by=["char-a", "char-c"])
+        assert (
+            client.post(
+                "/turns/t-1/receipts",
+                json=receipt_body(status="full", spoken_until=len(TEA + SECRET)),
+            ).status_code
+            == 201
+        )
+        created = client.post("/characters/char-c/verbatim-anchors", json=anchor_body())
+        assert created.status_code == 201, created.text
+        for limit, expected in ((len(TEA + SECRET), TEA + SECRET), (len(TEA), TEA), (0, "")):
+            status = "none" if limit == 0 else "full" if limit == len(TEA + SECRET) else "partial"
+            assert (
+                client.post(
+                    "/turns/t-1/receipts", json=receipt_body(status=status, spoken_until=limit)
+                ).status_code
+                == 201
+            )
+            response = client.post(
+                "/characters/char-c/recall", json=recall_body(format="assembled")
+            )
+            assert response.status_code == 200, response.text
+            body = response.json()
+            assert body["verbatim_anchors"] == (
+                [{"anchor_id": "anchor-1", "turn_id": "t-1", "text": expected}] if expected else []
+            )
+            assert [s["text"] for s in body["source_spans"]] == ([expected] if expected else [])
+            assert body["context"] == expected
+            assert h.provisions.records[body["provision_id"]].verbatim_anchor_ids == (
+                ("anchor-1",) if expected else ()
+            )
+        other = client.post("/characters/char-b/recall", json=recall_body())
+        assert other.status_code == 200, other.text
+        assert other.json()["verbatim_anchors"] == other.json()["source_spans"] == []
+
+
+def test_anchor_lookup_failure_is_503_without_provision_and_next_request_can_succeed() -> None:
+    h = application()
+    with TestClient(h.app) as client:
+        start(client)
+        h.anchors.error = EvidenceUnavailable("synthetic private anchor detail")
+        failed = client.post("/characters/char-a/recall", json=recall_body())
+        assert failed.status_code == 503
+        assert failed.json() == {"detail": "Recall unavailable"}
+        assert h.provisions.records == {}
+        h.anchors.error = None
+        success = client.post("/characters/char-a/recall", json=recall_body())
+        assert success.status_code == 200, success.text
+        assert set(h.provisions.records) == {success.json()["provision_id"]}
 
 
 @pytest.mark.parametrize("format", ["materials", "assembled"])
@@ -565,9 +743,8 @@ def test_production_threshold_controls_response_and_records_abstention(
     monkeypatch.setenv("HINDSIGHT_URL", "http://hindsight:8888")
     monkeypatch.setenv("RECALL_MIN_RERANKER_SCORE", threshold)
     module = importlib.reload(importlib.import_module("digital_souls_memory_hindsight.app"))
+    monkeypatch.setattr(module, "PostgresAnchorStore", MagicMock(return_value=AnchorStore()))
     evidence = EvidenceService(MemoryStore(), frozenset({"char-a"}))
-    sources = MagicMock(wraps=evidence.projection_sources)
-    monkeypatch.setattr(evidence, "projection_sources", sources)
     monkeypatch.setattr(module, "ledger_service", evidence)
     provisions = ProvisionStore()
     monkeypatch.setattr(module, "PostgresProvisionStore", MagicMock(return_value=provisions))
@@ -621,7 +798,6 @@ def test_production_threshold_controls_response_and_records_abstention(
             assert body["context"] == ("" if format == "assembled" else None)
             assert record.memory_ids == ()
             assert record.source_spans == ()
-            sources.assert_not_called()
         else:
             assert [memory["id"] for memory in body["memories"]] == ["tea"]
             assert [span["text"] for span in body["source_spans"]] == [TEA]
