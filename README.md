@@ -128,8 +128,36 @@ world・experience・observationに同じ判定を使い、スコアがない候
 実際の値はepic 5のIT2で実モデルを使って決めます。
 有限な0〜1の数値だけを受け付け、空・非数値・非有限・範囲外は起動時に拒否します。
 
-全候補を除外してもHTTPは200で、`memories`・`source_spans`・`verbatim_anchors` は空配列です。
-`context` はassembledなら空文字、materialsならnullとなり、空の提供内容も1件記録します。
+全候補を除外してもHTTPは200で、`memories` は空配列です。問い合わせに一致するAnchorがあれば、
+`verbatim_anchors` とその原文区間を `source_spans` に返します。Anchorも一致しなければ両方空配列です。
+`context` はassembledなら全原文区間を改行で連結し、区間がなければ空文字、materialsならnullです。
+空の提供内容も1件記録します。
+
+## VerbatimAnchor API
+
+約束・記念日などの逐語本文を、承認者付きのTurn参照として登録します。本文のコピーは保存せず、
+登録・取得・想起の都度、台帳の現在の知覚本文を使います。
+
+| 操作 | 経路 | 成功時 |
+|---|---|---|
+| 登録 | `POST /characters/{character_id}/verbatim-anchors` | 201 |
+| 一覧 | `GET /characters/{character_id}/verbatim-anchors` | 200 |
+| 取得 | `GET /characters/{character_id}/verbatim-anchors/{anchor_id}` | 200 |
+
+要求は `anchor_id`、`turn_id`、`kind`、`reason`、`approved_by` の文字列5項目だけです。
+`kind` は `identity_statement`・`commitment`・`nickname`・`anniversary` のいずれかで、
+`reason` と `approved_by` は空白だけの値を拒否します。本文の指定はできません。
+`character_id`・`anchor_id`・`turn_id` は半角英数字・ハイフン・アンダースコアだけを許可します。
+承認は `approved_by` の必須指定で表し、別の承認操作は設けません。
+
+応答は要求の5項目と `character_id`、`registered_at`、`text` の8項目です。
+同じキャラの同じAnchor IDは409、存在しないキャラ・Turn・Anchor、知覚できない本文は404、
+検証違反は422、ストア障害は503です。知覚できなくなったAnchorは一覧から除外します。
+
+想起では、memoriesの出典Turnに対応するAnchorと、問い合わせに全文検索で一致するAnchorを同梱します。
+全文検索は `0007_verbatim_anchors` で有効にする台帳DBのPGroongaを使い、現在の知覚本文だけを検索します。
+`turn_id` 指定ではそのTurnの知覚本文を検索文に使い、rerankerの棄権でAnchorを除外しません。
+返したAnchorのIDは `ProvisionRecord.verbatim_anchor_ids` に記録します。
 
 ## IT1（実PostgreSQL・Hindsight、モデルはスタブ）
 

@@ -59,6 +59,13 @@ class SourceSpan(BaseModel):
     original_end: int
 
 
+class VerbatimAnchor(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    anchor_id: str
+    turn_id: str
+    text: str
+
+
 class RecallResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     provision_id: str
@@ -66,7 +73,7 @@ class RecallResponse(BaseModel):
     personality_version: None = None
     memories: list[MemoryItem]
     source_spans: list[SourceSpan]
-    verbatim_anchors: list[object] = Field(default_factory=list)
+    verbatim_anchors: list[VerbatimAnchor]
     context: str | None
 
 
