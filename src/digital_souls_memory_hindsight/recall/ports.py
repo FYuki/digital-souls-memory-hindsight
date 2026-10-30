@@ -28,6 +28,10 @@ class MemoryRecall(Protocol):
     async def recall(self, bank_id: str, query: str) -> tuple[RecalledFact, ...]: ...
 
 
+class DeletionBlocks(Protocol):
+    def blocked_sessions(self, character_id: str) -> frozenset[str]: ...
+
+
 class ProvisionConflict(Exception):
     """The provision identifier has already been recorded."""
 

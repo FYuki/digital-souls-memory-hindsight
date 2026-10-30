@@ -202,3 +202,6 @@ class EvidenceService:
 
     def list_perceived_turns(self, character_id: str) -> tuple[Turn, ...]:
         return self._store.list_perceived_turns(character_id)
+
+    def list_user_turns(self, user_id: str) -> tuple[Turn, ...]:
+        return self._store.list_user_turns(user_id)

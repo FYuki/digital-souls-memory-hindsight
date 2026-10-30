@@ -9,11 +9,14 @@ from hindsight_client import Hindsight
 
 from digital_souls_memory_hindsight.anchor_http import anchor_router
 from digital_souls_memory_hindsight.anchors.service import AnchorService
+from digital_souls_memory_hindsight.deletion.service import DeletionService
+from digital_souls_memory_hindsight.deletion_http import AuthorCredentials, deletion_router
 from digital_souls_memory_hindsight.evidence.service import EvidenceService
 from digital_souls_memory_hindsight.evidence_http import evidence_router
 from digital_souls_memory_hindsight.hindsight_recall import HindsightRecall
 from digital_souls_memory_hindsight.hindsight_retain import HindsightRetain
 from digital_souls_memory_hindsight.postgres_anchors import PostgresAnchorStore
+from digital_souls_memory_hindsight.postgres_deletion import PostgresDeletionStore
 from digital_souls_memory_hindsight.postgres_evidence import PostgresEvidenceStore
 from digital_souls_memory_hindsight.postgres_outbox import PostgresOutbox
 from digital_souls_memory_hindsight.postgres_provision import PostgresProvisionStore
@@ -32,6 +35,9 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
     application.state.anchor_service = AnchorService(
         PostgresAnchorStore(settings.database_url), ledger_service
     )
+    application.state.deletion_service = DeletionService(
+        PostgresDeletionStore(settings.database_url), ledger_service
+    )
     application.state.recall_service = RecallService(
         ledger_service,
         HindsightRecall(client, min_reranker_score=settings.recall_min_reranker_score)
@@ -39,6 +45,7 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
         else None,
         PostgresProvisionStore(settings.database_url),
         application.state.anchor_service,
+        application.state.deletion_service,
     )
     worker = Worker(
         PostgresOutbox(settings.database_url),
@@ -70,6 +77,14 @@ ledger_service = EvidenceService(
 app.include_router(evidence_router(lambda: ledger_service))
 app.include_router(recall_router(lambda: app.state.recall_service))
 app.include_router(anchor_router(lambda: app.state.anchor_service))
+app.include_router(
+    deletion_router(
+        lambda: app.state.deletion_service,
+        AuthorCredentials(app.state.settings.author_id, app.state.settings.author_token)
+        if app.state.settings.author_id is not None and app.state.settings.author_token is not None
+        else None,
+    )
+)
 
 
 @app.get("/health")

@@ -65,11 +65,14 @@ async def recall(
     storage = importlib.import_module("digital_souls_memory_hindsight.postgres_provision")
     anchor_service = importlib.import_module("digital_souls_memory_hindsight.anchors.service")
     anchor_store = importlib.import_module("digital_souls_memory_hindsight.postgres_anchors")
+    deletion = importlib.import_module("digital_souls_memory_hindsight.deletion.service")
+    deletion_store = importlib.import_module("digital_souls_memory_hindsight.postgres_deletion")
     instance = service.RecallService(
         p.service,
         adapter.HindsightRecall(client, min_reranker_score=min_reranker_score),
         storage.PostgresProvisionStore(p.database),
         anchor_service.AnchorService(anchor_store.PostgresAnchorStore(p.database), p.service),
+        deletion.DeletionService(deletion_store.PostgresDeletionStore(p.database), p.service),
         clock=p.clock,
     )
     app.include_router(http.recall_router(lambda: instance))
