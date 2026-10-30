@@ -7,6 +7,26 @@ from .evidence.ports import EvidenceUnavailable
 
 _COLUMNS = "character_id, anchor_id, turn_id, kind, reason, approved_by, registered_at"
 
+# A question rarely contains the anchor text verbatim ("土曜日の約束はいつ？"), so an
+# anchor also matches when it contains any content noun of the query. Pronouns,
+# suffixes, numerals and one-character nouns are too common to select anchors.
+_MATCH = """
+    SELECT a.anchor_id
+    FROM unnest(%s::text[], %s::text[]) AS a(anchor_id, text),
+        (SELECT %s::text AS value) AS q,
+        LATERAL (
+            SELECT coalesce(array_agg(DISTINCT t->>'value'), '{}') AS words
+            FROM unnest(
+                pgroonga_tokenize(q.value, 'tokenizer', 'TokenMecab("include_class", true)')
+            ) AS t
+            WHERE t->'metadata'->>'class' = '名詞'
+                AND coalesce(t->'metadata'->>'subclass0', '')
+                    NOT IN ('代名詞', '非自立', '接尾', '数')
+                AND char_length(t->>'value') >= 2
+        ) AS k
+    WHERE a.text &@~ pgroonga_query_escape(q.value) OR a.text &@| k.words
+"""
+
 
 class PostgresAnchorStore:
     def __init__(self, database_url: str) -> None:
@@ -63,8 +83,7 @@ class PostgresAnchorStore:
         try:
             with psycopg.connect(self._url, connect_timeout=5) as connection:
                 rows = connection.execute(
-                    "SELECT anchor_id FROM unnest(%s::text[], %s::text[]) AS a(anchor_id, text) "
-                    "WHERE text &@~ pgroonga_query_escape(%s)",
+                    _MATCH,
                     (
                         [identifier for identifier, _ in candidates],
                         [text for _, text in candidates],

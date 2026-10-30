@@ -47,23 +47,33 @@ def register(
     )
 
 
-def test_ledger_full_text_search_matches_projected_japanese_candidates(database: str) -> None:
-    with psycopg.connect(database, connect_timeout=5) as connection:
-        # Probe the planned SQL independently of the not-yet-written migration.
-        # Every test receives a separate disposable ledger database.
-        connection.execute("CREATE EXTENSION IF NOT EXISTS pgroonga")
-        for query, expected in (("土曜日の約束", "promise"), ("記念日", "anniversary")):
-            rows = connection.execute(
-                "SELECT anchor_id FROM unnest(%s::text[], %s::text[]) AS a(anchor_id, text) "
-                "WHERE text &@~ pgroonga_query_escape(%s)",
-                (["promise", "anniversary"], [PROMISE, ANNIVERSARY], query),
-            ).fetchall()
-            assert rows == [(expected,)]
+@pytest.mark.parametrize(
+    ("query", "expected"),
+    [
+        ("土曜日の約束", {"promise"}),
+        ("記念日", {"anniversary"}),
+        # Natural questions contain words absent from the anchor text.
+        ("土曜日の約束はいつ？", {"promise"}),
+        ("二人の記念日を覚えてる？", {"anniversary"}),
+        ("今日はいい天気ですね", set()),
+        ("いつ？", set()),
+    ],
+)
+def test_ledger_full_text_search_matches_japanese_questions(
+    database: str, query: str, expected: set[str]
+) -> None:
+    storage = importlib.import_module("digital_souls_memory_hindsight.postgres_anchors")
+    candidates = (("promise", PROMISE), ("anniversary", ANNIVERSARY))
+    assert storage.PostgresAnchorStore(database).match(candidates, query) == expected
 
 
 @pytest.mark.parametrize(
     ("kind", "text", "query"),
-    [("commitment", PROMISE, "土曜日の約束"), ("anniversary", ANNIVERSARY, "記念日")],
+    [
+        ("commitment", PROMISE, "土曜日の約束"),
+        ("anniversary", ANNIVERSARY, "記念日"),
+        ("commitment", PROMISE, "土曜日の約束はいつ？"),
+    ],
 )
 def test_japanese_anchor_survives_reranker_abstention_and_is_recorded(
     projection: Projection, kind: str, text: str, query: str
