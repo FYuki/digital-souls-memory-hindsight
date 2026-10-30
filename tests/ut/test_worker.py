@@ -9,12 +9,52 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from digital_souls_memory_hindsight.deletion.ports import DeletionStep
 from digital_souls_memory_hindsight.evidence.ports import EvidenceUnavailable
 from digital_souls_memory_hindsight.outbox import OutboxItem, RetainResult
+from tests.ut.test_deletion_execution import execution_setup
 from tests.ut.test_delivery_scope import NOW, Clock, draft, service_with_session
 from tests.ut.test_evidence_http import MemoryStore
 
 pytestmark = pytest.mark.ut
+
+
+@pytest.mark.parametrize(
+    "outcome", ["completed", "waiting", "failed", "not_configured", "exception"]
+)
+def test_empty_retain_queue_still_advances_deletion_and_records_safe_retry(outcome: str) -> None:
+    worker_module = importlib.import_module("digital_souls_memory_hindsight.worker")
+    _, queue, _, item = execution_setup()
+    queue.claim.return_value = item
+    deletion = MagicMock(spec=DeletionStep)
+    deletion.queue = queue
+    deletion.step = AsyncMock(return_value=outcome)
+    if outcome == "exception":
+        deletion.step.side_effect = TimeoutError("synthetic-private-body-and-connection")
+    retains = MagicMock()
+    retains.claim.return_value = None
+    service = service_with_session(MemoryStore(), Clock())
+    worker = worker_module.Worker(retains, None, service, clock=Clock(), deletion=deletion)
+    asyncio.run(worker.run_once())
+    deletion.step.assert_awaited_once_with(item)
+    if outcome == "completed":
+        queue.complete.assert_called_once_with(item, NOW)
+        queue.fail.assert_not_called()
+        queue.defer.assert_not_called()
+    elif outcome == "failed":
+        queue.fail.assert_called_once_with(item, NOW, "rebuild_failed")
+        queue.complete.assert_not_called()
+    else:
+        reason = (
+            "transport_error"
+            if outcome == "exception"
+            else "not_configured"
+            if outcome == "not_configured"
+            else "pending"
+        )
+        queue.defer.assert_called_once_with(item, NOW, NOW + timedelta(seconds=1), reason)
+        queue.complete.assert_not_called()
+        queue.fail.assert_not_called()
 
 
 def test_same_worker_confirms_expired_deliveries_even_with_an_empty_outbox() -> None:

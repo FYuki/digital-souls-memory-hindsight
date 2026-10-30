@@ -9,6 +9,23 @@ from typing import Literal
 DeletionStatus = Literal["accepted", "processing", "completed", "failed"]
 
 
+@dataclass(frozen=True)
+class DeletionItem:
+    request_id: str
+    status: str
+    attempts: int
+    available_at: datetime
+    lease_token: str | None
+    lease_until: datetime | None
+    last_error: str | None
+    completed_at: datetime | None
+    progress: dict[str, object]
+
+
+class DeletionLeaseLost(Exception):
+    """A deletion transaction no longer owns its execution lease."""
+
+
 class DeletionTransitionRejected(Exception):
     """The requested transition is not allowed or its previous state has changed."""
 

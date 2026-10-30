@@ -16,6 +16,8 @@ def test_lifespan_runs_worker_and_closes_client_on_exit(monkeypatch: pytest.Monk
     client = MagicMock()
     client.aclose = AsyncMock()
     monkeypatch.setattr(module, "Hindsight", MagicMock(return_value=client))
+    index_factory = MagicMock(wraps=module.HindsightDeletion)
+    monkeypatch.setattr(module, "HindsightDeletion", index_factory)
     worker = MagicMock()
     entered = asyncio.Event()
     stopped = asyncio.Event()
@@ -28,12 +30,17 @@ def test_lifespan_runs_worker_and_closes_client_on_exit(monkeypatch: pytest.Monk
             stopped.set()
 
     worker.run = run
-    monkeypatch.setattr(module, "Worker", MagicMock(return_value=worker))
+    worker_factory = MagicMock(return_value=worker)
+    monkeypatch.setattr(module, "Worker", worker_factory)
 
     async def exercise() -> None:
         async with module.app.router.lifespan_context(module.app):
             await asyncio.wait_for(entered.wait(), timeout=1)
             client.aclose.assert_not_awaited()
+            deletion = worker_factory.call_args.kwargs["deletion"]
+            assert isinstance(deletion, module.DeletionExecutor)
+            assert isinstance(deletion.queue, module.PostgresDeletionStore)
+            index_factory.assert_called_once_with(client)
         assert stopped.is_set()
         client.aclose.assert_awaited_once()
 

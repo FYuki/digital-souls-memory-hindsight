@@ -59,6 +59,8 @@ class EvidenceService:
         if self._character_ids is None:
             raise EvidenceUnavailable()
         with self._store.transaction() as store:
+            if store.is_tombstoned(value.turn_id):
+                raise EvidenceConflict()
             previous = store.get_turn(value.turn_id)
             if previous is not None:
                 if not matches_saved_turn(value, previous):
@@ -66,6 +68,8 @@ class EvidenceService:
                 return previous
             turn = prepare_turn(value, self._character_ids, self._clock())
             store.lock_session(turn.session_id)
+            if store.is_tombstoned(value.turn_id):
+                raise EvidenceConflict()
             previous = store.get_turn(value.turn_id)
             if previous is not None:
                 if not matches_saved_turn(value, previous):
