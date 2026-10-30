@@ -4,7 +4,7 @@ import json
 import math
 import os
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from .evidence.delivery import DEFAULT_DELIVERY_TIMEOUT_SECONDS
 
@@ -19,6 +19,8 @@ class Settings:
     delivery_timeout_seconds: int
     hindsight_url: str | None
     recall_min_reranker_score: float
+    author_id: str | None
+    author_token: str | None = field(repr=False)
 
 
 def load_settings() -> Settings:
@@ -49,10 +51,14 @@ def load_settings() -> Settings:
     )
     if not math.isfinite(recall_min_reranker_score) or not 0 <= recall_min_reranker_score <= 1:
         raise ValueError("RECALL_MIN_RERANKER_SCORE must be finite and between 0 and 1")
+    author_id = os.environ.get("MEMORY_AUTHOR_ID")
+    author_token = os.environ.get("MEMORY_AUTHOR_TOKEN")
     return Settings(
         database_url=database_url,
         character_ids=character_ids,
         delivery_timeout_seconds=timeout,
         hindsight_url=hindsight_url,
         recall_min_reranker_score=recall_min_reranker_score,
+        author_id=author_id if author_id is not None and author_id.strip() else None,
+        author_token=author_token if author_token is not None and author_token.strip() else None,
     )

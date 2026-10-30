@@ -181,6 +181,14 @@ class MemoryStore:
     def list_perceived_turns(self, character_id: str) -> tuple[Turn, ...]:
         return tuple(v for v in self.turns.values() if character_id in v.perceived_by)
 
+    def list_user_turns(self, user_id: str) -> tuple[Turn, ...]:
+        return tuple(
+            sorted(
+                (v for v in self.turns.values() if v.actor == user_id or user_id in v.addressees),
+                key=lambda v: v.turn_id,
+            )
+        )
+
     def add_ending(self, value: SessionEnding) -> tuple[SessionEnding, bool]:
         key = value.session_id
         previous = self.endings.get(key)

@@ -300,3 +300,15 @@ class PostgresEvidenceStore:
                 (character_id,),
             )
             return tuple(cursor.fetchall())
+
+    def list_user_turns(self, user_id: str) -> tuple[Turn, ...]:
+        with (
+            self._connection() as connection,
+            connection.cursor(row_factory=class_row(Turn)) as cursor,
+        ):
+            cursor.execute(
+                "SELECT * FROM turns WHERE actor = %s OR addressees @> ARRAY[%s]::text[] "
+                "ORDER BY turn_id",
+                (user_id, user_id),
+            )
+            return tuple(cursor.fetchall())

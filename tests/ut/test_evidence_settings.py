@@ -14,6 +14,8 @@ class Settings(Protocol):
     delivery_timeout_seconds: int
     hindsight_url: str | None
     recall_min_reranker_score: float
+    author_id: str | None
+    author_token: str | None
 
 
 class SettingsModule(Protocol):
@@ -136,3 +138,39 @@ def test_recall_threshold_rejects_invalid_values(
     )
     with pytest.raises(ValueError):
         module.load_settings()
+
+
+@pytest.mark.parametrize("name", ["MEMORY_AUTHOR_ID", "MEMORY_AUTHOR_TOKEN"])
+@pytest.mark.parametrize("raw", [None, "", " \t "])
+def test_missing_author_setting_is_unavailable_without_preventing_startup(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, name: str, raw: str | None
+) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("DATABASE_URL", "postgresql://it1@postgres:5432/synthetic_ledger")
+    monkeypatch.setenv("MEMORY_AUTHOR_ID", "synthetic-author")
+    monkeypatch.setenv("MEMORY_AUTHOR_TOKEN", "synthetic-token")
+    if raw is None:
+        monkeypatch.delenv(name)
+    else:
+        monkeypatch.setenv(name, raw)
+    module = cast(
+        SettingsModule, importlib.import_module("digital_souls_memory_hindsight.settings")
+    )
+    settings = module.load_settings()
+    assert (settings.author_id if name == "MEMORY_AUTHOR_ID" else settings.author_token) is None
+
+
+def test_author_settings_are_loaded_without_exposing_token_in_repr(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("DATABASE_URL", "postgresql://it1@postgres:5432/synthetic_ledger")
+    monkeypatch.setenv("MEMORY_AUTHOR_ID", "synthetic-author")
+    monkeypatch.setenv("MEMORY_AUTHOR_TOKEN", "synthetic-token")
+    module = cast(
+        SettingsModule, importlib.import_module("digital_souls_memory_hindsight.settings")
+    )
+    settings = module.load_settings()
+    assert settings.author_id == "synthetic-author"
+    assert settings.author_token == "synthetic-token"
+    assert "synthetic-token" not in repr(settings)

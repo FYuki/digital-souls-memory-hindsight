@@ -1,0 +1,137 @@
+"""Deletion persistence failures must not become successful acceptance or unblock recall."""
+
+import importlib
+from collections.abc import Iterator
+from contextlib import contextmanager
+from dataclasses import replace
+from typing import cast
+from unittest.mock import MagicMock
+
+import psycopg
+import pytest
+
+from digital_souls_memory_hindsight.deletion.domain import DeletionRequest, transition
+from digital_souls_memory_hindsight.deletion.ports import DeletionTransitionRejected
+from digital_souls_memory_hindsight.evidence.ports import EvidenceUnavailable
+from digital_souls_memory_hindsight.postgres_deletion import PostgresDeletionStore
+from tests.ut.test_delivery_scope import NOW
+
+pytestmark = pytest.mark.ut
+
+
+def request() -> DeletionRequest:
+    return DeletionRequest(
+        request_id="d",
+        requested_by="synthetic-author",
+        target_turn_ids=("t-1",),
+        status="accepted",
+        cascade_result=None,
+        error=None,
+        requested_at=NOW,
+        completed_at=None,
+        user_id=None,
+    )
+
+
+def test_add_returns_existing_request_without_adding_new_blocks(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    previous = request()
+    connection = MagicMock(spec=psycopg.Connection)
+    connection.__enter__.return_value = connection
+    connection.execute.return_value.fetchone.return_value = None
+    connection.cursor.return_value.__enter__.return_value.fetchone.return_value = previous
+    monkeypatch.setattr(psycopg, "connect", MagicMock(return_value=connection))
+    actual = PostgresDeletionStore("synthetic-db").add(previous, frozenset({("char-a", "s-1")}))
+    assert actual == previous
+    assert not any(
+        "INSERT INTO deletion_blocks" in call.args[0] for call in connection.execute.call_args_list
+    )
+
+
+@pytest.mark.parametrize("stage", ["connect", "request", "blocks", "commit"])
+def test_acceptance_storage_failure_does_not_return_success(
+    monkeypatch: pytest.MonkeyPatch, stage: str
+) -> None:
+    connection = MagicMock(spec=psycopg.Connection)
+    connection.execute.return_value.fetchone.return_value = ("d",)
+    if stage == "request":
+        connection.execute.side_effect = psycopg.OperationalError("synthetic insert failure")
+    if stage == "blocks":
+        connection.execute.side_effect = [
+            connection.execute.return_value,
+            psycopg.OperationalError("synthetic block failure"),
+        ]
+
+    @contextmanager
+    def connect(
+        url: str, *, connect_timeout: int
+    ) -> Iterator[psycopg.Connection[tuple[object, ...]]]:
+        if stage == "connect":
+            raise psycopg.OperationalError("synthetic connect failure")
+        yield cast(psycopg.Connection[tuple[object, ...]], connection)
+        if stage == "commit":
+            raise psycopg.OperationalError("synthetic commit failure")
+
+    monkeypatch.setattr(psycopg, "connect", connect)
+    with pytest.raises(EvidenceUnavailable):
+        PostgresDeletionStore("synthetic-db").add(request(), frozenset({("char-a", "s-1")}))
+
+
+@pytest.mark.parametrize("matched", [False, True])
+def test_transition_requires_matching_previous_status(
+    monkeypatch: pytest.MonkeyPatch, matched: bool
+) -> None:
+    updated = transition(request(), "processing", NOW)
+    connection = MagicMock(spec=psycopg.Connection)
+    connection.__enter__.return_value = connection
+    connection.execute.return_value.fetchone.return_value = ("d",) if matched else None
+    monkeypatch.setattr(psycopg, "connect", MagicMock(return_value=connection))
+    store = PostgresDeletionStore("synthetic-db")
+    if matched:
+        assert store.save_transition("accepted", updated) == updated
+    else:
+        with pytest.raises(DeletionTransitionRejected):
+            store.save_transition("accepted", updated)
+    assert connection.execute.call_args.args[1][-2:] == ("d", "accepted")
+
+
+def test_store_rejects_transition_that_skips_processing(monkeypatch: pytest.MonkeyPatch) -> None:
+    connect = MagicMock()
+    monkeypatch.setattr(psycopg, "connect", connect)
+    with pytest.raises(DeletionTransitionRejected):
+        PostgresDeletionStore("synthetic-db").save_transition(
+            "accepted", replace(request(), status="completed", completed_at=NOW)
+        )
+    connect.assert_not_called()
+
+
+@pytest.mark.parametrize("operation", ["get", "blocked_sessions"])
+@pytest.mark.parametrize("stage", ["connect", "execute", "commit"])
+def test_database_failure_is_unavailable_instead_of_empty_result(
+    monkeypatch: pytest.MonkeyPatch, operation: str, stage: str
+) -> None:
+    module = importlib.import_module("digital_souls_memory_hindsight.postgres_deletion")
+    connection = MagicMock(spec=psycopg.Connection)
+    connection.execute.return_value.fetchone.return_value = None
+    connection.execute.return_value.fetchall.return_value = []
+    cursor = connection.cursor.return_value.__enter__.return_value
+    cursor.fetchone.return_value = None
+    cursor.fetchall.return_value = []
+    if stage == "execute":
+        connection.execute.side_effect = psycopg.OperationalError("synthetic execute failure")
+        cursor.execute.side_effect = psycopg.OperationalError("synthetic cursor failure")
+
+    @contextmanager
+    def connect(
+        url: str, *, connect_timeout: int
+    ) -> Iterator[psycopg.Connection[tuple[object, ...]]]:
+        if stage == "connect":
+            raise psycopg.OperationalError("synthetic connection failure")
+        yield cast(psycopg.Connection[tuple[object, ...]], connection)
+        if stage == "commit":
+            raise psycopg.OperationalError("synthetic commit failure")
+
+    monkeypatch.setattr(psycopg, "connect", connect)
+    with pytest.raises(EvidenceUnavailable):
+        getattr(module.PostgresDeletionStore("synthetic-db"), operation)("synthetic-id")
