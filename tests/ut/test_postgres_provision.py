@@ -1,6 +1,7 @@
 """Provision storage translates DB failures and rejects duplicate inserts."""
 
 import importlib
+import re
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
@@ -29,7 +30,10 @@ def provision() -> object:
         classifier_version="fixture-1",
         memory_ids=("z-memory", "a-memory"),
         source_spans=(ports.ProvisionSpan("t-1", 2, 8),),
-        verbatim_anchor_ids=(),
+        verbatim_anchor_ids=("anchor-1",),
+        memory_trust=("inferred", "inferred"),
+        source_span_trust=("evidence",),
+        verbatim_anchor_trust=("evidence",),
         temperament_version=None,
         personality_version=None,
         created_at=datetime(2026, 10, 29, tzinfo=UTC),
@@ -72,3 +76,26 @@ def test_insert_without_returned_row_is_a_provision_conflict(
     monkeypatch.setattr(psycopg, "connect", MagicMock(return_value=connection))
     with pytest.raises(ports.ProvisionConflict):
         module.PostgresProvisionStore("synthetic-db").add(provision())
+
+
+def test_insert_transfers_trust_arrays_alongside_existing_content(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = importlib.import_module("digital_souls_memory_hindsight.postgres_provision")
+    connection = MagicMock(spec=psycopg.Connection)
+    connection.__enter__.return_value = connection
+    connection.execute.return_value.fetchone.return_value = ("synthetic-provision",)
+    monkeypatch.setattr(psycopg, "connect", MagicMock(return_value=connection))
+    module.PostgresProvisionStore("synthetic-db").add(provision())
+    statement, parameters = connection.execute.call_args.args
+    columns = re.search(r"INSERT INTO provision_records\s*\(([^)]+)\)", statement)
+    assert columns is not None
+    values = dict(
+        zip((column.strip() for column in columns[1].split(",")), parameters, strict=True)
+    )
+    assert values["memory_ids"] == ["z-memory", "a-memory"]
+    assert values["memory_trust"] == ["inferred", "inferred"]
+    assert values["source_spans"].obj == [{"turn_id": "t-1", "start": 2, "end": 8}]
+    assert values["source_span_trust"] == ["evidence"]
+    assert values["verbatim_anchor_ids"] == ["anchor-1"]
+    assert values["verbatim_anchor_trust"] == ["evidence"]

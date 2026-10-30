@@ -277,9 +277,15 @@ def test_recall_persists_response_and_duplicate_keeps_original_row(
             "memory_ids": tuple(row["memory_ids"]),
             "source_spans": tuple(ports.ProvisionSpan(**span) for span in row["source_spans"]),
             "verbatim_anchor_ids": tuple(row["verbatim_anchor_ids"]),
+            "memory_trust": tuple(row["memory_trust"]),
+            "source_span_trust": tuple(row["source_span_trust"]),
+            "verbatim_anchor_trust": tuple(row["verbatim_anchor_trust"]),
         }
     )
-    for duplicate in (record, replace(record, memory_ids=("replacement-forbidden",))):
+    for duplicate in (
+        record,
+        replace(record, memory_ids=("replacement-forbidden",), memory_trust=("inferred",)),
+    ):
         with pytest.raises(ports.ProvisionConflict):
             storage.PostgresProvisionStore(p.database).add(duplicate)
     with psycopg.connect(p.database, row_factory=dict_row, connect_timeout=5) as connection:
@@ -340,10 +346,19 @@ def test_reranker_abstains_on_unrelated_query_and_persists_empty_provision(
     provision_id = asyncio.run(exercise())
     with psycopg.connect(p.database, row_factory=dict_row, connect_timeout=5) as connection:
         rows = connection.execute(
-            "SELECT memory_ids, source_spans FROM provision_records WHERE provision_id = %s",
+            "SELECT memory_ids, source_spans, memory_trust, source_span_trust, "
+            "verbatim_anchor_trust FROM provision_records WHERE provision_id = %s",
             (provision_id,),
         ).fetchall()
-    assert rows == [{"memory_ids": [], "source_spans": []}]
+    assert rows == [
+        {
+            "memory_ids": [],
+            "source_spans": [],
+            "memory_trust": [],
+            "source_span_trust": [],
+            "verbatim_anchor_trust": [],
+        }
+    ]
     records = [
         json.loads(line) for line in Path(os.environ["STUB_REQUEST_LOG"]).read_text().splitlines()
     ]

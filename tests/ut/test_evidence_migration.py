@@ -12,6 +12,44 @@ pytestmark = pytest.mark.ut
 ROOT = Path(__file__).resolve().parents[2]
 
 
+@pytest.mark.parametrize("operation", ["upgrade", "downgrade"])
+def test_trust_revision_offline_changes_only_provision_storage(
+    tmp_path: Path, operation: str
+) -> None:
+    target = (
+        "0007_verbatim_anchors:0008_provision_trust"
+        if operation == "upgrade"
+        else "0008_provision_trust:0007_verbatim_anchors"
+    )
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "alembic",
+            "-c",
+            str(ROOT / "alembic.ini"),
+            operation,
+            target,
+            "--sql",
+        ],
+        cwd=tmp_path,
+        env={
+            "PATH": os.defpath,
+            "HOME": str(tmp_path),
+            "PYTHONPATH": str(ROOT / "src"),
+            "DATABASE_URL": "postgresql://it1@postgres:5432/synthetic_ledger",
+        },
+        capture_output=True,
+        text=True,
+        timeout=15,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    changes = re.findall(r"(?:CREATE|DROP|ALTER) TABLE\s+(\w+)", result.stdout)
+    assert changes
+    assert set(changes) == {"provision_records"}
+
+
 def test_upgrade_generates_four_evidence_tables(tmp_path: Path) -> None:
     result = subprocess.run(
         [

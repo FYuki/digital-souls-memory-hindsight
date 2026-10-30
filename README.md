@@ -133,6 +133,16 @@ world・experience・observationに同じ判定を使い、スコアがない候
 `context` はassembledなら全原文区間を改行で連結し、区間がなければ空文字、materialsならnullです。
 空の提供内容も1件記録します。
 
+想起応答の各要素には `trust` を追加します。Hindsightが抽出・統合した `memories` はすべて
+`inferred`、台帳の原文である `source_spans` と `verbatim_anchors` は `evidence` です。
+言及回数・統合回数・proof_countで区分は変わらず、このPhaseでは昇格・降格を行いません。
+区分はHindsightの外側で付け、応答と同じ提供内容から提供記録を作ります。
+
+`provision_records` には `memory_trust`・`source_span_trust`・`verbatim_anchor_trust` の3配列を
+保存し、各内容の配列と同じ順・件数で区分を記録します。空の内容では区分も空配列です。
+既存のID列と `source_spans` のJSON形式は変えません。`0008_provision_trust` は
+`0007_verbatim_anchors` に続き、既存行にも内容の種類と件数から区分を設定します。
+
 ## VerbatimAnchor API
 
 約束・記念日などの逐語本文を、承認者付きのTurn参照として登録します。本文のコピーは保存せず、
@@ -158,6 +168,7 @@ world・experience・observationに同じ判定を使い、スコアがない候
 全文検索は `0007_verbatim_anchors` で有効にする台帳DBのPGroongaを使い、現在の知覚本文だけを検索します。
 `turn_id` 指定ではそのTurnの知覚本文を検索文に使い、rerankerの棄権でAnchorを除外しません。
 返したAnchorのIDは `ProvisionRecord.verbatim_anchor_ids` に記録します。
+想起で返すAnchorの `trust` は `evidence` で、提供記録の `verbatim_anchor_trust` にも記録します。
 
 ## IT1（実PostgreSQL・Hindsight、モデルはスタブ）
 

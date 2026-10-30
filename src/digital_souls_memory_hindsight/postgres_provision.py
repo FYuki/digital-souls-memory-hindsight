@@ -19,8 +19,10 @@ class PostgresProvisionStore:
                     "INSERT INTO provision_records "
                     "(provision_id, kind, character_id, session_id, surface, query, turn_id, "
                     "sensitivity, classifier_version, memory_ids, source_spans, "
-                    "verbatim_anchor_ids, temperament_version, personality_version, created_at) "
-                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
+                    "verbatim_anchor_ids, memory_trust, source_span_trust, verbatim_anchor_trust, "
+                    "temperament_version, personality_version, created_at) "
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, "
+                    "%s, %s, %s) "
                     "ON CONFLICT (provision_id) DO NOTHING RETURNING provision_id",
                     (
                         value.provision_id,
@@ -40,6 +42,9 @@ class PostgresProvisionStore:
                             ]
                         ),
                         list(value.verbatim_anchor_ids),
+                        list(value.memory_trust),
+                        list(value.source_span_trust),
+                        list(value.verbatim_anchor_trust),
                         value.temperament_version,
                         value.personality_version,
                         value.created_at,
