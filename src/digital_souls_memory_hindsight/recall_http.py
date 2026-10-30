@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictStr, field_validator, m
 
 from .recall.ports import ProvisionConflict, RecallSourceNotFound, RecallUnavailable
 from .recall.service import RecallService
+from .recall.trust import Trust
 
 Nonempty = Annotated[StrictStr, Field(min_length=1)]
 
@@ -44,6 +45,7 @@ class MemoryItem(BaseModel):
     kind: str
     content: str
     source_turn_ids: list[str]
+    trust: Trust
 
 
 class SourceSpan(BaseModel):
@@ -57,6 +59,7 @@ class SourceSpan(BaseModel):
     truncated: bool
     original_start: int
     original_end: int
+    trust: Trust
 
 
 class VerbatimAnchor(BaseModel):
@@ -64,6 +67,7 @@ class VerbatimAnchor(BaseModel):
     anchor_id: str
     turn_id: str
     text: str
+    trust: Trust
 
 
 class RecallResponse(BaseModel):

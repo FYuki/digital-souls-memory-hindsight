@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
 
+from .trust import Trust
+
 
 class RecallSourceNotFound(Exception):
     """The requested recall source is absent or outside perception."""
@@ -51,6 +53,9 @@ class ProvisionRecord:
     memory_ids: tuple[str, ...]
     source_spans: tuple[ProvisionSpan, ...]
     verbatim_anchor_ids: tuple[str, ...]
+    memory_trust: tuple[Trust, ...]
+    source_span_trust: tuple[Trust, ...]
+    verbatim_anchor_trust: tuple[Trust, ...]
     temperament_version: str | None
     personality_version: str | None
     created_at: datetime

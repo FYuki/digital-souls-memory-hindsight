@@ -223,7 +223,13 @@ def test_response_matches_public_keys_types_and_japanese_json(format: str) -> No
     assert body["personality_version"] is None
     assert body["verbatim_anchors"] == []
     assert body["memories"] == [
-        {"id": "fact-tea", "kind": "world", "content": TEA, "source_turn_ids": ["t-1"]}
+        {
+            "id": "fact-tea",
+            "kind": "world",
+            "content": TEA,
+            "source_turn_ids": ["t-1"],
+            "trust": "inferred",
+        }
     ]
     assert body["source_spans"] == [
         {
@@ -236,6 +242,7 @@ def test_response_matches_public_keys_types_and_japanese_json(format: str) -> No
             "truncated": False,
             "original_start": 0,
             "original_end": len(TEA),
+            "trust": "evidence",
         }
     ]
     span = body["source_spans"][0]
@@ -265,6 +272,44 @@ def test_each_response_has_a_new_uuid() -> None:
     assert h.anchors.matches == []
 
 
+@pytest.mark.parametrize("kind", ["world", "experience", "observation"])
+def test_repeated_fact_with_growing_sources_stays_inferred(kind: str) -> None:
+    h = application()
+    h.memory.facts = (h.fact("same-fact", kind=kind), h.fact("same-fact", kind=kind))
+    with TestClient(h.app) as client:
+        start(client)
+        for count in range(1, 4):
+            h.turn(client, turn_id=f"mention-{count}")
+            response = client.post("/characters/char-a/recall", json=recall_body())
+            assert response.status_code == 200, response.text
+            body = response.json()
+            assert len(body["memories"]) == 1
+            memory = body["memories"][0]
+            assert memory["id"] == "same-fact"
+            assert set(memory["source_turn_ids"]) == {
+                f"mention-{index}" for index in range(1, count + 1)
+            }
+            assert memory["trust"] == "inferred"
+            assert [span["trust"] for span in body["source_spans"]] == ["evidence"] * count
+            record = asdict(h.provisions.records[body["provision_id"]])
+            assert record["memory_trust"] == ("inferred",)
+            assert record["source_span_trust"] == ("evidence",) * count
+
+
+def test_empty_recall_records_empty_trust_arrays() -> None:
+    h = application()
+    with TestClient(h.app) as client:
+        start(client)
+        response = client.post("/characters/char-a/recall", json=recall_body())
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["memories"] == body["source_spans"] == body["verbatim_anchors"] == []
+    record = asdict(h.provisions.records[body["provision_id"]])
+    assert record["memory_trust"] == ()
+    assert record["source_span_trust"] == ()
+    assert record["verbatim_anchor_trust"] == ()
+
+
 def test_chunk_overlap_maps_sources_and_preserves_fact_order() -> None:
     h = application()
     h.memory.facts = (
@@ -289,8 +334,15 @@ def test_chunk_overlap_maps_sources_and_preserves_fact_order() -> None:
             "kind": "observation",
             "content": "お茶についての統合事実",
             "source_turn_ids": ["t-1"],
+            "trust": "inferred",
         },
-        {"id": "a-second", "kind": "experience", "content": TEA, "source_turn_ids": ["t-1"]},
+        {
+            "id": "a-second",
+            "kind": "experience",
+            "content": TEA,
+            "source_turn_ids": ["t-1"],
+            "trust": "inferred",
+        },
     ]
     assert [span["turn_id"] for span in body["source_spans"]] == ["t-1"]
 
@@ -485,7 +537,7 @@ def test_anchors_from_sources_or_query_are_returned_once_with_spans_and_record(
     assert response.status_code == 200, response.text
     body = response.json()
     assert body["verbatim_anchors"] == [
-        {"anchor_id": identifier, "turn_id": "t-1", "text": TEA}
+        {"anchor_id": identifier, "turn_id": "t-1", "text": TEA, "trust": "evidence"}
         for identifier in ("a-tea", "b-tea")
     ]
     assert len(body["memories"]) == (1 if with_fact else 0)
@@ -500,6 +552,7 @@ def test_anchors_from_sources_or_query_are_returned_once_with_spans_and_record(
             "truncated": False,
             "original_start": 0,
             "original_end": len(TEA),
+            "trust": "evidence",
         }
     ]
     assert body["context"] == (TEA if format == "assembled" else None)
@@ -524,7 +577,17 @@ def test_anchor_only_source_is_appended_to_existing_spans_and_assembled_context(
     body = response.json()
     assert [s["turn_id"] for s in body["source_spans"]] == ["moon", "t-1"]
     assert body["context"] == MOON + "\n" + TEA
-    assert body["verbatim_anchors"] == [{"anchor_id": "anchor-1", "turn_id": "t-1", "text": TEA}]
+    assert body["verbatim_anchors"] == [
+        {"anchor_id": "anchor-1", "turn_id": "t-1", "text": TEA, "trust": "evidence"}
+    ]
+    assert [memory["trust"] for memory in body["memories"]] == ["inferred"]
+    assert [span["trust"] for span in body["source_spans"]] == ["evidence", "evidence"]
+    record = asdict(h.provisions.records[body["provision_id"]])
+    assert record["memory_trust"] == tuple(memory["trust"] for memory in body["memories"])
+    assert record["source_span_trust"] == tuple(span["trust"] for span in body["source_spans"])
+    assert record["verbatim_anchor_trust"] == tuple(
+        anchor["trust"] for anchor in body["verbatim_anchors"]
+    )
 
 
 def test_turn_query_matches_anchors_using_delivered_query_text() -> None:
@@ -556,7 +619,7 @@ def test_turn_query_matches_anchors_using_delivered_query_text() -> None:
         )
     assert response.status_code == 200, response.text
     assert response.json()["verbatim_anchors"] == [
-        {"anchor_id": "anchor-1", "turn_id": "t-1", "text": TEA}
+        {"anchor_id": "anchor-1", "turn_id": "t-1", "text": TEA, "trust": "evidence"}
     ]
     assert h.anchors.matches == [((("anchor-1", TEA),), "翡翠茶")]
 
@@ -590,7 +653,9 @@ def test_same_anchor_follows_full_partial_and_revoked_delivery_across_recalls() 
             assert response.status_code == 200, response.text
             body = response.json()
             assert body["verbatim_anchors"] == (
-                [{"anchor_id": "anchor-1", "turn_id": "t-1", "text": expected}] if expected else []
+                [{"anchor_id": "anchor-1", "turn_id": "t-1", "text": expected, "trust": "evidence"}]
+                if expected
+                else []
             )
             assert [s["text"] for s in body["source_spans"]] == ([expected] if expected else [])
             assert body["context"] == expected

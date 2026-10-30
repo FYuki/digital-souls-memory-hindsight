@@ -21,6 +21,7 @@ from .ports import (
     RecallSourceNotFound,
     RecallUnavailable,
 )
+from .trust import EVIDENCE, INFERRED, Trust
 
 MIN_OVERLAP = 8
 
@@ -31,6 +32,7 @@ class MemoryItem:
     kind: str
     content: str
     source_turn_ids: tuple[str, ...]
+    trust: Trust
 
 
 @dataclass(frozen=True)
@@ -44,6 +46,15 @@ class SourceSpan:
     truncated: bool
     original_start: int
     original_end: int
+    trust: Trust
+
+
+@dataclass(frozen=True)
+class RecalledAnchor:
+    anchor_id: str
+    turn_id: str
+    text: str
+    trust: Trust
 
 
 @dataclass(frozen=True)
@@ -52,7 +63,7 @@ class RecallProvision:
     memories: tuple[MemoryItem, ...]
     source_spans: tuple[SourceSpan, ...]
     context: str | None
-    verbatim_anchors: tuple[AnchorItem, ...]
+    verbatim_anchors: tuple[RecalledAnchor, ...]
 
 
 def match_sources(
@@ -92,7 +103,7 @@ def _assemble(
         identifiers = tuple(turn.turn_id for turn, _ in sources)
         previous = memories.get(fact.id)
         if previous is None:
-            memories[fact.id] = MemoryItem(fact.id, fact.kind, fact.text, identifiers)
+            memories[fact.id] = MemoryItem(fact.id, fact.kind, fact.text, identifiers, INFERRED)
         else:
             memories[fact.id] = replace(
                 previous,
@@ -101,7 +112,16 @@ def _assemble(
         for turn, text in sources:
             if turn.turn_id not in spans:
                 spans[turn.turn_id] = SourceSpan(
-                    turn.turn_id, 0, len(text), text, turn.actor, turn.language, False, 0, len(text)
+                    turn.turn_id,
+                    0,
+                    len(text),
+                    text,
+                    turn.actor,
+                    turn.language,
+                    False,
+                    0,
+                    len(text),
+                    EVIDENCE,
                 )
     return RecallProvision(
         str(uuid4()),
@@ -138,6 +158,9 @@ def provision_record(
             ProvisionSpan(span.turn_id, span.start, span.end) for span in provision.source_spans
         ),
         verbatim_anchor_ids=tuple(anchor.anchor_id for anchor in provision.verbatim_anchors),
+        memory_trust=tuple(memory.trust for memory in provision.memories),
+        source_span_trust=tuple(span.trust for span in provision.source_spans),
+        verbatim_anchor_trust=tuple(anchor.trust for anchor in provision.verbatim_anchors),
         temperament_version=None,
         personality_version=None,
         created_at=created_at,
@@ -237,11 +260,23 @@ class RecallService:
                 turn = self._evidence.get_turn(anchor.turn_id)
                 text = anchor.text
                 spans[turn.turn_id] = SourceSpan(
-                    turn.turn_id, 0, len(text), text, turn.actor, turn.language, False, 0, len(text)
+                    turn.turn_id,
+                    0,
+                    len(text),
+                    text,
+                    turn.actor,
+                    turn.language,
+                    False,
+                    0,
+                    len(text),
+                    EVIDENCE,
                 )
         return replace(
             provision,
-            verbatim_anchors=anchors,
+            verbatim_anchors=tuple(
+                RecalledAnchor(anchor.anchor_id, anchor.turn_id, anchor.text, EVIDENCE)
+                for anchor in anchors
+            ),
             source_spans=tuple(spans.values()),
             context="\n".join(span.text for span in spans.values())
             if format == "assembled"

@@ -104,7 +104,7 @@ def test_japanese_anchor_survives_reranker_abstention_and_is_recorded(
     body = response.json()
     assert body["memories"] == []
     assert body["verbatim_anchors"] == [
-        {"anchor_id": "anchor-1", "turn_id": "anchor-source", "text": text}
+        {"anchor_id": "anchor-1", "turn_id": "anchor-source", "text": text, "trust": "evidence"}
     ]
     assert [(s["turn_id"], s["start"], s["end"], s["text"]) for s in body["source_spans"]] == [
         ("anchor-source", 0, len(text), text)
@@ -140,7 +140,12 @@ def test_full_text_search_uses_delivered_prefix_and_isolates_other_characters(
             allowed = await recall(p, client, b, "土曜日の約束", min_reranker_score=1.0)
             assert allowed.status_code == 200, allowed.text
             assert allowed.json()["verbatim_anchors"] == [
-                {"anchor_id": "partial", "turn_id": "partial-source", "text": PROMISE}
+                {
+                    "anchor_id": "partial",
+                    "turn_id": "partial-source",
+                    "text": PROMISE,
+                    "trust": "evidence",
+                }
             ]
             for character, query in ((b, "記念日"), (c, "土曜日の約束")):
                 denied = await recall(p, client, character, query, min_reranker_score=1.0)
