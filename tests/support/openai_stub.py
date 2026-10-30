@@ -17,6 +17,7 @@ from uuid import uuid4
 DIMENSIONS = 384
 CHAT_PATH = "/v1/chat/completions"
 EMBEDDINGS_PATH = "/v1/embeddings"
+RERANK_PATH = "/v1/rerank"
 CONSOLIDATION_PROMPT = "You are a memory consolidation system"
 
 
@@ -299,13 +300,45 @@ def embeddings(request: dict[str, object]) -> dict[str, object]:
     }
 
 
+def reranker_score(query: str, document: str) -> float:
+    query = "".join(query.split())
+    document = "".join(document.split())
+    if not query:
+        return 0.0
+    width = min(2, len(query))
+    grams = {query[index : index + width] for index in range(len(query) - width + 1)}
+    return sum(gram in document for gram in grams) / len(grams)
+
+
+def rerank(request: dict[str, object]) -> dict[str, object]:
+    query = request["query"]
+    documents = _array(request["documents"])
+    if not isinstance(query, str) or not all(isinstance(text, str) for text in documents):
+        raise ValueError("Rerank requires a string query and string documents")
+    return {
+        "results": [
+            {"index": index, "relevance_score": reranker_score(query, cast(str, text))}
+            for index, text in enumerate(documents)
+        ]
+    }
+
+
 @contextmanager
 def hold_response(
     control_dir: Path | None, request: dict[str, object], *, timeout_seconds: float = 60
 ) -> Iterator[None]:
     text = json.dumps(request, ensure_ascii=False)
     gate = (
-        next((path for path in control_dir.iterdir() if path.is_dir() and path.name in text), None)
+        next(
+            (
+                path
+                for path in control_dir.iterdir()
+                if path.is_dir()
+                and path.name in text
+                and (not path.name.startswith("consolidation-") or CONSOLIDATION_PROMPT in text)
+            ),
+            None,
+        )
         if control_dir is not None
         else None
     )
@@ -359,7 +392,7 @@ class Handler(BaseHTTPRequestHandler):
             self._send(404, {"error": "Unknown endpoint"})
 
     def do_POST(self) -> None:
-        if self.path not in (CHAT_PATH, EMBEDDINGS_PATH):
+        if self.path not in (CHAT_PATH, EMBEDDINGS_PATH, RERANK_PATH):
             self._send(404, {"error": "Unknown endpoint"})
             return
         try:
@@ -371,8 +404,10 @@ class Handler(BaseHTTPRequestHandler):
             if self.path == CHAT_PATH:
                 with hold_response(self.server.control_dir, request):
                     self._send(200, chat_completion(request))
-            else:
+            elif self.path == EMBEDDINGS_PATH:
                 self._send(200, embeddings(request))
+            else:
+                self._send(200, rerank(request))
         except TimeoutError:
             self._send(503, {"error": "Fixture response was not released"})
         except (ValueError, KeyError, TypeError):

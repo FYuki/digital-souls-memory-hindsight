@@ -119,6 +119,57 @@ Hindsight の failed／cancelled は outbox の failed に残し、自動で成�
 `HINDSIGHT_URL` 未設定でもmigration・healthは利用できますが、取り込みは
 `not_configured` として再試行待ちになります。本文や未加工の外部例外は失敗情報へ保存しません。
 
+## 想起の棄権
+
+`POST /characters/{character_id}/recall` は、Hindsightの候補自身の `scores.reranker` が
+`RECALL_MIN_RERANKER_SCORE` 未満なら、原文への対応付け前に除外します。
+world・experience・observationに同じ判定を使い、スコアがない候補も除外します。
+閾値はサービス起動時に読み込み、未設定なら仮の既定値0.5を使います。
+実際の値はepic 5のIT2で実モデルを使って決めます。
+有限な0〜1の数値だけを受け付け、空・非数値・非有限・範囲外は起動時に拒否します。
+
+全候補を除外してもHTTPは200で、`memories` は空配列です。問い合わせに一致するAnchorがあれば、
+`verbatim_anchors` とその原文区間を `source_spans` に返します。Anchorも一致しなければ両方空配列です。
+`context` はassembledなら全原文区間を改行で連結し、区間がなければ空文字、materialsならnullです。
+空の提供内容も1件記録します。
+
+想起応答の各要素には `trust` を追加します。Hindsightが抽出・統合した `memories` はすべて
+`inferred`、台帳の原文である `source_spans` と `verbatim_anchors` は `evidence` です。
+言及回数・統合回数・proof_countで区分は変わらず、このPhaseでは昇格・降格を行いません。
+区分はHindsightの外側で付け、応答と同じ提供内容から提供記録を作ります。
+
+`provision_records` には `memory_trust`・`source_span_trust`・`verbatim_anchor_trust` の3配列を
+保存し、各内容の配列と同じ順・件数で区分を記録します。空の内容では区分も空配列です。
+既存のID列と `source_spans` のJSON形式は変えません。`0008_provision_trust` は
+`0007_verbatim_anchors` に続き、既存行にも内容の種類と件数から区分を設定します。
+
+## VerbatimAnchor API
+
+約束・記念日などの逐語本文を、承認者付きのTurn参照として登録します。本文のコピーは保存せず、
+登録・取得・想起の都度、台帳の現在の知覚本文を使います。
+
+| 操作 | 経路 | 成功時 |
+|---|---|---|
+| 登録 | `POST /characters/{character_id}/verbatim-anchors` | 201 |
+| 一覧 | `GET /characters/{character_id}/verbatim-anchors` | 200 |
+| 取得 | `GET /characters/{character_id}/verbatim-anchors/{anchor_id}` | 200 |
+
+要求は `anchor_id`、`turn_id`、`kind`、`reason`、`approved_by` の文字列5項目だけです。
+`kind` は `identity_statement`・`commitment`・`nickname`・`anniversary` のいずれかで、
+`reason` と `approved_by` は空白だけの値を拒否します。本文の指定はできません。
+`character_id`・`anchor_id`・`turn_id` は半角英数字・ハイフン・アンダースコアだけを許可します。
+承認は `approved_by` の必須指定で表し、別の承認操作は設けません。
+
+応答は要求の5項目と `character_id`、`registered_at`、`text` の8項目です。
+同じキャラの同じAnchor IDは409、存在しないキャラ・Turn・Anchor、知覚できない本文は404、
+検証違反は422、ストア障害は503です。知覚できなくなったAnchorは一覧から除外します。
+
+想起では、memoriesの出典Turnに対応するAnchorと、問い合わせに全文検索で一致するAnchorを同梱します。
+全文検索は `0007_verbatim_anchors` で有効にする台帳DBのPGroongaを使い、現在の知覚本文だけを検索します。
+`turn_id` 指定ではそのTurnの知覚本文を検索文に使い、rerankerの棄権でAnchorを除外しません。
+返したAnchorのIDは `ProvisionRecord.verbatim_anchor_ids` に記録します。
+想起で返すAnchorの `trust` は `evidence` で、提供記録の `verbatim_anchor_trust` にも記録します。
+
 ## IT1（実PostgreSQL・Hindsight、モデルはスタブ）
 
 Docker EngineとDocker Composeを用意し、次を実行します。CIの `it1` も同じ入口を使います。
@@ -131,8 +182,9 @@ bash scripts/run-it1.sh
 `internal: true` の専用ネットワークで起動します。ホストへのポート公開はしません。
 台帳の `ledger` とHindsightの `hindsight` は同一PostgreSQLインスタンス上の別DBです。
 DBのDockerfileとpackages.lockは `digital-souls-memory@a5e386c` から変更せず取り込んでいます。
-Hindsightは指定digestの `1.1.0-slim`、全文検索はPGroonga、rerankerはrrfを使い、
-LLM・embeddingだけを標準ライブラリ製のOpenAI互換スタブへ向けます。自動統合は有効のままです。
+Hindsightは指定digestの `1.1.0-slim`、全文検索はPGroongaを使います。
+LLM・embeddingは標準ライブラリ製のOpenAI互換スタブ、rerankerは同じスタブの
+Cohere互換エンドポイントへ向けます。自動統合は有効のままです。
 
 試験はhealth、Alembic upgrade、日本語のretain・recall、自動統合の要求記録、外部TCP接続の
 失敗を確認します。スタブの成功は実モデルの精度・性能の証拠ではありません。実モデルは呼びません。

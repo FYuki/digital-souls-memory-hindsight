@@ -31,6 +31,10 @@ class Stub(Protocol):
 
     def embeddings(self, request: dict[str, object]) -> dict[str, object]: ...
 
+    def reranker_score(self, query: str, document: str) -> float: ...
+
+    def rerank(self, request: dict[str, object]) -> dict[str, object]: ...
+
     def hold_response(
         self, control_dir: Path | None, request: dict[str, object], *, timeout_seconds: float = 60
     ) -> AbstractContextManager[None]: ...
@@ -378,6 +382,14 @@ def test_server_initializes_request_log_without_starting_on_import(
         ("POST", "/v1/chat/completions", b'{"messages":[{"role":"user","content":"Say ok"}]}', 200),
         ("POST", "/v1/embeddings", '{"input":["お茶","架空の猫"]}'.encode(), 200),
         ("POST", "/v1/embeddings", b'{"input":[1]}', 400),
+        (
+            "POST",
+            "/v1/rerank",
+            b'{"model":"stub","query":"tea","documents":["tea"],"return_documents":false}',
+            200,
+        ),
+        ("POST", "/v1/rerank", b'{"query":"tea","documents":[1]}', 400),
+        ("POST", "/v1/rerank", b'{"query":null,"documents":["tea"]}', 400),
         ("POST", "/v1/chat/completions", b'{"messages":null}', 400),
         ("POST", "/v1/chat/completions", b"{broken", 400),
         ("POST", "/unknown", b"{}", 404),
@@ -411,11 +423,99 @@ def test_http_handler_returns_protocol_response_and_records_received_request(
         assert "error" in decoded
     if (
         method == "POST"
-        and path in ("/v1/chat/completions", "/v1/embeddings")
+        and path in ("/v1/chat/completions", "/v1/embeddings", "/v1/rerank")
         and body != b"{broken"
     ):
         records = [json.loads(line) for line in log.read_text().splitlines()]
         assert records == [{"path": path, "req": json.loads(body)}]
+
+
+def rerank_scores(stub: Stub, tmp_path: Path, query: str, documents: list[str]) -> dict[int, float]:
+    # CohereCrossEncoder's custom base_url is the complete URL; it sends no top_n.
+    body = json.dumps(
+        {"model": "stub", "query": query, "documents": documents, "return_documents": False}
+    ).encode()
+    request = f"POST /v1/rerank HTTP/1.0\r\nContent-Length: {len(body)}\r\n\r\n".encode() + body
+    output = bytearray()
+
+    class Connection:
+        def makefile(self, mode: str, buffering: int) -> BytesIO:
+            return BytesIO(request)
+
+        def sendall(self, data: bytes) -> None:
+            output.extend(data)
+
+    server = SimpleNamespace(
+        request_log=tmp_path / "requests.jsonl", log_lock=threading.Lock(), control_dir=None
+    )
+    stub.Handler(
+        cast("socket.socket", Connection()), ("127.0.0.1", 12345), cast(HTTPServer, server)
+    )
+    headers, response = bytes(output).split(b"\r\n\r\n", 1)
+    assert int(headers.splitlines()[0].split()[1]) == 200
+    results = json.loads(response)["results"]
+    assert len(results) == len(documents)
+    assert {item["index"] for item in results} == set(range(len(documents)))
+    assert all(type(item["index"]) is int for item in results)
+    scores = {item["index"]: item["relevance_score"] for item in results}
+    assert all(isinstance(score, (int, float)) and 0 <= score <= 1 for score in scores.values())
+    return scores
+
+
+def test_reranker_scores_japanese_overlap_deterministically(stub: Stub, tmp_path: Path) -> None:
+    documents = ["架空の花子は翡翠茶を飲みます。"]
+    first = rerank_scores(stub, tmp_path, "翡翠茶", documents)
+    assert 0 < first[0] <= 1
+    assert rerank_scores(stub, tmp_path, "翡翠茶", documents) == first
+
+
+@pytest.mark.parametrize(
+    ("query", "document", "expected"),
+    [
+        ("茶", "翡翠茶", 1.0),
+        ("茶", "珈琲", 0.0),
+        ("", "翡翠茶", 0.0),
+        (" \n", "翡翠茶", 0.0),
+        ("翡翠茶", "翡翠", 0.5),
+        (" 翡 翠茶 ", "翡\n翠 茶", 1.0),
+    ],
+)
+def test_reranker_scores_character_overlap(
+    stub: Stub, query: str, document: str, expected: float
+) -> None:
+    assert stub.reranker_score(query, document) == expected
+
+
+def test_rerank_preserves_document_indices_and_accepts_empty_candidates(stub: Stub) -> None:
+    assert stub.rerank({"query": "茶", "documents": ["珈琲", "翡翠茶"]}) == {
+        "results": [{"index": 0, "relevance_score": 0.0}, {"index": 1, "relevance_score": 1.0}]
+    }
+    assert stub.rerank({"query": "茶", "documents": []}) == {"results": []}
+
+
+def test_reranker_ranks_more_overlap_higher(stub: Stub, tmp_path: Path) -> None:
+    scores = rerank_scores(
+        stub,
+        tmp_path,
+        "東京タワー",
+        [
+            "架空の花子は翡翠茶を飲みます。",
+            "架空の花子は10月31日に東京タワーで土曜日の約束を守ります。",
+        ],
+    )
+    assert scores[1] > scores[0]
+
+
+def test_reranker_without_overlap_scores_below_default_threshold(
+    stub: Stub, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("DATABASE_URL", "postgresql://it1@postgres:5432/synthetic_ledger")
+    monkeypatch.delenv("RECALL_MIN_RERANKER_SCORE", raising=False)
+    scores = rerank_scores(stub, tmp_path, "コーヒー", ["架空の花子は翡翠茶を飲みます。"])
+    settings = importlib.import_module("digital_souls_memory_hindsight.settings").load_settings()
+    assert scores[0] == pytest.approx(0, abs=0.01)
+    assert scores[0] < settings.recall_min_reranker_score
 
 
 def test_response_waits_for_release_and_records_completion(stub: Stub, tmp_path: Path) -> None:
@@ -466,3 +566,30 @@ def test_response_gate_timeout_finishes_without_success(stub: Stub, tmp_path: Pa
     with pytest.raises(TimeoutError), stub.hold_response(tmp_path, request, timeout_seconds=0):
         pytest.fail("An unreleased request must not receive a fixture response")
     assert len(list(gate.glob("entered/*"))) == len(list(gate.glob("finished/*"))) == 1
+
+
+@pytest.mark.parametrize("consolidation", [False, True])
+def test_consolidation_gate_holds_only_consolidation(
+    stub: Stub, tmp_path: Path, consolidation: bool
+) -> None:
+    gate = tmp_path / "consolidation-synthetic-marker"
+    gate.mkdir()
+    request: dict[str, object] = {
+        "messages": [
+            {
+                "role": "system",
+                "content": "You are a memory consolidation system"
+                if consolidation
+                else "Extract facts.",
+            },
+            {"role": "user", "content": "Content: " + gate.name},
+        ]
+    }
+    if consolidation:
+        with pytest.raises(TimeoutError), stub.hold_response(tmp_path, request, timeout_seconds=0):
+            pytest.fail("Consolidation must remain blocked until release")
+        assert len(list(gate.glob("entered/*"))) == len(list(gate.glob("finished/*"))) == 1
+    else:
+        with stub.hold_response(tmp_path, request, timeout_seconds=0):
+            pass
+        assert not list(gate.glob("entered/*"))
