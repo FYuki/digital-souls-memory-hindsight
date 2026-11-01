@@ -11,7 +11,8 @@ from .outbox import OutboxItem
 
 _COLUMNS = (
     "turn_id, bank_id, document_id, content, occurred_at, status, attempts, "
-    "available_at, lease_token, lease_until, last_error, completed_at, update_mode, source_scope_id"
+    "available_at, lease_token, lease_until, last_error, completed_at, update_mode, "
+    "source_scope_id, deletion_request_id"
 )
 
 

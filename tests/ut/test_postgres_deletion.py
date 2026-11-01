@@ -4,13 +4,19 @@ import importlib
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import replace
+from datetime import timedelta
 from typing import cast
 from unittest.mock import MagicMock
 
 import psycopg
 import pytest
 
-from digital_souls_memory_hindsight.deletion.domain import DeletionRequest, transition
+from digital_souls_memory_hindsight.deletion.domain import (
+    DeletionItem,
+    DeletionLeaseLost,
+    DeletionRequest,
+    transition,
+)
 from digital_souls_memory_hindsight.deletion.ports import DeletionTransitionRejected
 from digital_souls_memory_hindsight.evidence.ports import EvidenceUnavailable
 from digital_souls_memory_hindsight.postgres_deletion import PostgresDeletionStore
@@ -33,6 +39,90 @@ def request() -> DeletionRequest:
     )
 
 
+@pytest.mark.parametrize("operation", ["progress", "ledger", "provisions"])
+def test_expired_or_replaced_deletion_lease_prevents_writes(
+    monkeypatch: pytest.MonkeyPatch, operation: str
+) -> None:
+    connection = MagicMock(spec=psycopg.Connection)
+    connection.__enter__.return_value = connection
+    connection.execute.return_value.fetchone.return_value = None
+    monkeypatch.setattr(psycopg, "connect", MagicMock(return_value=connection))
+    item = DeletionItem("d", "processing", 1, NOW, "old-lease", NOW, None, None, {})
+    store = PostgresDeletionStore("synthetic-db")
+    with pytest.raises(DeletionLeaseLost):
+        if operation == "progress":
+            store.save_progress(item, {"ledger_done": True}, NOW)
+        elif operation == "ledger":
+            store.delete_turns(item, request(), NOW)
+        else:
+            store.delete_provisions_for_memories(item, "char-a", frozenset({"m"}), NOW)
+    connection.execute.assert_called_once()
+    assert connection.execute.call_args.args[1] == ("d", "old-lease", NOW)
+    assert connection.__exit__.call_args.args[0] is DeletionLeaseLost
+
+
+@pytest.mark.parametrize("matched", [True, False])
+@pytest.mark.parametrize("finish", ["complete", "defer", "fail"])
+def test_deletion_queue_finish_is_fenced_by_current_lease(
+    monkeypatch: pytest.MonkeyPatch, matched: bool, finish: str
+) -> None:
+    connection = MagicMock(spec=psycopg.Connection)
+    connection.__enter__.return_value = connection
+    connection.execute.return_value.fetchone.return_value = ("d",) if matched else None
+    monkeypatch.setattr(psycopg, "connect", MagicMock(return_value=connection))
+    item = DeletionItem(
+        "d", "processing", 1, NOW, "lease", NOW + timedelta(seconds=60), None, None, {}
+    )
+    store = PostgresDeletionStore("synthetic-db")
+    if finish == "complete":
+        result = store.complete(item, NOW)
+    elif finish == "defer":
+        result = store.defer(item, NOW, NOW + timedelta(seconds=1), "pending")
+    else:
+        result = store.fail(item, NOW, "rebuild_failed")
+    assert result == matched
+    sql, parameters = connection.execute.call_args.args
+    assert parameters[-3:] == ("d", "lease", NOW)
+    assert "lease_until > %s" in sql and "status = 'processing'" in sql
+
+
+@pytest.mark.parametrize("seconds", [0, -1])
+def test_deletion_queue_rejects_nonpositive_lease_before_connecting(
+    monkeypatch: pytest.MonkeyPatch, seconds: int
+) -> None:
+    connect = MagicMock()
+    monkeypatch.setattr(psycopg, "connect", connect)
+    with pytest.raises(ValueError):
+        PostgresDeletionStore("synthetic-db").claim(NOW, timedelta(seconds=seconds))
+    connect.assert_not_called()
+
+
+def test_deletion_claim_returns_saved_progress_and_can_reclaim_expired_lease(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    item = DeletionItem(
+        "d",
+        "processing",
+        2,
+        NOW,
+        "new-lease",
+        NOW + timedelta(seconds=60),
+        None,
+        None,
+        {"memory_snapshot": {"char-a": ["m"]}},
+    )
+    connection = MagicMock(spec=psycopg.Connection)
+    connection.__enter__.return_value = connection
+    cursor = connection.cursor.return_value.__enter__.return_value
+    cursor.fetchone.return_value = item
+    monkeypatch.setattr(psycopg, "connect", MagicMock(return_value=connection))
+    assert PostgresDeletionStore("synthetic-db").claim(NOW, timedelta(seconds=60)) == item
+    sql, parameters = cursor.execute.call_args.args
+    assert "lease_until <= %s" in sql
+    assert parameters[:2] == (NOW, NOW)
+    assert parameters[-1] == NOW + timedelta(seconds=60)
+
+
 def test_add_returns_existing_request_without_adding_new_blocks(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -47,6 +137,51 @@ def test_add_returns_existing_request_without_adding_new_blocks(
     assert not any(
         "INSERT INTO deletion_blocks" in call.args[0] for call in connection.execute.call_args_list
     )
+    assert not any(
+        "INSERT INTO deletion_outbox" in call.args[0] for call in connection.execute.call_args_list
+    )
+
+
+def test_new_acceptance_enqueues_deletion_on_the_same_connection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    connection = MagicMock(spec=psycopg.Connection)
+    connection.__enter__.return_value = connection
+    connection.execute.return_value.fetchone.return_value = ("d",)
+    connect = MagicMock(return_value=connection)
+    monkeypatch.setattr(psycopg, "connect", connect)
+    saved = PostgresDeletionStore("synthetic-db").add(
+        request(), frozenset({("char-a", "s-1"), ("char-b", "s-1")})
+    )
+    assert saved == request()
+    connect.assert_called_once()
+    enqueues = [
+        call
+        for call in connection.execute.call_args_list
+        if "INSERT INTO deletion_outbox" in call.args[0]
+    ]
+    assert len(enqueues) == 1
+    assert "d" in enqueues[0].args[1]
+
+
+def test_outbox_insert_failure_does_not_report_accepted_deletion(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    connection = MagicMock(spec=psycopg.Connection)
+    connection.__enter__.return_value = connection
+    result = MagicMock()
+    result.fetchone.return_value = ("d",)
+
+    def execute(sql: str, parameters: object) -> MagicMock:
+        if "INSERT INTO deletion_outbox" in sql:
+            raise psycopg.OperationalError("synthetic enqueue failure")
+        return result
+
+    connection.execute.side_effect = execute
+    monkeypatch.setattr(psycopg, "connect", MagicMock(return_value=connection))
+    with pytest.raises(EvidenceUnavailable):
+        PostgresDeletionStore("synthetic-db").add(request(), frozenset({("char-a", "s-1")}))
+    assert connection.__exit__.call_args.args[0] is psycopg.OperationalError
 
 
 @pytest.mark.parametrize("stage", ["connect", "request", "blocks", "commit"])

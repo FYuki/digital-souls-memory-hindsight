@@ -84,6 +84,10 @@ class MemoryStore:
         self.endings: dict[str, SessionEnding] = {}
         self.delivery_scopes: list[DeliveryScope] = []
         self.outbox: dict[str, RetainOperation] = {}
+        self.tombstones: set[str] = set()
+
+    def is_tombstoned(self, turn_id: str) -> bool:
+        return turn_id in self.tombstones
 
     def lock_session(self, session_id: str) -> None:
         self.get_session(session_id)
@@ -93,7 +97,9 @@ class MemoryStore:
             dict.fromkeys(
                 self.turns[value.turn_id].session_id
                 for value in self.outbox.values()
-                if value.bank_id == bank_id and value.update_mode == "append"
+                if value.bank_id == bank_id
+                and value.update_mode == "append"
+                and value.turn_id in self.turns
             )
         )
 
@@ -103,6 +109,7 @@ class MemoryStore:
             for value in self.outbox.values()
             if value.bank_id == bank_id
             and value.update_mode == "append"
+            and value.turn_id in self.turns
             and self.turns[value.turn_id].session_id == session_id
         )
 
