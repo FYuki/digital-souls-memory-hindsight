@@ -90,8 +90,11 @@ def deletion_operation(**changes: object) -> RetainOperation:
     )
 
 
-def test_deletion_rebuild_resubmission_keeps_one_operation_with_same_payload() -> None:
-    first = deletion_operation()
+@pytest.mark.parametrize("fenced_identifier", [None, "saved-old-operation"])
+def test_deletion_rebuild_resubmission_keeps_one_operation_with_same_payload(
+    fenced_identifier: str | None,
+) -> None:
+    first = deletion_operation(fenced_operation_id=fenced_identifier)
     connection = MagicMock(spec=psycopg.Connection)
     inserted, duplicate, restored = MagicMock(), MagicMock(), MagicMock()
     inserted.fetchone.return_value = (first.operation_id,)
@@ -105,16 +108,17 @@ def test_deletion_rebuild_resubmission_keeps_one_operation_with_same_payload() -
         first.update_mode,
         first.source_scope_id,
         "7",
+        fenced_identifier,
     )
     connection.execute.side_effect = [inserted, duplicate, restored]
     store = PostgresEvidenceStore("synthetic-db", connection)
     store.add_retain(first)
-    store.add_retain(deletion_operation())
+    store.add_retain(deletion_operation(fenced_operation_id=fenced_identifier))
     initial, repeated, read = connection.execute.call_args_list
     assert initial.args == repeated.args
     assert "ON CONFLICT (operation_id) DO NOTHING" in initial.args[0]
     assert "deletion_request_id" in initial.args[0]
-    assert initial.args[1][-1] == "7"
+    assert initial.args[1][-2:] == ("7", fenced_identifier)
     assert "deletion_request_id" in read.args[0]
     assert read.args[1] == (first.operation_id,)
 
@@ -170,3 +174,70 @@ def test_saved_outbox_restores_deletion_identity(mode: Literal["replace", "delet
     expected = replace(deletion_operation(), content=item.content, update_mode=mode)
     assert item.operation == expected
     assert item.operation.operation_id == expected.operation_id
+
+
+def test_fenced_operation_reuses_saved_identifier_after_outbox_restore() -> None:
+    outbox = importlib.import_module("digital_souls_memory_hindsight.outbox")
+    old = RetainOperation(
+        "old-turn", "bank", "session", "消す本文", datetime(2020, 1, 1, tzinfo=UTC)
+    )
+    fenced = replace(deletion_operation(), fenced_operation_id=old.operation_id)
+    assert fenced.operation_id == old.operation_id
+    item = outbox.OutboxItem(
+        turn_id=None,
+        bank_id=fenced.bank_id,
+        document_id=fenced.document_id,
+        content=fenced.content,
+        occurred_at=fenced.occurred_at,
+        status="processing",
+        attempts=1,
+        available_at=fenced.occurred_at,
+        lease_token="lease",
+        lease_until=fenced.occurred_at,
+        last_error=None,
+        completed_at=None,
+        update_mode="replace",
+        deletion_request_id="7",
+        fenced_operation_id=old.operation_id,
+    )
+    assert item.operation == fenced
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"deletion_request_id": None},
+        {"update_mode": "append"},
+        {"update_mode": "delete"},
+        {"turn_id": "turn"},
+        {"source_scope_id": 1},
+    ],
+)
+def test_fenced_identifier_requires_deletion_replace_without_turn_or_scope(
+    changes: dict[str, object],
+) -> None:
+    with pytest.raises(ValueError):
+        _ = deletion_operation(fenced_operation_id="old-id", **changes).operation_id
+
+
+def test_saved_operation_with_different_fencing_metadata_is_rejected() -> None:
+    from digital_souls_memory_hindsight.evidence.ports import EvidenceConflict
+
+    value = deletion_operation(fenced_operation_id="saved-old-operation")
+    connection = MagicMock(spec=psycopg.Connection)
+    duplicate, restored = MagicMock(), MagicMock()
+    duplicate.fetchone.return_value = None
+    restored.fetchone.return_value = (
+        value.turn_id,
+        value.bank_id,
+        value.document_id,
+        value.content,
+        value.occurred_at,
+        value.update_mode,
+        value.source_scope_id,
+        value.deletion_request_id,
+        None,
+    )
+    connection.execute.side_effect = [duplicate, restored]
+    with pytest.raises(EvidenceConflict):
+        PostgresEvidenceStore("synthetic", connection).add_retain(value)

@@ -156,13 +156,39 @@ def _consolidation_response(
         str(user["content"]).split("### New facts", 1)[1].split("### Existing observations", 1)[0]
     )
     creates = []
+    updates: list[dict[str, object]] = []
+    observation_text = str(user["content"]).split("### Existing observations", 1)[1].lstrip()
+    observations = _array(json.JSONDecoder().raw_decode(observation_text)[0])
     for identifier, fact in re.findall(r"^\[([0-9a-f-]{36})\] (.+)$", text, re.MULTILINE):
         body = re.split(r" \(occurred_start=| \(occurred_end=| \(mentioned_at=", fact, maxsplit=1)[
             0
         ]
-        creates.append({"text": body, "source_fact_ids": [identifier], "reason": "fixture fact"})
+        key_pattern = r"合成統合キー:([^\s]+)"
+        key = re.search(key_pattern, body)
+        matching = next(
+            (
+                _object(item)
+                for item in observations
+                if key is not None
+                and key.group(1) in re.findall(key_pattern, str(_object(item)["text"]))
+            ),
+            None,
+        )
+        if matching is not None:
+            updates.append(
+                {
+                    "observation_id": matching["id"],
+                    "text": str(matching["text"]) + "\n" + body,
+                    "source_fact_ids": [identifier],
+                    "reason": "fixture shared source",
+                }
+            )
+        else:
+            creates.append(
+                {"text": body, "source_fact_ids": [identifier], "reason": "fixture fact"}
+            )
     output["creates"] = creates
-    output["updates"] = []
+    output["updates"] = updates
     output["deletes"] = []
     return output
 

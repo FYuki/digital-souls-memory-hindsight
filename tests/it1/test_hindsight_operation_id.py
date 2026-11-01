@@ -7,9 +7,173 @@ from uuid import NAMESPACE_URL, uuid4, uuid5
 
 import pytest
 from hindsight_client import Hindsight
+from hindsight_client_api.exceptions import ApiException, NotFoundException
+
+from .conftest import ResponseGate
 
 pytestmark = pytest.mark.it1
 STAMP = "2026-10-27T00:00:00Z"
+
+
+async def wait_completed(client: Hindsight, bank: str, identifier: str) -> None:
+    deadline = asyncio.get_running_loop().time() + 60
+    while True:
+        status = await client.operations.get_operation_status(
+            bank_id=bank, operation_id=identifier, _request_timeout=5.0
+        )
+        assert status.status not in {"failed", "cancelled"}, status.to_dict()
+        if status.status == "completed":
+            return
+        assert asyncio.get_running_loop().time() < deadline, status.to_dict()
+        await asyncio.sleep(0.1)
+
+
+@pytest.mark.parametrize("processing", [False, True])
+def test_operation_identifier_keeps_first_payload_and_mode(
+    processing: bool, response_gate: ResponseGate
+) -> None:
+    async def exercise() -> None:
+        client = Hindsight(base_url=os.environ["HINDSIGHT_URL"], timeout=15.0)
+        bank, document, identifier = "it1-" + uuid4().hex, "session", str(uuid4())
+        original = "合成の花子はお茶が好きです。" + (response_gate.marker if processing else "")
+        marker = "合成削除本文:deleted-" + uuid4().hex
+        try:
+            await client.acreate_bank(bank_id=bank)
+            first = await client.aretain(
+                bank_id=bank,
+                document_id=document,
+                content=original,
+                timestamp=STAMP,
+                update_mode="replace",
+                retain_async=True,
+                operation_id=identifier,
+            )
+            assert first.success and first.operation_id == identifier
+            if processing:
+                await response_gate.wait_entered()
+                status = await client.operations.get_operation_status(
+                    bank_id=bank, operation_id=identifier, _request_timeout=5.0
+                )
+                assert status.status in {"pending", "processing"}, status.to_dict()
+            else:
+                await wait_completed(client, bank, identifier)
+                assert await document_text(client, bank, document) == original
+            try:
+                duplicate = await client.aretain(
+                    bank_id=bank,
+                    document_id=document,
+                    content=marker,
+                    timestamp="2026-10-28T00:00:00Z",
+                    update_mode="append",
+                    retain_async=True,
+                    operation_id=identifier,
+                )
+                assert duplicate.success and duplicate.operation_id == identifier
+            finally:
+                response_gate.release()
+                await response_gate.wait_finished()
+            await wait_completed(client, bank, identifier)
+            assert await document_text(client, bank, document) == original
+            assert marker not in await document_text(client, bank, document)
+        finally:
+            response_gate.release()
+            await response_gate.wait_finished()
+            await client.banks.delete_bank(bank_id=bank, _request_timeout=10.0)
+            await client.aclose()  # type: ignore[no-untyped-call]
+
+    asyncio.run(exercise())
+
+
+def test_operation_identifier_is_deduplicated_across_documents() -> None:
+    async def exercise() -> None:
+        client = Hindsight(base_url=os.environ["HINDSIGHT_URL"], timeout=15.0)
+        bank, identifier = "it1-" + uuid4().hex, str(uuid4())
+        original = "合成の花子はお茶が好きです。"
+        try:
+            await client.acreate_bank(bank_id=bank)
+            for document, text in (("first", original), ("second", "合成削除本文:deleted")):
+                response = await client.aretain(
+                    bank_id=bank,
+                    document_id=document,
+                    content=text,
+                    timestamp=STAMP,
+                    update_mode="replace",
+                    retain_async=True,
+                    operation_id=identifier,
+                )
+                assert response.success and response.operation_id == identifier
+                await wait_completed(client, bank, identifier)
+            assert await document_text(client, bank, "first") == original
+            with pytest.raises(NotFoundException):
+                await client.documents.get_document(bank_id=bank, document_id="second")
+        finally:
+            await client.banks.delete_bank(bank_id=bank, _request_timeout=10.0)
+            await client.aclose()  # type: ignore[no-untyped-call]
+
+    asyncio.run(exercise())
+
+
+def test_empty_replace_is_rejected() -> None:
+    async def exercise() -> None:
+        client = Hindsight(base_url=os.environ["HINDSIGHT_URL"], timeout=15.0)
+        bank, identifier = "it1-" + uuid4().hex, str(uuid4())
+        try:
+            await client.acreate_bank(bank_id=bank)
+            with pytest.raises(ApiException) as rejected:
+                await client.aretain(
+                    bank_id=bank,
+                    document_id="empty",
+                    content="",
+                    timestamp=STAMP,
+                    update_mode="replace",
+                    retain_async=True,
+                    operation_id=identifier,
+                )
+            assert rejected.value.status == 422
+        finally:
+            await client.banks.delete_bank(bank_id=bank, _request_timeout=10.0)
+            await client.aclose()  # type: ignore[no-untyped-call]
+
+    asyncio.run(exercise())
+
+
+def test_operation_identifier_survives_document_deletion() -> None:
+    async def exercise() -> None:
+        client = Hindsight(base_url=os.environ["HINDSIGHT_URL"], timeout=15.0)
+        bank, identifier = "it1-" + uuid4().hex, str(uuid4())
+        try:
+            await client.acreate_bank(bank_id=bank)
+            response = await client.aretain(
+                bank_id=bank,
+                document_id="target",
+                content="合成の花子はお茶が好きです。",
+                timestamp=STAMP,
+                update_mode="replace",
+                retain_async=True,
+                operation_id=identifier,
+            )
+            assert response.success and response.operation_id == identifier
+            await wait_completed(client, bank, identifier)
+            deleted = await client.documents.delete_document(bank_id=bank, document_id="target")
+            assert deleted.success
+            duplicate = await client.aretain(
+                bank_id=bank,
+                document_id="target",
+                content="合成削除本文:deleted",
+                timestamp=STAMP,
+                update_mode="append",
+                retain_async=True,
+                operation_id=identifier,
+            )
+            assert duplicate.success and duplicate.operation_id == identifier
+            await wait_completed(client, bank, identifier)
+            with pytest.raises(NotFoundException):
+                await client.documents.get_document(bank_id=bank, document_id="target")
+        finally:
+            await client.banks.delete_bank(bank_id=bank, _request_timeout=10.0)
+            await client.aclose()  # type: ignore[no-untyped-call]
+
+    asyncio.run(exercise())
 
 
 def operation_id(turn_id: str, bank_id: str, document_id: str) -> str:

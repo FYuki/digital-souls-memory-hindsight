@@ -12,7 +12,7 @@ from .outbox import OutboxItem
 _COLUMNS = (
     "turn_id, bank_id, document_id, content, occurred_at, status, attempts, "
     "available_at, lease_token, lease_until, last_error, completed_at, update_mode, "
-    "source_scope_id, deletion_request_id"
+    "source_scope_id, deletion_request_id, fenced_operation_id"
 )
 
 
@@ -58,6 +58,18 @@ class PostgresOutbox:
 
     def complete(self, item: OutboxItem, now: datetime) -> bool:
         return self._finish(item, now, "completed", now, None)
+
+    def owns(self, item: OutboxItem, now: datetime) -> bool:
+        try:
+            with psycopg.connect(self._url, connect_timeout=5) as connection:
+                row = connection.execute(
+                    "SELECT operation_id FROM outbox WHERE operation_id = %s "
+                    "AND status = 'processing' AND lease_token = %s AND lease_until > %s",
+                    (item.operation.operation_id, item.lease_token, now),
+                ).fetchone()
+                return row is not None
+        except psycopg.Error as error:
+            raise EvidenceUnavailable() from error
 
     def defer(self, item: OutboxItem, now: datetime, available_at: datetime, reason: str) -> bool:
         return self._finish(item, now, "pending", available_at, reason)

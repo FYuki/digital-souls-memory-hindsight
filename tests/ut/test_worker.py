@@ -107,6 +107,7 @@ def test_worker_records_completion_pending_failure_and_retry_without_private_det
     queue.claim.return_value = item
     executor = MagicMock()
     executor.execute = AsyncMock()
+    queue.owns.return_value = True
     if outcome == "transport_error":
         executor.execute.side_effect = TimeoutError("synthetic private detail")
     else:
@@ -154,6 +155,36 @@ def test_unconfigured_retain_is_preserved_for_retry() -> None:
     queue.complete.assert_not_called()
 
 
+def test_worker_does_not_send_or_finish_a_claim_it_no_longer_owns() -> None:
+    worker_module = importlib.import_module("digital_souls_memory_hindsight.worker")
+    queue = MagicMock()
+    item = OutboxItem(
+        "t-1",
+        "bank",
+        "session",
+        "合成本文",
+        NOW,
+        "processing",
+        1,
+        NOW,
+        "stale",
+        NOW + timedelta(seconds=60),
+        None,
+        None,
+    )
+    queue.claim.return_value = item
+    queue.owns.return_value = False
+    executor = MagicMock()
+    executor.execute = AsyncMock()
+    service = service_with_session(MemoryStore(), Clock())
+    asyncio.run(worker_module.Worker(queue, executor, service, clock=Clock()).run_once())
+    queue.owns.assert_called_once_with(item, NOW)
+    executor.execute.assert_not_awaited()
+    queue.complete.assert_not_called()
+    queue.defer.assert_not_called()
+    queue.fail.assert_not_called()
+
+
 def test_cancellation_leaves_claim_for_lease_recovery() -> None:
     worker_module = importlib.import_module("digital_souls_memory_hindsight.worker")
     queue = MagicMock()
@@ -174,6 +205,7 @@ def test_cancellation_leaves_claim_for_lease_recovery() -> None:
     queue.claim.return_value = item
     executor = MagicMock()
     executor.execute = AsyncMock(side_effect=asyncio.CancelledError)
+    queue.owns.return_value = True
     service = service_with_session(MemoryStore(), Clock())
     with pytest.raises(asyncio.CancelledError):
         asyncio.run(worker_module.Worker(queue, executor, service, clock=Clock()).run_once())

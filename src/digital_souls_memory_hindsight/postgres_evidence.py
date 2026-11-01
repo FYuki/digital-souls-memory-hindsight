@@ -91,8 +91,8 @@ class PostgresEvidenceStore:
             inserted = connection.execute(
                 "INSERT INTO outbox "
                 "(operation_id, turn_id, bank_id, document_id, content, occurred_at, "
-                "update_mode, source_scope_id, deletion_request_id) "
-                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) "
+                "update_mode, source_scope_id, deletion_request_id, fenced_operation_id) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
                 "ON CONFLICT (operation_id) DO NOTHING RETURNING operation_id",
                 (
                     value.operation_id,
@@ -104,12 +104,13 @@ class PostgresEvidenceStore:
                     value.update_mode,
                     value.source_scope_id,
                     value.deletion_request_id,
+                    value.fenced_operation_id,
                 ),
             ).fetchone()
             if inserted is None:
                 previous = connection.execute(
                     "SELECT turn_id, bank_id, document_id, content, occurred_at, "
-                    "update_mode, source_scope_id, deletion_request_id "
+                    "update_mode, source_scope_id, deletion_request_id, fenced_operation_id "
                     "FROM outbox WHERE operation_id = %s",
                     (value.operation_id,),
                 ).fetchone()
@@ -122,6 +123,7 @@ class PostgresEvidenceStore:
                     value.update_mode,
                     value.source_scope_id,
                     value.deletion_request_id,
+                    value.fenced_operation_id,
                 ):
                     raise EvidenceConflict()
 

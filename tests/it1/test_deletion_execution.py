@@ -276,6 +276,8 @@ def test_ledger_deletion_cancels_pending_payload_and_preserves_progress_on_reent
     p = projection
     a = p.characters[0]
     p.post_turn("target", text=SECRET)
+    original_operations = p.operation_ids()
+    assert len(original_operations) == 1
     store = PostgresDeletionStore(p.database)
     service = DeletionService(store, p.service, clock=p.clock)
     request = service.accept("pending", "synthetic-author", ("target",), None)
@@ -290,7 +292,13 @@ def test_ledger_deletion_cancels_pending_payload_and_preserves_progress_on_reent
     first = store.delete_turns(item, request, p.clock.now)
     assert store.delete_turns(item, request, p.clock.now) == first
     rebuild = PostgresOutbox(p.database).claim(p.clock.now, timedelta(seconds=60))
-    assert rebuild is not None and rebuild.update_mode == "delete"
+    assert rebuild is not None and rebuild.update_mode == "replace"
+    assert rebuild.fenced_operation_id in original_operations
+    assert rebuild.operation.operation_id == rebuild.fenced_operation_id
+    fenced_operations = first["fenced_operations"]
+    fenced_documents = first["fenced_documents"]
+    assert isinstance(fenced_operations, list) and len(fenced_operations) == 1
+    assert isinstance(fenced_documents, list) and len(fenced_documents) == 1
     before = p.operation_ids()
     PostgresEvidenceStore(p.database).add_retain(rebuild.operation)
     assert p.operation_ids() == before
@@ -300,7 +308,7 @@ def test_ledger_deletion_cancels_pending_payload_and_preserves_progress_on_reent
         ).fetchone() == (0,)
         assert connection.execute(
             "SELECT count(*) FROM outbox WHERE deletion_request_id='pending'"
-        ).fetchone() == (1,)
+        ).fetchone() == (3,)
         assert connection.execute(
             "SELECT progress FROM deletion_outbox WHERE request_id='pending'"
         ).fetchone() == (first,)

@@ -262,3 +262,46 @@ def test_anchor_revision_offline_changes_only_anchor_storage(
         else r"DROP EXTENSION pgroonga"
     )
     assert re.search(extension, result.stdout, re.IGNORECASE)
+
+
+@pytest.mark.parametrize("operation", ["upgrade", "downgrade"])
+def test_fencing_revision_generates_reversible_outbox_constraint(
+    tmp_path: Path, operation: str
+) -> None:
+    target = (
+        "0010_deletion_execution:0011_deletion_fencing"
+        if operation == "upgrade"
+        else "0011_deletion_fencing:0010_deletion_execution"
+    )
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "alembic",
+            "-c",
+            str(ROOT / "alembic.ini"),
+            operation,
+            target,
+            "--sql",
+        ],
+        cwd=tmp_path,
+        env={
+            "PATH": os.defpath,
+            "HOME": str(tmp_path),
+            "PYTHONPATH": str(ROOT / "src"),
+            "DATABASE_URL": "postgresql://it1@postgres:5432/synthetic_ledger",
+        },
+        capture_output=True,
+        text=True,
+        timeout=15,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert set(re.findall(r"(?:CREATE|DROP|ALTER) TABLE\s+(\w+)", result.stdout)) == {"outbox"}
+    assert "fenced_operation_id" in result.stdout
+    assert "outbox_fenced_operation" in result.stdout
+    if operation == "upgrade":
+        assert "operation_id = fenced_operation_id" in result.stdout
+        assert "deletion_request_id IS NOT NULL" in result.stdout
+        assert "update_mode = 'replace'" in result.stdout
+        assert "turn_id IS NULL" in result.stdout and "source_scope_id IS NULL" in result.stdout

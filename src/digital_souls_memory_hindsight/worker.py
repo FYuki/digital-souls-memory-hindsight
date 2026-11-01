@@ -49,6 +49,8 @@ class Worker:
             )
             return
         try:
+            if not await asyncio.to_thread(self._store.owns, item, self._clock()):
+                return
             result = await self._executor.execute(item.operation)
         except Exception:
             # External exceptions can contain content or connection credentials.
