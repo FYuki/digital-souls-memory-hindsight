@@ -282,6 +282,56 @@ def test_consolidation_creates_nonempty_observations_from_actual_fact_ids_and_te
     assert result.updates == result.deletes == []
 
 
+@pytest.mark.parametrize(
+    ("old_key", "new_key", "same_key"),
+    [
+        ("synthetic-shared", "synthetic-other", False),
+        ("synthetic-shared", "synthetic-shared", True),
+        ("synthetic-shared-extra", "synthetic-shared", False),
+    ],
+)
+def test_consolidation_merges_only_facts_with_the_same_synthetic_key(
+    stub: Stub,
+    old_key: str,
+    new_key: str,
+    same_key: bool,
+) -> None:
+    new_id = "bbfcf3a2-aa74-47bf-8011-0ecfeff6ae69"
+    observation_id = "35666a7c-8cbc-48e8-aa4d-2e46c1f1d936"
+    old_text = "架空の翡翠茶 合成統合キー:" + old_key + " 削除マーカー"
+    new_text = "架空の翡翠茶 合成統合キー:" + new_key
+    request: dict[str, object] = {
+        "messages": [
+            {"role": "system", "content": "You are a memory consolidation system"},
+            {
+                "role": "user",
+                "content": "## INPUT\n\n### New facts\n\n"
+                + f"[{new_id}] {new_text}\n\n### Existing observations\n\n"
+                + json.dumps([{"id": observation_id, "text": old_text}], ensure_ascii=False),
+            },
+        ],
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": {"schema": Consolidation.model_json_schema()},
+        },
+    }
+    result = Consolidation.model_validate_json(completion_content(stub, request))
+    if same_key:
+        assert result.creates == []
+        assert len(result.updates) == 1
+        update = result.updates[0]
+        assert update["observation_id"] == observation_id
+        assert old_text in str(update["text"]) and new_text in str(update["text"])
+        # Hindsight adds old sources; the response names only new facts.
+        assert update["source_fact_ids"] == [new_id]
+    else:
+        assert result.updates == []
+        assert [(item.text, item.source_fact_ids) for item in result.creates] == [
+            (new_text, [new_id])
+        ]
+    assert result.deletes == []
+
+
 @pytest.mark.parametrize("text", ["", "茶", "架空の花子はお茶が好きです。"])
 def test_embedding_is_finite_normalized_and_384_dimensional(stub: Stub, text: str) -> None:
     vector = stub.embed(text)

@@ -4,7 +4,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 from typing import cast
-from uuid import uuid4
+from uuid import NAMESPACE_URL, uuid4, uuid5
 
 import psycopg
 from psycopg.rows import class_row
@@ -210,6 +210,31 @@ class PostgresDeletionStore:
             ).fetchall()
             return tuple(str(row[0]) for row in rows)
 
+    def projections_busy(self, request_id: str, now: datetime) -> bool:
+        pairs = self.affected_pairs(request_id)
+        with self._connection() as connection:
+            return self._projections_busy(connection, pairs, now)
+
+    def _projections_busy(
+        self,
+        connection: psycopg.Connection[tuple[object, ...]],
+        pairs: tuple[tuple[str, str], ...],
+        now: datetime,
+    ) -> bool:
+        for character, session in pairs:
+            rows = connection.execute(
+                "SELECT status, lease_until FROM outbox WHERE bank_id = %s "
+                "AND document_id = %s AND deletion_request_id IS NULL "
+                "ORDER BY sequence_id FOR UPDATE",
+                (bank_id(character), document_id(session)),
+            ).fetchall()
+            if any(
+                status == "processing" and until is not None and cast(datetime, until) > now
+                for status, until in rows
+            ):
+                return True
+        return False
+
     def delete_turns(
         self, item: DeletionItem, request: DeletionRequest, now: datetime
     ) -> dict[str, object]:
@@ -232,6 +257,8 @@ class PostgresDeletionStore:
             evidence = PostgresEvidenceStore(self._url, connection)
             for session in sorted(str(row[0]) for row in sessions):
                 evidence.lock_session(session)
+            if self._projections_busy(connection, pairs, now):
+                return saved
             connection.execute(
                 "SELECT turn_id FROM turns WHERE turn_id = ANY(%s) FOR UPDATE", (targets,)
             ).fetchall()
@@ -254,36 +281,43 @@ class PostgresDeletionStore:
                     (character, anchor),
                 ).fetchall()
                 provision_ids.update(str(row[0]) for row in rows)
-            connection.execute(
+            removed_operations = connection.execute(
                 "DELETE FROM outbox WHERE deletion_request_id IS NULL AND "
                 "(turn_id = ANY(%s) OR source_scope_id IN "
-                "(SELECT scope_id FROM delivery_scopes WHERE turn_id = ANY(%s)))",
+                "(SELECT scope_id FROM delivery_scopes WHERE turn_id = ANY(%s))) "
+                "RETURNING operation_id, bank_id, document_id, status",
                 (targets, targets),
-            )
+            ).fetchall()
             for character, session in pairs:
-                connection.execute(
-                    "DELETE FROM outbox WHERE deletion_request_id IS NULL AND bank_id = %s "
-                    "AND document_id = %s AND update_mode <> 'append'",
-                    (bank_id(str(character)), document_id(str(session))),
+                removed_operations.extend(
+                    connection.execute(
+                        "DELETE FROM outbox WHERE deletion_request_id IS NULL AND bank_id = %s "
+                        "AND document_id = %s AND update_mode <> 'append' "
+                        "RETURNING operation_id, bank_id, document_id, status",
+                        (bank_id(str(character)), document_id(str(session))),
+                    ).fetchall()
                 )
             connection.execute("DELETE FROM delivery_receipts WHERE turn_id = ANY(%s)", (targets,))
             connection.execute("DELETE FROM delivery_scopes WHERE turn_id = ANY(%s)", (targets,))
             connection.execute("DELETE FROM turns WHERE turn_id = ANY(%s)", (targets,))
-            for identifier in targets:
+            for turn_identifier in targets:
                 connection.execute(
                     "INSERT INTO turn_tombstones (turn_id, request_id, deleted_at) "
                     "VALUES (%s,%s,%s) ON CONFLICT (turn_id) DO NOTHING",
-                    (identifier, request.request_id, now),
+                    (turn_identifier, request.request_id, now),
                 )
             rebuilt: list[dict[str, str]] = []
             deleted: list[dict[str, str]] = []
+            fenced: list[dict[str, str]] = []
+            temporary: dict[tuple[str, str], str] = {}
+            rebuilds: list[RetainOperation] = []
             for character, session in pairs:
                 content = document_content(evidence, session, character)
                 remaining = evidence.list_projection_turns(session, bank_id(character))
                 timestamp = (
                     max(turn.occurred_at for turn in remaining) if content else request.requested_at
                 )
-                evidence.add_retain(
+                rebuilds.append(
                     RetainOperation(
                         None,
                         bank_id(character),
@@ -296,6 +330,58 @@ class PostgresDeletionStore:
                 )
                 target = {"bank_id": bank_id(character), "document_id": document_id(session)}
                 (rebuilt if content else deleted).append(target)
+            for identifier, bank, document, status in removed_operations:
+                if status == "completed":
+                    continue
+                rebuild = next(
+                    operation
+                    for operation in rebuilds
+                    if operation.bank_id == bank and operation.document_id == document
+                )
+                target_document = rebuild.document_id
+                content = rebuild.content
+                if not content:
+                    # Empty retain is rejected. Deduplication spans documents and survives deletion.
+                    target_document = "deletion-fence-" + str(
+                        uuid5(NAMESPACE_URL, str([request.request_id, bank, document]))
+                    )
+                    temporary[(str(bank), str(document))] = target_document
+                    content = "削除操作の無効化。"
+                evidence.add_retain(
+                    RetainOperation(
+                        None,
+                        str(bank),
+                        target_document,
+                        content,
+                        rebuild.occurred_at,
+                        "replace",
+                        deletion_request_id=request.request_id,
+                        fenced_operation_id=str(identifier),
+                    )
+                )
+                fenced.append(
+                    {
+                        "operation_id": str(identifier),
+                        "bank_id": str(bank),
+                        "document_id": target_document,
+                    }
+                )
+            fenced_documents = []
+            for (bank, _), document in sorted(temporary.items()):
+                evidence.add_retain(
+                    RetainOperation(
+                        None,
+                        bank,
+                        document,
+                        "",
+                        request.requested_at,
+                        "delete",
+                        deletion_request_id=request.request_id,
+                    )
+                )
+                fenced_documents.append({"bank_id": bank, "document_id": document})
+            for operation in rebuilds:
+                evidence.add_retain(operation)
             progress = {
                 **saved,
                 "ledger_done": True,
@@ -306,6 +392,8 @@ class PostgresDeletionStore:
                 "deleted_provision_ids": sorted(provision_ids),
                 "rebuilt_documents": rebuilt,
                 "deleted_documents": deleted,
+                "fenced_operations": fenced,
+                "fenced_documents": fenced_documents,
             }
             connection.execute(
                 "UPDATE deletion_outbox SET progress = %s WHERE request_id = %s",

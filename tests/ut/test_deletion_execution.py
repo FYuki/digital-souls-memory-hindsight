@@ -111,9 +111,13 @@ def execution_setup() -> tuple[DeletionService, MagicMock, MagicMock, DeletionIt
     service.accept("d", "synthetic-author", ("t-1",), None)
     store = MagicMock(spec=DeletionPersistence)
     store.affected_pairs.return_value = (("char-a", "s-1"), ("char-b", "s-1"))
+    store.projections_busy.return_value = False
     memory = MagicMock(spec=MemoryIndex)
     memory.bank_busy = AsyncMock(return_value=False)
     memory.memory_ids = AsyncMock(return_value=frozenset())
+    memory.observation_sources = AsyncMock(return_value={})
+    memory.clear_memory_observations = AsyncMock()
+    memory.clear_observations = AsyncMock()
     item = DeletionItem(
         "d", "processing", 1, NOW, "lease", NOW + timedelta(seconds=60), None, None, {}
     )
@@ -124,6 +128,9 @@ def completed_ledger_progress() -> dict[str, object]:
     return {
         "ledger_done": True,
         "memory_snapshot": {"char-a": ["old-a", "stay-a"], "char-b": ["old-b", "stay-b"]},
+        "observation_sources": {"char-a": {}, "char-b": {}},
+        "fenced_operations": [],
+        "fenced_documents": [],
         "rebuilt_documents": [
             {"bank_id": bank_id("char-a"), "document_id": "document"},
             {"bank_id": bank_id("char-b"), "document_id": "document"},
@@ -246,3 +253,179 @@ def test_unconfigured_deletion_stays_accepted_and_does_not_delete() -> None:
     )
     assert service.get("d").status == "accepted"
     store.delete_turns.assert_not_called()
+
+
+def test_deletion_persists_observation_sources_before_removing_ledger() -> None:
+    service, store, memory, item = execution_setup()
+    sources = {"mixed": frozenset({"old-a", "stay-a"})}
+    memory.observation_sources.return_value = sources
+    memory.memory_ids.return_value = frozenset({"old-a", "stay-a", "mixed"})
+    store.rebuild_statuses.return_value = ("pending", "pending")
+
+    def delete(current: DeletionItem, request: object, now: object) -> dict[str, object]:
+        saved = store.save_progress.call_args.args[1]
+        assert saved["observation_sources"] == {
+            "char-a": {"mixed": ["old-a", "stay-a"]},
+            "char-b": {"mixed": ["old-a", "stay-a"]},
+        }
+        assert current.progress == saved
+        return {**completed_ledger_progress(), **saved, "ledger_done": True}
+
+    store.delete_turns.side_effect = delete
+    assert (
+        asyncio.run(DeletionExecutor(service, store, memory, clock=Clock()).step(item)) == "waiting"
+    )
+    store.save_progress.assert_called_once()
+
+
+def test_active_append_lease_delays_snapshot_until_the_bank_can_be_deleted() -> None:
+    service, store, memory, item = execution_setup()
+    store.projections_busy = MagicMock(return_value=True)
+    store.delete_turns.return_value = completed_ledger_progress()
+    store.rebuild_statuses.return_value = ("pending", "pending")
+    assert (
+        asyncio.run(DeletionExecutor(service, store, memory, clock=Clock()).step(item)) == "waiting"
+    )
+    memory.memory_ids.assert_not_awaited()
+    memory.observation_sources.assert_not_awaited()
+    store.save_progress.assert_not_called()
+    store.delete_turns.assert_not_called()
+
+
+@pytest.mark.parametrize("current_sources", [("stay-a",), ("old-a", "stay-a")])
+def test_mixed_observation_is_rebuilt_before_completion_even_if_deleted_source_was_unlinked(
+    current_sources: tuple[str, ...],
+) -> None:
+    service, store, memory, item = execution_setup()
+    store.affected_pairs.return_value = (("char-a", "s-1"),)
+    progress = completed_ledger_progress()
+    progress["observation_sources"] = {
+        "char-a": {"mixed": ["old-a", "stay-a"], "unrelated": ["other"]}
+    }
+    progress["memory_snapshot"] = {"char-a": ["old-a", "stay-a", "mixed", "unrelated", "other"]}
+    progress["rebuilt_documents"] = [{"bank_id": bank_id("char-a"), "document_id": "document"}]
+    store.rebuild_statuses.return_value = ("completed",)
+    memory.memory_ids.return_value = frozenset({"stay-a", "mixed", "unrelated", "other"})
+    memory.observation_sources.return_value = {
+        "mixed": frozenset(current_sources),
+        "unrelated": frozenset({"other"}),
+    }
+    item = replace(item, progress=progress)
+    result = asyncio.run(DeletionExecutor(service, store, memory, clock=Clock()).step(item))
+    assert result == "waiting"
+    assert service.get("d").status == "processing"
+    memory.clear_memory_observations.assert_awaited_once_with(bank_id("char-a"), "stay-a")
+    store.delete_provisions_for_memories.assert_not_called()
+    store.delete_turns.assert_not_called()
+
+
+def test_observations_with_only_surviving_sources_complete_without_rebuilding() -> None:
+    service, store, memory, item = execution_setup()
+    progress = completed_ledger_progress()
+    progress["observation_sources"] = {"char-a": {"unrelated": ["stay-a"]}, "char-b": {}}
+    store.rebuild_statuses.return_value = ("completed", "completed")
+    memory.memory_ids.return_value = frozenset({"stay-a", "stay-b", "unrelated"})
+    memory.observation_sources.return_value = {"unrelated": frozenset({"stay-a"})}
+    store.delete_provisions_for_memories.side_effect = lambda current, *args: current.progress
+    item = replace(item, progress=progress)
+    assert (
+        asyncio.run(DeletionExecutor(service, store, memory, clock=Clock()).step(item))
+        == "completed"
+    )
+    assert service.get("d").status == "completed"
+    memory.clear_memory_observations.assert_not_awaited()
+    memory.clear_observations.assert_not_awaited()
+
+
+def test_orphan_observation_clears_bank_and_rebuilds_surviving_facts() -> None:
+    service, store, memory, item = execution_setup()
+    store.affected_pairs.return_value = (("char-a", "s-1"),)
+    progress = completed_ledger_progress()
+    progress["memory_snapshot"] = {"char-a": ["old-a", "orphan", "stay-a", "unrelated"]}
+    progress["observation_sources"] = {"char-a": {"orphan": ["old-a"], "unrelated": ["stay-a"]}}
+    progress["rebuilt_documents"] = [{"bank_id": bank_id("char-a"), "document_id": "document"}]
+    store.rebuild_statuses.return_value = ("completed",)
+    memory.memory_ids.return_value = frozenset({"orphan", "stay-a", "unrelated"})
+    memory.observation_sources.return_value = {
+        "orphan": frozenset(),
+        "unrelated": frozenset({"stay-a"}),
+    }
+    item = replace(item, progress=progress)
+    assert (
+        asyncio.run(DeletionExecutor(service, store, memory, clock=Clock()).step(item)) == "waiting"
+    )
+    memory.clear_observations.assert_awaited_once_with(bank_id("char-a"))
+    memory.clear_memory_observations.assert_awaited_once_with(bank_id("char-a"), "stay-a")
+    assert service.get("d").status == "processing"
+
+
+@pytest.mark.parametrize("residue_remains", [False, True])
+def test_residue_repair_resumes_once_and_keeps_blocking_if_repair_failed(
+    residue_remains: bool,
+) -> None:
+    service, store, memory, item = execution_setup()
+    store.affected_pairs.return_value = (("char-a", "s-1"),)
+    progress = completed_ledger_progress()
+    progress["observation_sources"] = {"char-a": {"mixed": ["old-a", "stay-a"]}}
+    progress["memory_snapshot"] = {"char-a": ["old-a", "stay-a", "mixed"]}
+    progress["rebuilt_documents"] = [{"bank_id": bank_id("char-a"), "document_id": "document"}]
+    item = replace(item, progress=progress)
+    store.rebuild_statuses.return_value = ("completed",)
+    memory.memory_ids.return_value = frozenset({"stay-a", "mixed"})
+    memory.observation_sources.return_value = {"mixed": frozenset({"stay-a"})}
+    executor = DeletionExecutor(service, store, memory, clock=Clock())
+
+    async def exercise() -> None:
+        assert await executor.step(item) == "waiting"
+        saved = store.save_progress.call_args.args[1]
+        resumed = replace(item, lease_token="new-lease", progress=saved)
+        memory.bank_busy.return_value = True
+        assert await executor.step(resumed) == "waiting"
+        assert service.get("d").status == "processing"
+        memory.bank_busy.return_value = False
+        if not residue_remains:
+            memory.memory_ids.return_value = frozenset({"stay-a", "rebuilt"})
+            memory.observation_sources.return_value = {"rebuilt": frozenset({"stay-a"})}
+        store.delete_provisions_for_memories.side_effect = lambda current, *args: current.progress
+        assert await executor.step(resumed) == ("failed" if residue_remains else "completed")
+        assert service.get("d").status == ("failed" if residue_remains else "completed")
+        assert bool(service.blocked_sessions("char-a")) == residue_remains
+        if residue_remains:
+            store.delete_provisions_for_memories.assert_not_called()
+        else:
+            store.delete_provisions_for_memories.assert_called_once()
+            assert store.delete_provisions_for_memories.call_args.args[2] == frozenset(
+                {"old-a", "mixed"}
+            )
+
+    asyncio.run(exercise())
+    memory.clear_memory_observations.assert_awaited_once_with(bank_id("char-a"), "stay-a")
+    store.delete_turns.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "statuses, expected",
+    [
+        (("completed", "completed"), "waiting"),
+        (("completed", "completed", "completed", "pending"), "waiting"),
+        (("completed", "completed", "completed", "failed"), "failed"),
+        (("completed", "completed", "completed", "completed"), "completed"),
+    ],
+)
+def test_deletion_waits_for_fences_and_temporary_document_cleanup(
+    statuses: tuple[str, ...], expected: str
+) -> None:
+    service, store, memory, item = execution_setup()
+    progress = {
+        **completed_ledger_progress(),
+        "fenced_operations": [{"operation_id": "old"}],
+        "fenced_documents": [{"bank_id": "bank", "document_id": "temporary"}],
+    }
+    item = replace(item, progress=progress)
+    store.rebuild_statuses.return_value = statuses
+    store.delete_provisions_for_memories.side_effect = lambda current, *args: current.progress
+    assert (
+        asyncio.run(DeletionExecutor(service, store, memory, clock=Clock()).step(item)) == expected
+    )
+    if expected == "waiting":
+        store.delete_provisions_for_memories.assert_not_called()

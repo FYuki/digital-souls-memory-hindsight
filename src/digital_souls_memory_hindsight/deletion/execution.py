@@ -59,6 +59,10 @@ class DeletionExecutor:
         pairs = await asyncio.to_thread(self._store.affected_pairs, item.request_id)
         characters = sorted({character for character, _ in pairs})
         if not item.progress.get("ledger_done"):
+            if await asyncio.to_thread(
+                self._store.projections_busy, item.request_id, self._clock()
+            ):
+                return "waiting"
             for character in characters:
                 if await self._memory.bank_busy(bank_id(character)):
                     return "waiting"
@@ -67,13 +71,28 @@ class DeletionExecutor:
                     character: sorted(await self._memory.memory_ids(bank_id(character)))
                     for character in characters
                 }
-                progress = {**item.progress, "memory_snapshot": snapshot}
+                sources = {
+                    character: {
+                        identifier: sorted(ids)
+                        for identifier, ids in (
+                            await self._memory.observation_sources(bank_id(character))
+                        ).items()
+                    }
+                    for character in characters
+                }
+                progress = {
+                    **item.progress,
+                    "memory_snapshot": snapshot,
+                    "observation_sources": sources,
+                }
                 await asyncio.to_thread(self._store.save_progress, item, progress, self._clock())
                 item = replace(item, progress=progress)
             progress = await asyncio.to_thread(
                 self._store.delete_turns, item, request, self._clock()
             )
             item = replace(item, progress=progress)
+            if not progress.get("ledger_done"):
+                return "waiting"
         statuses = await asyncio.to_thread(self._store.rebuild_statuses, item.request_id)
         if "failed" in statuses:
             await asyncio.to_thread(
@@ -83,15 +102,23 @@ class DeletionExecutor:
         expected = len(cast(list[object], item.progress["rebuilt_documents"])) + len(
             cast(list[object], item.progress["deleted_documents"])
         )
+        expected += len(cast(list[object], item.progress["fenced_operations"])) + len(
+            cast(list[object], item.progress["fenced_documents"])
+        )
         if len(statuses) != expected or any(status != "completed" for status in statuses):
             return "waiting"
         for character in characters:
             if await self._memory.bank_busy(bank_id(character)):
                 return "waiting"
         snapshot = cast(dict[str, list[str]], item.progress["memory_snapshot"])
+        current_ids = {
+            character: await self._memory.memory_ids(bank_id(character)) for character in characters
+        }
+        residue = await self._repair_residue(item, characters, current_ids)
+        if residue is not None:
+            return residue
         for character in characters:
-            current = await self._memory.memory_ids(bank_id(character))
-            removed = frozenset(snapshot[character]) - current
+            removed = frozenset(snapshot[character]) - current_ids[character]
             progress = await asyncio.to_thread(
                 self._store.delete_provisions_for_memories, item, character, removed, self._clock()
             )
@@ -103,3 +130,51 @@ class DeletionExecutor:
             cascade_result=build_cascade_result(request, item.progress),
         )
         return "completed"
+
+    async def _repair_residue(
+        self,
+        item: DeletionItem,
+        characters: list[str],
+        current_ids: dict[str, frozenset[str]],
+    ) -> DeletionStepResult | None:
+        assert self._memory is not None
+        snapshot = cast(dict[str, list[str]], item.progress["memory_snapshot"])
+        before = cast(dict[str, dict[str, list[str]]], item.progress["observation_sources"])
+        repaired = cast(dict[str, list[str]], item.progress.get("repaired_observations", {}))
+        targets: dict[str, list[str]] = {}
+        for character in characters:
+            bank = bank_id(character)
+            current = await self._memory.observation_sources(bank)
+            if set(repaired.get(character, [])) & current.keys():
+                await asyncio.to_thread(
+                    self._service.transition,
+                    item.request_id,
+                    "failed",
+                    error="residue_remaining",
+                )
+                return "failed"
+            removed = frozenset(snapshot[character]) - current_ids[character]
+            affected = {
+                identifier: (sources | frozenset(before[character].get(identifier, [])))
+                for identifier, sources in current.items()
+                if (sources | frozenset(before[character].get(identifier, []))) & removed
+            }
+            if not affected:
+                continue
+            targets[character] = sorted(affected)
+            facts = current_ids[character] - current.keys()
+            if any(not sources & facts for sources in affected.values()):
+                # The public API cannot delete an orphan observation individually.
+                # A bank clear requeues sources; source clears start auto consolidation.
+                await self._memory.clear_observations(bank)
+                targets[character] = sorted(current)
+                surviving = facts
+            else:
+                surviving = frozenset[str]().union(*affected.values()) & facts
+            for identifier in sorted(surviving):
+                await self._memory.clear_memory_observations(bank, identifier)
+        if not targets:
+            return None
+        progress = {**item.progress, "repaired_observations": {**repaired, **targets}}
+        await asyncio.to_thread(self._store.save_progress, item, progress, self._clock())
+        return "waiting"

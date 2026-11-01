@@ -21,9 +21,19 @@ class RetainOperation:
     update_mode: Literal["append", "replace", "delete"] = "append"
     source_scope_id: int | None = None
     deletion_request_id: str | None = None
+    fenced_operation_id: str | None = None
 
     @property
     def operation_id(self) -> str:
+        if self.fenced_operation_id is not None:
+            if (
+                self.deletion_request_id is None
+                or self.update_mode != "replace"
+                or self.turn_id is not None
+                or self.source_scope_id is not None
+            ):
+                raise ValueError("Fencing requires a deletion replace without a turn or scope")
+            return self.fenced_operation_id
         if self.deletion_request_id is not None:
             if (
                 self.update_mode == "append"
@@ -86,6 +96,7 @@ class OutboxItem:
     update_mode: Literal["append", "replace", "delete"] = "append"
     source_scope_id: int | None = None
     deletion_request_id: str | None = None
+    fenced_operation_id: str | None = None
 
     @property
     def operation(self) -> RetainOperation:
@@ -98,6 +109,7 @@ class OutboxItem:
             self.update_mode,
             self.source_scope_id,
             self.deletion_request_id,
+            self.fenced_operation_id,
         )
 
 
@@ -112,6 +124,7 @@ class RetainExecutor(Protocol):
 
 class OutboxStore(Protocol):
     def claim(self, now: datetime, lease_for: timedelta) -> OutboxItem | None: ...
+    def owns(self, item: OutboxItem, now: datetime) -> bool: ...
     def complete(self, item: OutboxItem, now: datetime) -> bool: ...
     def defer(
         self, item: OutboxItem, now: datetime, available_at: datetime, reason: str

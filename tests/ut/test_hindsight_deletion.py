@@ -75,3 +75,86 @@ def test_nonadvancing_memory_page_does_not_hide_incomplete_snapshot() -> None:
     )
     with pytest.raises(RuntimeError):
         asyncio.run(HindsightDeletion(client).memory_ids("bank"))
+
+
+def test_observation_sources_enumerates_all_pages_without_including_extracted_facts() -> None:
+    client = MagicMock(spec=Hindsight)
+    client.memory.list_memories = AsyncMock(
+        side_effect=[
+            ListMemoryUnitsResponse(
+                items=[
+                    MemoryUnitListItem(
+                        id="first", fact_type="observation", source_memory_ids=["deleted", "kept"]
+                    )
+                ],
+                total=2,
+                limit=1,
+                offset=0,
+            ),
+            ListMemoryUnitsResponse(
+                items=[
+                    MemoryUnitListItem(
+                        id="second", fact_type="observation", source_memory_ids=["kept"]
+                    )
+                ],
+                total=2,
+                limit=1,
+                offset=1,
+            ),
+        ]
+    )
+    operation = HindsightDeletion(client).observation_sources
+    assert asyncio.run(operation("bank")) == {
+        "first": frozenset({"deleted", "kept"}),
+        "second": frozenset({"kept"}),
+    }
+    calls = client.memory.list_memories.await_args_list
+    assert [call.kwargs["offset"] for call in calls] == [0, 1]
+    assert all(call.kwargs["type"] == "observation" for call in calls)
+
+
+@pytest.mark.parametrize("missing", [False, True])
+def test_observation_source_enumeration_only_treats_missing_bank_as_empty(missing: bool) -> None:
+    client = MagicMock(spec=Hindsight)
+    client.memory.list_memories = AsyncMock(
+        side_effect=NotFoundException(status=404) if missing else ApiException(status=500)
+    )
+    operation = HindsightDeletion(client).observation_sources
+    if missing:
+        assert asyncio.run(operation("bank")) == {}
+    else:
+        with pytest.raises(ApiException):
+            asyncio.run(operation("bank"))
+
+
+def test_observation_rebuild_uses_public_sdk_and_propagates_failure() -> None:
+    client = MagicMock(spec=Hindsight)
+    client.memory.clear_memory_observations = AsyncMock()
+    operation = HindsightDeletion(client).clear_memory_observations
+    asyncio.run(operation("bank", "kept-fact"))
+    arguments = client.memory.clear_memory_observations.await_args
+    assert arguments.kwargs["bank_id"] == "bank"
+    assert arguments.kwargs["memory_id"] == "kept-fact"
+    client.memory.clear_memory_observations.side_effect = ApiException(status=500)
+    with pytest.raises(ApiException):
+        asyncio.run(operation("bank", "kept-fact"))
+
+
+def test_bank_observation_clear_uses_public_sdk_and_propagates_failure() -> None:
+    client = MagicMock(spec=Hindsight)
+    client.banks.clear_observations = AsyncMock()
+    adapter = HindsightDeletion(client)
+    asyncio.run(adapter.clear_observations("bank"))
+    assert client.banks.clear_observations.await_args.kwargs["bank_id"] == "bank"
+    client.banks.clear_observations.side_effect = ApiException(status=500)
+    with pytest.raises(ApiException):
+        asyncio.run(adapter.clear_observations("bank"))
+
+
+def test_nonadvancing_observation_page_does_not_hide_residue() -> None:
+    client = MagicMock(spec=Hindsight)
+    client.memory.list_memories = AsyncMock(
+        return_value=ListMemoryUnitsResponse(items=[], total=1, limit=100, offset=0)
+    )
+    with pytest.raises(RuntimeError):
+        asyncio.run(HindsightDeletion(client).observation_sources("bank"))

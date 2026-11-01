@@ -19,6 +19,8 @@ from digital_souls_memory_hindsight.deletion.domain import (
 )
 from digital_souls_memory_hindsight.deletion.ports import DeletionTransitionRejected
 from digital_souls_memory_hindsight.evidence.ports import EvidenceUnavailable
+from digital_souls_memory_hindsight.evidence.projection import bank_id, document_id
+from digital_souls_memory_hindsight.outbox import RetainOperation
 from digital_souls_memory_hindsight.postgres_deletion import PostgresDeletionStore
 from tests.ut.test_delivery_scope import NOW
 
@@ -241,6 +243,51 @@ def test_store_rejects_transition_that_skips_processing(monkeypatch: pytest.Monk
     connect.assert_not_called()
 
 
+def test_active_projection_lease_defers_ledger_deletion(monkeypatch: pytest.MonkeyPatch) -> None:
+    connection = MagicMock(spec=psycopg.Connection)
+    connection.__enter__.return_value = connection
+    result = MagicMock()
+    result.fetchone.return_value = ({"memory_snapshot": {}},)
+    result.fetchall.side_effect = [
+        [("char-a", "s-1")],
+        [("s-1",)],
+        [("processing", NOW + timedelta(seconds=60))],
+    ]
+    connection.execute.return_value = result
+    monkeypatch.setattr(psycopg, "connect", MagicMock(return_value=connection))
+    item = DeletionItem(
+        "d",
+        "processing",
+        1,
+        NOW,
+        "lease",
+        NOW + timedelta(seconds=60),
+        None,
+        None,
+        {"memory_snapshot": {}},
+    )
+    assert PostgresDeletionStore("synthetic").delete_turns(item, request(), NOW) == item.progress
+    assert not any(
+        call.args[0].startswith(("DELETE", "INSERT", "UPDATE"))
+        for call in connection.execute.call_args_list
+    )
+
+
+@pytest.mark.parametrize("lease_seconds", [-1, 0, 1])
+def test_projection_preflight_waits_only_for_a_live_lease(
+    monkeypatch: pytest.MonkeyPatch,
+    lease_seconds: int,
+) -> None:
+    connection = MagicMock(spec=psycopg.Connection)
+    connection.__enter__.return_value = connection
+    connection.execute.return_value.fetchall.side_effect = [
+        [("char-a", "s-1")],
+        [("processing", NOW + timedelta(seconds=lease_seconds))],
+    ]
+    monkeypatch.setattr(psycopg, "connect", MagicMock(return_value=connection))
+    assert PostgresDeletionStore("synthetic").projections_busy("d", NOW) == (lease_seconds > 0)
+
+
 @pytest.mark.parametrize("operation", ["get", "blocked_sessions"])
 @pytest.mark.parametrize("stage", ["connect", "execute", "commit"])
 def test_database_failure_is_unavailable_instead_of_empty_result(
@@ -270,3 +317,62 @@ def test_database_failure_is_unavailable_instead_of_empty_result(
     monkeypatch.setattr(psycopg, "connect", connect)
     with pytest.raises(EvidenceUnavailable):
         getattr(module.PostgresDeletionStore("synthetic-db"), operation)("synthetic-id")
+
+
+@pytest.mark.parametrize("remaining", [True, False])
+def test_unfinished_operations_are_fenced_before_rebuild_and_completed_are_not(
+    monkeypatch: pytest.MonkeyPatch,
+    remaining: bool,
+) -> None:
+    connection = MagicMock(spec=psycopg.Connection)
+    connection.__enter__.return_value = connection
+    sent: list[RetainOperation] = []
+
+    def execute(sql: str, parameters: object = None) -> MagicMock:
+        result = MagicMock()
+        result.fetchone.return_value = ({},)
+        result.fetchall.return_value = []
+        if "SELECT character_id, session_id FROM deletion_blocks" in sql:
+            result.fetchall.return_value = [("char-a", "s-1")]
+        elif "SELECT session_id FROM turns" in sql:
+            result.fetchall.return_value = [("s-1",)]
+        elif "DELETE FROM outbox" in sql and "turn_id = ANY" in sql:
+            result.fetchall.return_value = [
+                ("old-append", bank_id("char-a"), document_id("s-1"), "processing"),
+                ("done", bank_id("char-a"), document_id("s-1"), "completed"),
+                ("uncertain", bank_id("char-a"), document_id("s-1"), "pending"),
+            ]
+        elif "DELETE FROM outbox" in sql:
+            result.fetchall.return_value = [
+                ("old-replace", bank_id("char-a"), document_id("s-1"), "pending")
+            ]
+        return result
+
+    connection.execute.side_effect = execute
+    monkeypatch.setattr(psycopg, "connect", MagicMock(return_value=connection))
+    evidence = MagicMock()
+    evidence.list_projection_turns.return_value = (MagicMock(occurred_at=NOW),)
+    evidence.add_retain.side_effect = sent.append
+    module = importlib.import_module("digital_souls_memory_hindsight.postgres_deletion")
+    monkeypatch.setattr(module, "PostgresEvidenceStore", MagicMock(return_value=evidence))
+    monkeypatch.setattr(module, "document_content", lambda *args: "残る本文" if remaining else "")
+    item = DeletionItem(
+        "d", "processing", 1, NOW, "lease", NOW + timedelta(seconds=60), None, None, {}
+    )
+    progress = PostgresDeletionStore("synthetic").delete_turns(item, request(), NOW)
+    fences = [op for op in sent if op.fenced_operation_id is not None]
+    assert [op.operation_id for op in fences] == ["old-append", "uncertain", "old-replace"]
+    assert all(op.update_mode == "replace" and op.content for op in fences)
+    assert sent[:3] == fences
+    assert len(cast(list[object], progress["fenced_operations"])) == 3
+    assert all(op.operation_id != "done" for op in fences)
+    if remaining:
+        assert len(sent) == 4
+        assert all(op.content == "残る本文" for op in sent)
+        assert progress["fenced_documents"] == []
+    else:
+        assert len(sent) == 5
+        assert all(op.document_id == fences[0].document_id for op in fences)
+        assert sent[3].update_mode == "delete" and sent[3].document_id == fences[0].document_id
+        assert sent[4].update_mode == "delete" and sent[4].document_id != fences[0].document_id
+        assert len(cast(list[object], progress["fenced_documents"])) == 1
