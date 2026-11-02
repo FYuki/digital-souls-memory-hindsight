@@ -146,6 +146,19 @@ class PostgresDeletionStore:
     def fail(self, item: DeletionItem, now: datetime, reason: str) -> bool:
         return self._finish(item, now, "failed", now, reason)
 
+    def renew(self, item: DeletionItem, now: datetime, lease_for: timedelta) -> bool:
+        """Extend only the caller's own live lease; an expired lease is never revived."""
+        if lease_for <= timedelta(0):
+            raise ValueError("Lease must be positive")
+        with self._connection() as connection:
+            row = connection.execute(
+                "UPDATE deletion_outbox SET lease_until = %s "
+                "WHERE request_id = %s AND status = 'processing' "
+                "AND lease_token = %s AND lease_until > %s RETURNING request_id",
+                (now + lease_for, item.request_id, item.lease_token, now),
+            ).fetchone()
+            return row is not None
+
     def _finish(
         self,
         item: DeletionItem,

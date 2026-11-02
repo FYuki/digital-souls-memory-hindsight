@@ -376,3 +376,35 @@ def test_unfinished_operations_are_fenced_before_rebuild_and_completed_are_not(
         assert sent[3].update_mode == "delete" and sent[3].document_id == fences[0].document_id
         assert sent[4].update_mode == "delete" and sent[4].document_id != fences[0].document_id
         assert len(cast(list[object], progress["fenced_documents"])) == 1
+
+
+@pytest.mark.parametrize("matched", [True, False])
+def test_deletion_lease_renewal_is_fenced_by_current_live_lease(
+    monkeypatch: pytest.MonkeyPatch, matched: bool
+) -> None:
+    connection = MagicMock(spec=psycopg.Connection)
+    connection.__enter__.return_value = connection
+    connection.execute.return_value.fetchone.return_value = ("d",) if matched else None
+    monkeypatch.setattr(psycopg, "connect", MagicMock(return_value=connection))
+    item = DeletionItem(
+        "d", "processing", 1, NOW, "lease", NOW + timedelta(seconds=60), None, None, {}
+    )
+    store = PostgresDeletionStore("synthetic-db")
+    assert store.renew(item, NOW, timedelta(seconds=60)) == matched
+    sql, parameters = connection.execute.call_args.args
+    assert "SET lease_until = %s" in sql
+    assert "status = 'processing'" in sql and "lease_token = %s" in sql
+    assert "lease_until > %s" in sql
+    assert parameters == (NOW + timedelta(seconds=60), "d", "lease", NOW)
+
+
+@pytest.mark.parametrize("seconds", [0, -1])
+def test_deletion_lease_renewal_rejects_nonpositive_lease_before_connecting(
+    monkeypatch: pytest.MonkeyPatch, seconds: int
+) -> None:
+    connect = MagicMock()
+    monkeypatch.setattr(psycopg, "connect", connect)
+    item = DeletionItem("d", "processing", 1, NOW, "lease", NOW, None, None, {})
+    with pytest.raises(ValueError):
+        PostgresDeletionStore("synthetic-db").renew(item, NOW, timedelta(seconds=seconds))
+    connect.assert_not_called()
