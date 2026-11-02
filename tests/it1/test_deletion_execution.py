@@ -338,3 +338,29 @@ def test_deletion_acceptance_rolls_back_if_its_outbox_cannot_be_saved(
         assert connection.execute("SELECT count(*) FROM deletion_outbox").fetchone() == (0,)
         connection.execute("DROP TRIGGER reject_deletion_enqueue ON deletion_outbox")
     assert service.accept("d", "synthetic-author", ("target",), None).status == "accepted"
+
+
+def test_deletion_lease_renewal_extends_only_the_current_live_lease(
+    projection: Projection,
+) -> None:
+    p = projection
+    p.post_turn("target", text=SECRET)
+    store = PostgresDeletionStore(p.database)
+    DeletionService(store, p.service, clock=p.clock).accept(
+        "renew", "synthetic-author", ("target",), None
+    )
+    item = store.claim(p.clock.now, timedelta(seconds=60))
+    assert item is not None
+    later = p.clock.now + timedelta(seconds=50)
+    assert not store.renew(replace(item, lease_token="stale"), later, timedelta(seconds=60))
+    assert store.renew(item, later, timedelta(seconds=60))
+    # Past the original lease, but inside the renewed one: the owner still writes.
+    beyond_original = p.clock.now + timedelta(seconds=90)
+    store.save_progress(item, {"ledger_done": False}, beyond_original)
+    assert store.claim(beyond_original, timedelta(seconds=60)) is None
+    expired = later + timedelta(seconds=61)
+    assert not store.renew(item, expired, timedelta(seconds=60))
+    with pytest.raises(DeletionLeaseLost):
+        store.save_progress(item, {"ledger_done": False}, expired)
+    reclaimed = store.claim(expired, timedelta(seconds=60))
+    assert reclaimed is not None and reclaimed.lease_token != item.lease_token
