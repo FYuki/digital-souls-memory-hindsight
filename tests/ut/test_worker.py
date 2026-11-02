@@ -9,12 +9,52 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from digital_souls_memory_hindsight.deletion.ports import DeletionStep
 from digital_souls_memory_hindsight.evidence.ports import EvidenceUnavailable
 from digital_souls_memory_hindsight.outbox import OutboxItem, RetainResult
+from tests.ut.test_deletion_execution import execution_setup
 from tests.ut.test_delivery_scope import NOW, Clock, draft, service_with_session
 from tests.ut.test_evidence_http import MemoryStore
 
 pytestmark = pytest.mark.ut
+
+
+@pytest.mark.parametrize(
+    "outcome", ["completed", "waiting", "failed", "not_configured", "exception"]
+)
+def test_empty_retain_queue_still_advances_deletion_and_records_safe_retry(outcome: str) -> None:
+    worker_module = importlib.import_module("digital_souls_memory_hindsight.worker")
+    _, queue, _, item = execution_setup()
+    queue.claim.return_value = item
+    deletion = MagicMock(spec=DeletionStep)
+    deletion.queue = queue
+    deletion.step = AsyncMock(return_value=outcome)
+    if outcome == "exception":
+        deletion.step.side_effect = TimeoutError("synthetic-private-body-and-connection")
+    retains = MagicMock()
+    retains.claim.return_value = None
+    service = service_with_session(MemoryStore(), Clock())
+    worker = worker_module.Worker(retains, None, service, clock=Clock(), deletion=deletion)
+    asyncio.run(worker.run_once())
+    deletion.step.assert_awaited_once_with(item)
+    if outcome == "completed":
+        queue.complete.assert_called_once_with(item, NOW)
+        queue.fail.assert_not_called()
+        queue.defer.assert_not_called()
+    elif outcome == "failed":
+        queue.fail.assert_called_once_with(item, NOW, "rebuild_failed")
+        queue.complete.assert_not_called()
+    else:
+        reason = (
+            "transport_error"
+            if outcome == "exception"
+            else "not_configured"
+            if outcome == "not_configured"
+            else "pending"
+        )
+        queue.defer.assert_called_once_with(item, NOW, NOW + timedelta(seconds=1), reason)
+        queue.complete.assert_not_called()
+        queue.fail.assert_not_called()
 
 
 def test_same_worker_confirms_expired_deliveries_even_with_an_empty_outbox() -> None:
@@ -67,6 +107,7 @@ def test_worker_records_completion_pending_failure_and_retry_without_private_det
     queue.claim.return_value = item
     executor = MagicMock()
     executor.execute = AsyncMock()
+    queue.owns.return_value = True
     if outcome == "transport_error":
         executor.execute.side_effect = TimeoutError("synthetic private detail")
     else:
@@ -114,6 +155,36 @@ def test_unconfigured_retain_is_preserved_for_retry() -> None:
     queue.complete.assert_not_called()
 
 
+def test_worker_does_not_send_or_finish_a_claim_it_no_longer_owns() -> None:
+    worker_module = importlib.import_module("digital_souls_memory_hindsight.worker")
+    queue = MagicMock()
+    item = OutboxItem(
+        "t-1",
+        "bank",
+        "session",
+        "合成本文",
+        NOW,
+        "processing",
+        1,
+        NOW,
+        "stale",
+        NOW + timedelta(seconds=60),
+        None,
+        None,
+    )
+    queue.claim.return_value = item
+    queue.owns.return_value = False
+    executor = MagicMock()
+    executor.execute = AsyncMock()
+    service = service_with_session(MemoryStore(), Clock())
+    asyncio.run(worker_module.Worker(queue, executor, service, clock=Clock()).run_once())
+    queue.owns.assert_called_once_with(item, NOW)
+    executor.execute.assert_not_awaited()
+    queue.complete.assert_not_called()
+    queue.defer.assert_not_called()
+    queue.fail.assert_not_called()
+
+
 def test_cancellation_leaves_claim_for_lease_recovery() -> None:
     worker_module = importlib.import_module("digital_souls_memory_hindsight.worker")
     queue = MagicMock()
@@ -134,6 +205,7 @@ def test_cancellation_leaves_claim_for_lease_recovery() -> None:
     queue.claim.return_value = item
     executor = MagicMock()
     executor.execute = AsyncMock(side_effect=asyncio.CancelledError)
+    queue.owns.return_value = True
     service = service_with_session(MemoryStore(), Clock())
     with pytest.raises(asyncio.CancelledError):
         asyncio.run(worker_module.Worker(queue, executor, service, clock=Clock()).run_once())
@@ -207,3 +279,114 @@ def test_periodic_worker_survives_an_unexpected_error_without_logging_its_text(
         asyncio.run(exercise())
     assert "RuntimeError" in caplog.text
     assert "synthetic-secret-text" not in caplog.text
+
+
+def _deletion_worker(
+    step: AsyncMock, renew: MagicMock | None = None
+) -> tuple[object, MagicMock, object]:
+    worker_module = importlib.import_module("digital_souls_memory_hindsight.worker")
+    _, queue, _, item = execution_setup()
+    queue.claim.return_value = item
+    if renew is not None:
+        queue.renew = renew
+    deletion = MagicMock(spec=DeletionStep)
+    deletion.queue = queue
+    deletion.step = step
+    retains = MagicMock()
+    retains.claim.return_value = None
+    service = service_with_session(MemoryStore(), Clock())
+    worker = worker_module.Worker(
+        retains,
+        None,
+        service,
+        clock=Clock(),
+        deletion=deletion,
+        deletion_lease=timedelta(seconds=60),
+        deletion_heartbeat=timedelta(milliseconds=10),
+    )
+    return worker, queue, item
+
+
+def test_long_deletion_step_renews_its_lease_and_still_completes() -> None:
+    async def slow_step(item: object) -> str:
+        await asyncio.sleep(0.1)
+        return "completed"
+
+    renew = MagicMock(return_value=True)
+    worker, queue, item = _deletion_worker(AsyncMock(side_effect=slow_step), renew)
+    asyncio.run(worker.run_once())  # type: ignore[attr-defined]
+    assert renew.call_count >= 2
+    for call in renew.call_args_list:
+        assert call.args == (item, NOW, timedelta(seconds=60))
+    queue.complete.assert_called_once_with(item, NOW)
+    queue.defer.assert_not_called()
+
+
+@pytest.mark.parametrize("failure", ["rejected", "error"])
+def test_lost_lease_stops_the_running_deletion_step(failure: str) -> None:
+    started = asyncio.Event()
+    cancelled: list[bool] = []
+
+    async def endless_step(item: object) -> str:
+        started.set()
+        try:
+            await asyncio.sleep(30)
+        except asyncio.CancelledError:
+            cancelled.append(True)
+            raise
+        return "completed"
+
+    renew = MagicMock(return_value=False)
+    if failure == "error":
+        renew.side_effect = RuntimeError("synthetic-connection-detail")
+    worker, queue, item = _deletion_worker(AsyncMock(side_effect=endless_step), renew)
+    asyncio.run(asyncio.wait_for(worker.run_once(), 5))  # type: ignore[attr-defined]
+    assert started.is_set() and cancelled == [True]
+    renew.assert_called_once()
+    queue.complete.assert_not_called()
+    queue.fail.assert_not_called()
+    queue.defer.assert_called_once_with(item, NOW, NOW + timedelta(seconds=1), "lease_lost")
+
+
+def test_worker_cancellation_stops_deletion_step_and_heartbeat() -> None:
+    cancelled: list[bool] = []
+
+    async def endless_step(item: object) -> str:
+        try:
+            await asyncio.sleep(30)
+        except asyncio.CancelledError:
+            cancelled.append(True)
+            raise
+        return "completed"
+
+    renew = MagicMock(return_value=True)
+    worker, queue, _ = _deletion_worker(AsyncMock(side_effect=endless_step), renew)
+
+    async def scenario() -> None:
+        task = asyncio.create_task(worker.run_once())  # type: ignore[attr-defined]
+        await asyncio.sleep(0.05)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        calls = renew.call_count
+        await asyncio.sleep(0.05)
+        assert renew.call_count == calls
+
+    asyncio.run(scenario())
+    assert cancelled == [True]
+    queue.complete.assert_not_called()
+    queue.defer.assert_not_called()
+    queue.fail.assert_not_called()
+
+
+@pytest.mark.parametrize("heartbeat_seconds", [0, 60, 61])
+def test_worker_rejects_heartbeat_that_cannot_keep_the_lease(heartbeat_seconds: int) -> None:
+    worker_module = importlib.import_module("digital_souls_memory_hindsight.worker")
+    with pytest.raises(ValueError):
+        worker_module.Worker(
+            MagicMock(),
+            None,
+            service_with_session(MemoryStore(), Clock()),
+            deletion_lease=timedelta(seconds=60),
+            deletion_heartbeat=timedelta(seconds=heartbeat_seconds),
+        )

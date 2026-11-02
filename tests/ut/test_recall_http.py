@@ -22,6 +22,7 @@ from digital_souls_memory_hindsight.evidence.projection import bank_id, document
 from digital_souls_memory_hindsight.evidence.service import EvidenceService
 from digital_souls_memory_hindsight.evidence_http import evidence_router
 from tests.ut.test_anchor_http import AnchorStore, anchor_body
+from tests.ut.test_deletion_http import DeletionStore
 from tests.ut.test_delivery_scope import NOW, Clock
 from tests.ut.test_evidence_http import MemoryStore, receipt_body, session_body, turn_body
 
@@ -114,7 +115,12 @@ def application(
     anchors = AnchorStore()
     anchor_instance = anchor_service.AnchorService(anchors, evidence, clock=Clock())
     service = service_module.RecallService(
-        evidence, memory if configured else None, provisions, anchor_instance, clock=Clock()
+        evidence,
+        memory if configured else None,
+        provisions,
+        anchor_instance,
+        DeletionStore(),
+        clock=Clock(),
     )
     app = FastAPI()
     app.include_router(evidence_router(lambda: evidence))
@@ -481,6 +487,7 @@ def test_production_app_exposes_recall_and_unconfigured_memory_is_503(
     monkeypatch.delenv("HINDSIGHT_URL", raising=False)
     module = importlib.reload(importlib.import_module("digital_souls_memory_hindsight.app"))
     monkeypatch.setattr(module, "PostgresAnchorStore", MagicMock(return_value=AnchorStore()))
+    monkeypatch.setattr(module, "PostgresDeletionStore", MagicMock(return_value=DeletionStore()))
     store = MemoryStore()
     monkeypatch.setattr(module, "ledger_service", EvidenceService(store, frozenset({"char-a"})))
     worker = MagicMock()
@@ -809,6 +816,7 @@ def test_production_threshold_controls_response_and_records_abstention(
     monkeypatch.setenv("RECALL_MIN_RERANKER_SCORE", threshold)
     module = importlib.reload(importlib.import_module("digital_souls_memory_hindsight.app"))
     monkeypatch.setattr(module, "PostgresAnchorStore", MagicMock(return_value=AnchorStore()))
+    monkeypatch.setattr(module, "PostgresDeletionStore", MagicMock(return_value=DeletionStore()))
     evidence = EvidenceService(MemoryStore(), frozenset({"char-a"}))
     monkeypatch.setattr(module, "ledger_service", evidence)
     provisions = ProvisionStore()

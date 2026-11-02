@@ -10,9 +10,10 @@ from uuid import uuid4
 from ..anchors.service import AnchorItem, AnchorService
 from ..evidence.domain import EvidenceValidationError, Session
 from ..evidence.ports import EvidenceNotFound, EvidenceUnavailable
-from ..evidence.projection import bank_id
+from ..evidence.projection import bank_id, document_id
 from ..evidence.service import EvidenceService, ProjectionSource
 from .ports import (
+    DeletionBlocks,
     MemoryRecall,
     ProvisionRecord,
     ProvisionSpan,
@@ -178,6 +179,7 @@ class RecallService:
         memory: MemoryRecall | None,
         provisions: ProvisionStore,
         anchors: AnchorService,
+        deletions: DeletionBlocks,
         *,
         clock: Callable[[], datetime] = _utc_now,
     ) -> None:
@@ -185,6 +187,7 @@ class RecallService:
         self._memory = memory
         self._provisions = provisions
         self._anchors = anchors
+        self._deletions = deletions
         self._clock = clock
 
     def _query(
@@ -217,6 +220,9 @@ class RecallService:
             if self._memory is None:
                 raise RecallUnavailable()
             facts = await self._memory.recall(bank_id(character_id), search)
+            blocked = await asyncio.to_thread(self._deletions.blocked_sessions, character_id)
+            blocked_documents = frozenset(document_id(session) for session in blocked)
+            facts = tuple(fact for fact in facts if fact.document_id not in blocked_documents)
             documents = frozenset(fact.document_id for fact in facts)
             candidates = (
                 await asyncio.to_thread(self._evidence.projection_sources, character_id, documents)
@@ -230,6 +236,7 @@ class RecallService:
                 search,
                 frozenset(turn for memory in provision.memories for turn in memory.source_turn_ids),
             )
+            anchors = await asyncio.to_thread(self._unblocked_anchors, anchors, blocked)
             provision = await asyncio.to_thread(self._with_anchors, provision, anchors, format)
             record = provision_record(
                 provision,
@@ -247,6 +254,15 @@ class RecallService:
             raise RecallSourceNotFound() from None
         except (EvidenceUnavailable, EvidenceValidationError):
             raise RecallUnavailable() from None
+
+    def _unblocked_anchors(
+        self, anchors: tuple[AnchorItem, ...], blocked: frozenset[str]
+    ) -> tuple[AnchorItem, ...]:
+        return tuple(
+            anchor
+            for anchor in anchors
+            if self._evidence.get_turn(anchor.turn_id).session_id not in blocked
+        )
 
     def _with_anchors(
         self,

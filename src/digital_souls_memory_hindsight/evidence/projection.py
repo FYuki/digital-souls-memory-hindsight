@@ -47,20 +47,25 @@ def update_projection(store: EvidenceStore, turn: Turn, scope: DeliveryScope) ->
                     )
                 )
             continue
-        parts = []
-        for value in previous:
-            latest = None if value.kind == "thought" else store.get_delivery_scope(value.turn_id)
-            text = projection_text(value, character, latest)
-            if text:
-                parts.append(text)
+        content = document_content(store, turn.session_id, character)
         store.add_retain(
             RetainOperation(
                 turn.turn_id,
                 bank,
                 document_id(turn.session_id),
-                "\n\n".join(parts),
+                content,
                 turn.occurred_at,
-                "replace" if parts else "delete",
+                "replace" if content else "delete",
                 scope.scope_id,
             )
         )
+
+
+def document_content(store: EvidenceStore, session_id: str, character: str) -> str:
+    parts = []
+    for value in store.list_projection_turns(session_id, bank_id(character)):
+        scope = None if value.kind == "thought" else store.get_delivery_scope(value.turn_id)
+        text = projection_text(value, character, scope)
+        if text:
+            parts.append(text)
+    return "\n\n".join(parts)
