@@ -3,7 +3,7 @@ FROM groonga/pgroonga:4.1.0-debian-18@sha256:817261cb4ed9dc8270d46af5395f4071078
 USER root
 # Debian は snapshot.debian.org の固定時点、PGDG は全版を残す apt-archive から入れる。
 # 最新版を自動で使わない。時点は公開から 7 日以上たったものを選び、意識的に上げる
-# （手順は README の「DB イメージのパッケージ固定」）。上げたら packages.lock を作り直す。
+# （手順は README の「依存パッケージの固定」）。上げたら packages.lock を作り直す。
 ARG DEBIAN_SNAPSHOT=20261027T000000Z
 RUN mkdir -p /etc/apt/sources.list.d.disabled \
     && mv /etc/apt/sources.list.d/* /etc/apt/sources.list.d.disabled/ \

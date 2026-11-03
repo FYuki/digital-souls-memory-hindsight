@@ -33,6 +33,10 @@ Python **3.12.3**（`.python-version`）と uv **0.8.22** を使います。
 Hindsight のクライアントは `hindsight-client==1.1.0` に固定し、フォーク・改変しません（A1）。
 TDD に従い、振る舞いを検証する失敗テストを先に書いてから実装します。
 依存更新は明示的に行い、lockfile の差分をレビューします。
+最新版を自動で使いません。パッケージ汚染に備え、公開から 7 日以上たった版だけを使い、
+固定時点を意識的に上げます。対象は Python（`pyproject.toml` の `exclude-newer`）、
+DB イメージの apt（`DEBIAN_SNAPSHOT`）、コンテナの基底イメージ（digest 固定）、npm を使う場合はその lockfile です。
+手順は README の「依存パッケージの固定」に従います。
 
 ```sh
 python3 -m pip install uv==0.8.22
