@@ -97,6 +97,13 @@ class _IdentityRows:
         )
 
 
+def current_identity(
+    connection: psycopg.Connection[DictRow], character_id: str
+) -> IdentitySnapshot:
+    rows = _IdentityRows(connection, character_id)
+    return IdentitySnapshot(rows.get_core(None), rows.get_temperament(None), rows.get_profile(None))
+
+
 class PostgresIdentityStore:
     def __init__(self, database_url: str) -> None:
         self._url = database_url
@@ -123,10 +130,7 @@ class PostgresIdentityStore:
 
     def current(self, character_id: str) -> IdentitySnapshot:
         with self._connection() as connection:
-            rows = _IdentityRows(connection, character_id)
-            return IdentitySnapshot(
-                rows.get_core(None), rows.get_temperament(None), rows.get_profile(None)
-            )
+            return current_identity(connection, character_id)
 
     def get_core(self, character_id: str, version: int) -> CoreIdentity | None:
         with self._connection() as connection:

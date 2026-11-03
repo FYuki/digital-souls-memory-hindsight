@@ -96,7 +96,7 @@ def test_reads_restore_verbatim_text_and_optional_spans(
         NOW,
     )
     connection.execute.return_value.fetchone.return_value = row
-    connection.execute.return_value.fetchall.return_value = [row]
+    connection.cursor.return_value.__enter__.return_value.fetchall.return_value = [row]
     monkeypatch.setattr(psycopg, "connect", MagicMock(return_value=connection))
     store = module.PostgresVoiceStore("synthetic-db")
     if operation == "get":

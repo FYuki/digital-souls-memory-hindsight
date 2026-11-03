@@ -221,10 +221,9 @@ def test_deletion_waits_for_inflight_registration_then_cascades(projection: Proj
                 assert not inserted.done(), "Registration terminated before the INSERT gate"
                 assert time.monotonic() < deadline, "Registration did not reach INSERT"
                 time.sleep(0.01)
-            request = service.accept("race-insert", "synthetic-author", ("q",), None)
-            item = store.claim(p.clock.now, timedelta(seconds=60))
-            assert item is not None
-            deleted = executor.submit(store.delete_turns, item, request, p.clock.now)
+            accepted = executor.submit(
+                service.accept, "race-insert", "synthetic-author", ("q",), None
+            )
             while True:
                 blocked = gate.execute(
                     "SELECT 1 FROM pg_stat_activity WHERE %s = ANY(pg_blocking_pids(pid))",
@@ -232,14 +231,19 @@ def test_deletion_waits_for_inflight_registration_then_cascades(projection: Proj
                 ).fetchone()
                 if blocked is not None:
                     break
-                assert not deleted.done(), "Deletion bypassed the in-flight source locks"
+                assert not accepted.done(), (
+                    "Deletion acceptance bypassed the in-flight source locks"
+                )
                 assert time.monotonic() < deadline, "Deletion did not wait for registration"
                 time.sleep(0.01)
         finally:
             gate.execute("SELECT pg_advisory_unlock(46)")
         response = inserted.result(timeout=15)
         assert response.status_code == 201, response.text
-        progress = deleted.result(timeout=15)
+        request = accepted.result(timeout=15)
+        item = store.claim(p.clock.now, timedelta(seconds=60))
+        assert item is not None
+        progress = store.delete_turns(item, request, p.clock.now)
         assert progress["deleted_voice_exemplars"] == [
             {"character_id": p.characters[0], "exemplar_id": "voice-1"}
         ]

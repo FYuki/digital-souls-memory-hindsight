@@ -2,6 +2,8 @@
 
 from typing import Protocol
 
+from ..evidence.delivery import DeliveryScope
+from ..evidence.domain import Turn
 from .domain import VoiceExemplar
 
 
@@ -23,3 +25,9 @@ class VoiceStore(Protocol):
 
 class DeletionState(Protocol):
     def turns_under_deletion(self, turn_ids: frozenset[str]) -> frozenset[str]: ...
+
+
+class SourceTurns(Protocol):
+    def get_turn(self, turn_id: str) -> Turn: ...
+
+    def get_delivery_scope(self, turn_id: str) -> DeliveryScope | None: ...

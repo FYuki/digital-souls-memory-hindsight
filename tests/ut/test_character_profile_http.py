@@ -257,6 +257,28 @@ def test_unknown_character_and_unconfigured_profile_are_404() -> None:
         )
 
 
+def test_put_stops_at_first_invalid_entry_before_reading_later_unavailable_source(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ledger = MemoryStore()
+    store = ProfileStore()
+    original = ledger.get_turn
+
+    def get_turn(turn_id: str) -> object:
+        if turn_id == "a":
+            raise EvidenceUnavailable()
+        return original(turn_id)
+
+    with TestClient(application(store, DeletionState(), ledger)) as client:
+        seed_turns(client)
+        monkeypatch.setattr(ledger, "get_turn", get_turn)
+        response = client.put(
+            BASE, json=profile_body(char_limit=2, entries=[span("missing", 0, 1), span("a", 0, 1)])
+        )
+    assert response.status_code == 422
+    assert store.values == {}
+
+
 def test_create_app_exposes_profile_routes(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setenv("DATABASE_URL", "postgresql://it1@postgres:5432/synthetic_ledger")

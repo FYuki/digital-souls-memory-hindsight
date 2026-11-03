@@ -68,17 +68,20 @@ def add_resident(
         connection.execute(
             "INSERT INTO provision_records (provision_id, kind, character_id, session_id, "
             "surface, turn_id, memory_ids, source_spans, verbatim_anchor_ids, "
-            "memory_trust, source_span_trust, verbatim_anchor_trust, created_at) "
-            "VALUES (%s,%s,%s,%s,'Web',%s,'{}',%s,'{}','{}',%s,'{}',%s)",
+            "memory_trust, source_span_trust, verbatim_anchor_trust, created_at, "
+            "exemplar_ids, profile_revision, profile_entries, processing_time_ms) "
+            "VALUES (%s,%s,%s,%s,'Web',%s,'{}','[]','{}','{}','{}','{}',%s,%s,%s,%s,%s)",
             (
                 identifier,
                 kind,
                 p.characters[0] if character is None else character,
                 p.session if session is None else session,
                 "synthetic-query-turn" if kind == "turn" else None,
-                Jsonb(spans),
-                ["evidence"] if spans else [],
                 p.clock.now,
+                [] if kind == "resident" else None,
+                1 if spans else None,
+                Jsonb(spans) if kind == "resident" else None,
+                0 if kind == "resident" else None,
             ),
         )
 

@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import cast
 
 import psycopg
+from psycopg.rows import tuple_row
 
 from .evidence.ports import EvidenceUnavailable
 from .postgres_evidence import PostgresEvidenceStore
@@ -36,6 +37,17 @@ def _restore(row: tuple[object, ...]) -> VoiceExemplar:
         str(row[11]),
         cast(datetime, row[12]),
     )
+
+
+def list_exemplars(
+    connection: psycopg.Connection[object], character_id: str
+) -> tuple[VoiceExemplar, ...]:
+    with connection.cursor(row_factory=tuple_row) as cursor:
+        cursor.execute(
+            f"SELECT {_COLUMNS} FROM voice_exemplars WHERE character_id = %s ORDER BY exemplar_id",
+            (character_id,),
+        )
+        return tuple(_restore(row) for row in cursor.fetchall())
 
 
 class PostgresVoiceStore:
@@ -111,11 +123,6 @@ class PostgresVoiceStore:
     def list(self, character_id: str) -> tuple[VoiceExemplar, ...]:
         try:
             with psycopg.connect(self._url, connect_timeout=5) as connection:
-                rows = connection.execute(
-                    f"SELECT {_COLUMNS} FROM voice_exemplars "
-                    "WHERE character_id = %s ORDER BY exemplar_id",
-                    (character_id,),
-                ).fetchall()
-                return tuple(_restore(row) for row in rows)
+                return list_exemplars(connection, character_id)
         except psycopg.Error as error:
             raise EvidenceUnavailable() from error
