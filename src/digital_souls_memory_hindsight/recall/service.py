@@ -143,6 +143,7 @@ def provision_record(
     sensitivity: str | None,
     classifier_version: str | None,
     created_at: datetime,
+    resident_provision_id: str | None,
 ) -> ProvisionRecord:
     return ProvisionRecord(
         provision_id=provision.provision_id,
@@ -165,6 +166,7 @@ def provision_record(
         temperament_version=None,
         personality_version=None,
         created_at=created_at,
+        resident_provision_id=resident_provision_id,
     )
 
 
@@ -212,6 +214,7 @@ class RecallService:
         turn_id: str | None,
         sensitivity: str | None,
         classifier_version: str | None,
+        resident_provision_id: str | None,
     ) -> RecallProvision:
         try:
             search, session = await asyncio.to_thread(
@@ -247,6 +250,7 @@ class RecallService:
                 sensitivity=sensitivity,
                 classifier_version=classifier_version,
                 created_at=self._clock(),
+                resident_provision_id=resident_provision_id,
             )
             await asyncio.to_thread(self._provisions.add, record)
             return provision

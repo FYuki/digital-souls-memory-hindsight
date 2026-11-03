@@ -36,6 +36,7 @@ def provision() -> object:
         verbatim_anchor_trust=("evidence",),
         temperament_version=None,
         personality_version=None,
+        resident_provision_id=None,
         created_at=datetime(2026, 10, 29, tzinfo=UTC),
     )
 
@@ -99,3 +100,42 @@ def test_insert_transfers_trust_arrays_alongside_existing_content(
     assert values["source_span_trust"] == ["evidence"]
     assert values["verbatim_anchor_ids"] == ["anchor-1"]
     assert values["verbatim_anchor_trust"] == ["evidence"]
+
+
+@pytest.mark.parametrize("reference", [None, "resident-1"])
+def test_insert_transfers_optional_resident_reference(
+    monkeypatch: pytest.MonkeyPatch, reference: str | None
+) -> None:
+    module = importlib.import_module("digital_souls_memory_hindsight.postgres_provision")
+    ports = importlib.import_module("digital_souls_memory_hindsight.recall.ports")
+    record = ports.ProvisionRecord(**{**vars(provision()), "resident_provision_id": reference})
+    connection = MagicMock(spec=psycopg.Connection)
+    connection.__enter__.return_value = connection
+    connection.execute.return_value.fetchone.return_value = ("synthetic-provision",)
+    monkeypatch.setattr(psycopg, "connect", MagicMock(return_value=connection))
+    module.PostgresProvisionStore("synthetic-db").add(record)
+    statement, parameters = connection.execute.call_args.args
+    columns = re.search(r"INSERT INTO provision_records\s*\(([^)]+)\)", statement)
+    assert columns is not None
+    values = dict(
+        zip((column.strip() for column in columns[1].split(",")), parameters, strict=True)
+    )
+    assert values["resident_provision_id"] == reference
+    assert values["temperament_version"] is values["personality_version"] is None
+
+
+def test_missing_resident_reference_is_rejected_before_inserting(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = importlib.import_module("digital_souls_memory_hindsight.postgres_provision")
+    ports = importlib.import_module("digital_souls_memory_hindsight.recall.ports")
+    record = ports.ProvisionRecord(
+        **{**vars(provision()), "resident_provision_id": "missing-resident"}
+    )
+    connection = MagicMock(spec=psycopg.Connection)
+    connection.__enter__.return_value = connection
+    connection.execute.return_value.fetchone.return_value = None
+    monkeypatch.setattr(psycopg, "connect", MagicMock(return_value=connection))
+    with pytest.raises(ports.ResidentProvisionNotFound):
+        module.PostgresProvisionStore("synthetic-db").add(record)
+    assert not any("INSERT INTO" in call.args[0] for call in connection.execute.call_args_list)
