@@ -25,6 +25,7 @@ def build_cascade_result(
         "deleted_documents": progress["deleted_documents"],
         "deleted_anchors": progress["deleted_anchors"],
         "deleted_provision_ids": progress["deleted_provision_ids"],
+        "deleted_voice_exemplars": progress["deleted_voice_exemplars"],
     }
 
 
