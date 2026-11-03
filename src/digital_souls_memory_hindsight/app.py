@@ -26,9 +26,12 @@ from digital_souls_memory_hindsight.postgres_evidence import PostgresEvidenceSto
 from digital_souls_memory_hindsight.postgres_identity import PostgresIdentityStore
 from digital_souls_memory_hindsight.postgres_outbox import PostgresOutbox
 from digital_souls_memory_hindsight.postgres_provision import PostgresProvisionStore
+from digital_souls_memory_hindsight.postgres_voice import PostgresVoiceStore
 from digital_souls_memory_hindsight.recall.service import RecallService
 from digital_souls_memory_hindsight.recall_http import recall_router
 from digital_souls_memory_hindsight.settings import load_settings
+from digital_souls_memory_hindsight.voice.service import VoiceService
+from digital_souls_memory_hindsight.voice_http import voice_router
 from digital_souls_memory_hindsight.worker import Worker
 
 
@@ -43,6 +46,9 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
         PostgresAnchorStore(settings.database_url), ledger
     )
     deletion_store = PostgresDeletionStore(settings.database_url)
+    application.state.voice_service = VoiceService(
+        PostgresVoiceStore(settings.database_url), ledger, deletion_store
+    )
     application.state.deletion_service = DeletionService(deletion_store, ledger)
     application.state.recall_service = RecallService(
         ledger,
@@ -96,6 +102,7 @@ def create_app(*, llm_gateway: LLMGateway | None = None) -> FastAPI:
     application.include_router(recall_router(lambda: application.state.recall_service))
     application.include_router(anchor_router(lambda: application.state.anchor_service))
     application.include_router(identity_router(lambda: application.state.identity_service))
+    application.include_router(voice_router(lambda: application.state.voice_service))
     application.include_router(
         deletion_router(
             lambda: application.state.deletion_service,

@@ -32,6 +32,7 @@ def test_cascade_result_contains_only_deleted_identifiers_and_document_targets()
             {"character_id": "char-b", "anchor_id": "same-anchor"},
         ],
         "deleted_provision_ids": ["p-span", "p-memory"],
+        "deleted_voice_exemplars": [{"character_id": "char-a", "exemplar_id": "voice-1"}],
         "rebuilt_documents": [{"bank_id": "bank-a", "document_id": "document"}],
         "deleted_documents": [{"bank_id": "bank-b", "document_id": "document"}],
         "content": "合成の削除本文",
@@ -46,6 +47,7 @@ def test_cascade_result_contains_only_deleted_identifiers_and_document_targets()
             {"character_id": "char-b", "anchor_id": "same-anchor"},
         ],
         "deleted_provision_ids": ["p-span", "p-memory"],
+        "deleted_voice_exemplars": [{"character_id": "char-a", "exemplar_id": "voice-1"}],
     }
 
 
@@ -55,6 +57,7 @@ def test_empty_deletion_cascade_has_empty_identifier_lists() -> None:
         "ledger_done": True,
         "memory_snapshot": {},
         "deleted_anchors": [],
+        "deleted_voice_exemplars": [],
         "deleted_provision_ids": [],
         "rebuilt_documents": [],
         "deleted_documents": [],
@@ -64,6 +67,7 @@ def test_empty_deletion_cascade_has_empty_identifier_lists() -> None:
         "rebuilt_documents": [],
         "deleted_documents": [],
         "deleted_anchors": [],
+        "deleted_voice_exemplars": [],
         "deleted_provision_ids": [],
     }
 
@@ -138,6 +142,7 @@ def completed_ledger_progress() -> dict[str, object]:
         "deleted_documents": [],
         "deleted_anchors": [],
         "deleted_provision_ids": ["span"],
+        "deleted_voice_exemplars": [],
     }
 
 

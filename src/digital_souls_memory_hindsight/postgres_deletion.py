@@ -28,6 +28,16 @@ class PostgresDeletionStore:
     def __init__(self, database_url: str) -> None:
         self._url = database_url
 
+    def turns_under_deletion(self, turn_ids: frozenset[str]) -> frozenset[str]:
+        with self._connection() as connection:
+            rows = connection.execute(
+                "SELECT DISTINCT target FROM deletion_requests, "
+                "unnest(target_turn_ids) AS target "
+                "WHERE status <> 'completed' AND target = ANY(%s)",
+                (sorted(turn_ids),),
+            ).fetchall()
+            return frozenset(str(row[0]) for row in rows)
+
     @contextmanager
     def _connection(self) -> Iterator[psycopg.Connection[tuple[object, ...]]]:
         try:
@@ -280,6 +290,11 @@ class PostgresDeletionStore:
                 "RETURNING character_id, anchor_id",
                 (targets,),
             ).fetchall()
+            voices = connection.execute(
+                "DELETE FROM voice_exemplars WHERE answer_turn_id = ANY(%s) "
+                "OR question_turn_id = ANY(%s) RETURNING character_id, exemplar_id",
+                (targets, targets),
+            ).fetchall()
             provisions = connection.execute(
                 "DELETE FROM provision_records WHERE EXISTS (SELECT 1 FROM "
                 "jsonb_array_elements(source_spans) span WHERE span->>'turn_id' = ANY(%s)) "
@@ -403,6 +418,10 @@ class PostgresDeletionStore:
                     for character, anchor in sorted(anchors)
                 ],
                 "deleted_provision_ids": sorted(provision_ids),
+                "deleted_voice_exemplars": [
+                    {"character_id": str(character), "exemplar_id": str(exemplar)}
+                    for character, exemplar in sorted(voices)
+                ],
                 "rebuilt_documents": rebuilt,
                 "deleted_documents": deleted,
                 "fenced_operations": fenced,

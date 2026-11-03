@@ -1,0 +1,1 @@
+"""Approved, verbatim voice exemplars."""
