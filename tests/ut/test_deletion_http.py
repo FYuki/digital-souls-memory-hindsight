@@ -378,7 +378,7 @@ def test_production_app_loads_author_and_exposes_both_deletion_routes(
     monkeypatch.setattr(module, "PostgresDeletionStore", MagicMock(return_value=DeletionStore()))
     monkeypatch.setattr(module, "PostgresAnchorStore", MagicMock(return_value=AnchorStore()))
     monkeypatch.setattr(
-        module, "ledger_service", EvidenceService(MemoryStore(), frozenset({"char-a"}))
+        module.app.state, "ledger_service", EvidenceService(MemoryStore(), frozenset({"char-a"}))
     )
     worker = MagicMock()
     worker.run = AsyncMock()

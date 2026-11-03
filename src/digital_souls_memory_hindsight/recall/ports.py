@@ -36,6 +36,10 @@ class ProvisionConflict(Exception):
     """The provision identifier has already been recorded."""
 
 
+class ResidentProvisionNotFound(Exception):
+    """The reference is not a resident provision for this character and session."""
+
+
 @dataclass(frozen=True)
 class ProvisionSpan:
     turn_id: str
@@ -63,6 +67,7 @@ class ProvisionRecord:
     temperament_version: str | None
     personality_version: str | None
     created_at: datetime
+    resident_provision_id: str | None
 
 
 class ProvisionStore(Protocol):
