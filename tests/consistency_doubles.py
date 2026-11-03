@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
     from digital_souls_memory_hindsight.consistency.ports import ConsistencyReview
-
     from digital_souls_memory_hindsight.identity.ports import Temperament
 
 
