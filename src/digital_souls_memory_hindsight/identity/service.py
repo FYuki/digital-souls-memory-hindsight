@@ -4,9 +4,11 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from types import MappingProxyType
 
+from ..consistency.ports import Reviewer, checked_review
 from .ports import (
     CoreIdentity,
     IdentityConflict,
+    IdentityInconsistent,
     IdentityNotFound,
     IdentitySnapshot,
     IdentityStore,
@@ -26,11 +28,13 @@ class IdentityService:
         self,
         store: IdentityStore,
         gateway: LLMGateway | None,
+        reviewer: Reviewer | None,
         *,
         clock: Callable[[], datetime] = _utc_now,
     ) -> None:
         self._store = store
         self._gateway = gateway
+        self._reviewer = reviewer
         self._clock = clock
 
     def register_core(
@@ -50,6 +54,9 @@ class IdentityService:
 
     def register_temperament(self, character_id: str, description: str) -> Temperament:
         with self._store.transaction(character_id) as transaction:
+            profile = transaction.get_profile(None)
+            if profile is not None:
+                self._review_personality(description, profile.description)
             previous = transaction.get_temperament(None)
             value = Temperament(
                 character_id,
@@ -63,7 +70,7 @@ class IdentityService:
     def author_seed(
         self, character_id: str, aspects: dict[str, float], renderer_version: str
     ) -> PersonalityProfile:
-        if self._gateway is None:
+        if self._gateway is None or self._reviewer is None:
             raise IdentityUnavailable()
         with self._store.transaction(character_id) as transaction:
             if transaction.get_profile(None) is not None:
@@ -77,8 +84,9 @@ class IdentityService:
                 )
             except Exception as error:
                 raise IdentityUnavailable() from error
-            if not description.strip():
+            if not isinstance(description, str) or not description.strip():
                 raise IdentityUnavailable()
+            self._review_personality(temperament.description, description)
             profile = PersonalityProfile(
                 character_id,
                 1,
@@ -90,6 +98,16 @@ class IdentityService:
             )
             transaction.add_profile(profile)
         return profile
+
+    def _review_personality(self, temperament: str, personality: str) -> None:
+        if self._reviewer is None:
+            raise IdentityUnavailable()
+        try:
+            review = checked_review(self._reviewer.review_personality(temperament, personality))
+        except Exception as error:
+            raise IdentityUnavailable() from error
+        if not review.consistent:
+            raise IdentityInconsistent(review)
 
     def current(self, character_id: str) -> IdentitySnapshot:
         return self._store.current(character_id)

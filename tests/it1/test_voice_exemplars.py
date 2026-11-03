@@ -6,6 +6,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 from threading import Event
+from typing import cast
 from unittest.mock import patch
 
 import psycopg
@@ -16,6 +17,8 @@ from fastapi.testclient import TestClient
 from digital_souls_memory_hindsight.deletion.service import DeletionService
 from digital_souls_memory_hindsight.deletion_http import AuthorCredentials, deletion_router
 from digital_souls_memory_hindsight.postgres_deletion import PostgresDeletionStore
+from digital_souls_memory_hindsight.postgres_identity import PostgresIdentityStore
+from tests.consistency_doubles import Gateway, Reviewer
 from tests.it1 import test_bank_projection as projection_tests
 from tests.it1.test_bank_projection import Projection, hindsight_client
 from tests.it1.test_deletion_execution import finish_deletion
@@ -32,7 +35,13 @@ def voices(p: Projection) -> TestClient:
     deletion_store = PostgresDeletionStore(p.database)
     deletion = DeletionService(deletion_store, p.service, clock=p.clock)
     instance = module.VoiceService(
-        storage.PostgresVoiceStore(p.database), p.service, deletion_store, clock=p.clock
+        storage.PostgresVoiceStore(p.database),
+        p.service,
+        deletion_store,
+        PostgresIdentityStore(p.database),
+        Gateway(),
+        Reviewer(),
+        clock=p.clock,
     )
     app = FastAPI()
     app.include_router(http.voice_router(lambda: instance))
@@ -64,8 +73,9 @@ def test_real_database_roundtrip_preserves_seed_verbatim(projection: Projection,
         assert created.status_code == 201, created.text
     # Recreate the service to ensure get/list restore the persisted record.
     with voices(p) as client:
-        assert client.get(base(p) + "/voice-1").json() == created.json()
-        assert client.get(base(p)).json() == [created.json()]
+        saved = {k: v for k, v in created.json().items() if k != "consistency_review"}
+        assert client.get(base(p) + "/voice-1").json() == saved
+        assert client.get(base(p)).json() == [saved]
         assert created.json()["answer"] == SEED
         assert created.json().get("question") == (SEED if qa else None)
 
@@ -79,8 +89,9 @@ def test_receipt_correction_hides_whole_saved_qa(
     with voices(p) as client:
         created = client.post(base(p), json=body)
         assert created.status_code == 201, created.text
-        assert client.get(base(p) + "/voice-1").json() == created.json()
-        assert client.get(base(p)).json() == [created.json()]
+        saved = {k: v for k, v in created.json().items() if k != "consistency_review"}
+        assert client.get(base(p) + "/voice-1").json() == saved
+        assert client.get(base(p)).json() == [saved]
         p.receipt(side, limit, len(TEXT))
         assert client.get(base(p) + "/voice-1").status_code == 404
         assert client.get(base(p)).json() == []
@@ -159,10 +170,10 @@ def test_registration_rechecks_source_after_concurrent_deletion(projection: Proj
     release = Event()
     original_add = storage.PostgresVoiceStore.add
 
-    def delayed_add(self: object, value: object) -> None:
+    def delayed_add(self: object, value: object, review: object) -> bool:
         reached_store.set()
         assert release.wait(15), "Deletion did not release registration"
-        original_add(self, value)
+        return cast(bool, original_add(self, value, review))
 
     store = PostgresDeletionStore(p.database)
     service = DeletionService(store, p.service, clock=p.clock)

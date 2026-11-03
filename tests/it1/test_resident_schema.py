@@ -146,7 +146,7 @@ def test_upgrade_downgrade_roundtrip_preserves_turn_and_existing_constraints(dat
         migrate("upgrade", "head")
         with psycopg.connect(database, connect_timeout=5) as connection:
             assert connection.execute("SELECT version_num FROM alembic_version").fetchall() == [
-                ("0016_resident_provisions",)
+                ("0017_voice_consistency_reviews",)
             ]
             assert connection.execute(
                 "SELECT conname, count(*) FROM pg_constraint "

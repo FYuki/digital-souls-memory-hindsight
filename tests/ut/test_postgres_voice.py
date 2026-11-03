@@ -9,15 +9,16 @@ from unittest.mock import MagicMock
 import psycopg
 import pytest
 
+from digital_souls_memory_hindsight.consistency.ports import ConsistencyReview
 from digital_souls_memory_hindsight.evidence.ports import EvidenceUnavailable
-from digital_souls_memory_hindsight.voice.domain import Span, VoiceExemplar
+from digital_souls_memory_hindsight.voice.domain import Span, VoiceExemplar, VoiceReview
 from digital_souls_memory_hindsight.voice.ports import VoiceConflict
 from tests.ut.test_delivery_scope import NOW
 
 pytestmark = pytest.mark.ut
 
 
-@pytest.mark.parametrize("operation", ["add", "get", "list"])
+@pytest.mark.parametrize("operation", ["add", "get", "list", "reviewed"])
 @pytest.mark.parametrize("stage", ["connect", "execute", "commit"])
 def test_database_failure_is_unavailable(
     monkeypatch: pytest.MonkeyPatch, operation: str, stage: str
@@ -60,13 +61,49 @@ def test_database_failure_is_unavailable(
                     question_span=None,
                     approved_by="synthetic-author",
                     registered_at=NOW,
-                )
+                ),
+                None,
             )
         elif operation == "get":
             connection.execute.return_value.fetchone.return_value = None
             store.get("char-a", "voice-1")
+        elif operation == "reviewed":
+            store.reviewed("char-a")
         else:
             store.list("char-a")
+
+
+@pytest.mark.parametrize("reviewed", [False, True])
+def test_review_status_distinguishes_absence_from_saved_review(
+    monkeypatch: pytest.MonkeyPatch, reviewed: bool
+) -> None:
+    module = importlib.import_module("digital_souls_memory_hindsight.postgres_voice")
+    connection = MagicMock(spec=psycopg.Connection)
+    connection.__enter__.return_value = connection
+    connection.execute.return_value.fetchone.return_value = (1,) if reviewed else None
+    monkeypatch.setattr(psycopg, "connect", MagicMock(return_value=connection))
+    assert module.PostgresVoiceStore("synthetic-db").reviewed("char-a") is reviewed
+    assert connection.execute.call_args.args[1] == ("char-a",)
+
+
+@pytest.mark.parametrize("won", [False, True])
+def test_review_insert_transfers_result_and_reports_only_the_winning_commit(
+    monkeypatch: pytest.MonkeyPatch, won: bool
+) -> None:
+    module = importlib.import_module("digital_souls_memory_hindsight.postgres_voice")
+    connection = MagicMock(spec=psycopg.Connection)
+    connection.__enter__.return_value = connection
+    connection.execute.return_value.fetchone.side_effect = [
+        ("v",),
+        ("char-a",) if won else None,
+    ]
+    connect = MagicMock(return_value=connection)
+    monkeypatch.setattr(psycopg, "connect", connect)
+    value = VoiceExemplar("char-a", "v", "canonical_seed", "回答", None, None, None, "作者", NOW)
+    review = VoiceReview(ConsistencyReview(False, "架空の矛盾"), NOW)
+    assert module.PostgresVoiceStore("synthetic-db").add(value, review) is won
+    assert connect.call_count == 1
+    assert connection.execute.call_args.args[1] == ("char-a", "v", False, "架空の矛盾", NOW)
 
 
 @pytest.mark.parametrize("operation", ["get", "list"])
@@ -113,4 +150,4 @@ def test_duplicate_insert_is_voice_conflict(monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.setattr(psycopg, "connect", MagicMock(return_value=connection))
     value = VoiceExemplar("char-a", "v", "canonical_seed", "回答", None, None, None, "作者", NOW)
     with pytest.raises(VoiceConflict):
-        module.PostgresVoiceStore("synthetic-db").add(value)
+        module.PostgresVoiceStore("synthetic-db").add(value, None)

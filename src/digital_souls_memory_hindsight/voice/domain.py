@@ -4,8 +4,11 @@ import re
 from dataclasses import dataclass
 from datetime import datetime
 
+from ..consistency.ports import ConsistencyReview
 from ..evidence.delivery import DeliveryScope
 from ..evidence.domain import Turn
+
+TYPICAL_SITUATION = "親しい相手から、今日の出来事について尋ねられました。"
 
 
 class VoiceValidationError(Exception):
@@ -30,6 +33,18 @@ class VoiceExemplar:
     question_span: Span | None
     approved_by: str
     registered_at: datetime
+
+
+@dataclass(frozen=True)
+class VoiceReview:
+    result: ConsistencyReview
+    reviewed_at: datetime
+
+
+@dataclass(frozen=True)
+class VoiceRegistration:
+    exemplar: VoiceExemplar
+    review: VoiceReview | None
 
 
 def validate_shape(value: VoiceExemplar) -> None:

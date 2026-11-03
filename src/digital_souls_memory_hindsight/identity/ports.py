@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
 
+from ..consistency.ports import ConsistencyReview
+
 
 class IdentityConflict(Exception):
     """An author seed is already registered for this character."""
@@ -17,6 +19,14 @@ class IdentityNotFound(Exception):
 
 class IdentityUnavailable(Exception):
     """Identity persistence or generation is unavailable."""
+
+
+class IdentityInconsistent(Exception):
+    """The candidate temperament and personality descriptions conflict."""
+
+    def __init__(self, review: ConsistencyReview) -> None:
+        super().__init__()
+        self.review = review
 
 
 @dataclass(frozen=True)
@@ -57,6 +67,10 @@ class IdentitySnapshot:
 class LLMGateway(Protocol):
     def render_personality(
         self, aspects: dict[str, float], temperament: Temperament, renderer_version: str
+    ) -> str: ...
+
+    def respond_in_voice(
+        self, situation: str, answer: str, question: str | None, temperament: str | None
     ) -> str: ...
 
 

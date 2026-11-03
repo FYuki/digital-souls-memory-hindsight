@@ -17,9 +17,10 @@ from psycopg.rows import dict_row
 
 from digital_souls_memory_hindsight.deletion.service import DeletionService
 from digital_souls_memory_hindsight.evidence.projection import bank_id
-from digital_souls_memory_hindsight.identity.ports import CoreIdentity, Temperament
+from digital_souls_memory_hindsight.identity.ports import CoreIdentity
 from digital_souls_memory_hindsight.postgres_deletion import PostgresDeletionStore
 from digital_souls_memory_hindsight.postgres_identity import _IdentityRows
+from tests.consistency_doubles import Gateway, Reviewer
 from tests.it1 import test_bank_projection as projection_tests
 from tests.it1.test_bank_projection import Projection, hindsight_client, wait_idle
 from tests.it1.test_deletion_execution import finish_deletion
@@ -33,13 +34,6 @@ pytestmark = pytest.mark.it1
 projection = projection_tests.projection
 
 
-class Gateway:
-    def render_personality(
-        self, aspects: dict[str, float], temperament: Temperament, renderer_version: str
-    ) -> str:
-        return "架空の人格の記述"
-
-
 def residents(p: Projection, monkeypatch: pytest.MonkeyPatch) -> TestClient:
     monkeypatch.setenv("DATABASE_URL", p.database)
     monkeypatch.setenv("EVIDENCE_CHARACTER_IDS", json.dumps(p.characters))
@@ -47,7 +41,7 @@ def residents(p: Projection, monkeypatch: pytest.MonkeyPatch) -> TestClient:
     worker = MagicMock()
     worker.run = AsyncMock()
     monkeypatch.setattr(module, "Worker", MagicMock(return_value=worker))
-    return TestClient(module.create_app(llm_gateway=Gateway()))
+    return TestClient(module.create_app(llm_gateway=Gateway(), reviewer=Reviewer()))
 
 
 def base(p: Projection) -> str:

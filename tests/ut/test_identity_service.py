@@ -18,6 +18,7 @@ from digital_souls_memory_hindsight.identity.ports import (
     PersonalityProfile,
     Temperament,
 )
+from tests.consistency_doubles import Gateway, Reviewer
 from tests.ut.test_evidence_http import MemoryStore, session_body, turn_body
 from tests.ut.test_identity_http import seed_body
 
@@ -96,7 +97,7 @@ class IdentityStore:
 
 
 @dataclass
-class Renderer:
+class Renderer(Gateway):
     store: IdentityStore
     result: str = "架空の人格の生成された記述"
     error: Exception | None = None
@@ -134,7 +135,7 @@ def client(
     monkeypatch.delenv("MEMORY_AUTHOR_TOKEN", raising=False)
     module = importlib.import_module("digital_souls_memory_hindsight.app")
     monkeypatch.setattr(module, "PostgresIdentityStore", lambda url: store)
-    return TestClient(module.create_app(llm_gateway=renderer))
+    return TestClient(module.create_app(llm_gateway=renderer, reviewer=Reviewer()))
 
 
 @pytest.mark.parametrize(
@@ -293,7 +294,7 @@ def test_app_factories_keep_gateway_and_ledger_scoped(
     renderer: Renderer,
 ) -> None:
     module = importlib.import_module("digital_souls_memory_hindsight.app")
-    first = module.create_app(llm_gateway=renderer)
+    first = module.create_app(llm_gateway=renderer, reviewer=Reviewer())
     second = module.create_app()
     first.state.ledger_service = EvidenceService(MemoryStore(), frozenset({"char-a"}))
     second.state.ledger_service = EvidenceService(MemoryStore(), frozenset({"char-a"}))

@@ -15,6 +15,7 @@ from digital_souls_memory_hindsight.character_state.generator import CharacterSt
 from digital_souls_memory_hindsight.character_state.ports import ContextGateway
 from digital_souls_memory_hindsight.character_state.service import CharacterStateService
 from digital_souls_memory_hindsight.character_state_http import character_state_router
+from digital_souls_memory_hindsight.consistency.ports import Reviewer
 from digital_souls_memory_hindsight.deletion.execution import DeletionExecutor
 from digital_souls_memory_hindsight.deletion.service import DeletionService
 from digital_souls_memory_hindsight.deletion_http import AuthorCredentials, deletion_router
@@ -61,7 +62,12 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
         PostgresResidentStore(settings.database_url), ledger
     )
     application.state.voice_service = VoiceService(
-        PostgresVoiceStore(settings.database_url), ledger, deletion_store
+        PostgresVoiceStore(settings.database_url),
+        ledger,
+        deletion_store,
+        PostgresIdentityStore(settings.database_url),
+        application.state.llm_gateway,
+        application.state.reviewer,
     )
     application.state.character_profile_service = CharacterProfileService(
         PostgresCharacterProfileStore(settings.database_url), ledger, deletion_store
@@ -117,19 +123,24 @@ def health() -> dict[str, str]:
 
 
 def create_app(
-    *, llm_gateway: LLMGateway | None = None, context_gateway: ContextGateway | None = None
+    *,
+    llm_gateway: LLMGateway | None = None,
+    reviewer: Reviewer | None = None,
+    context_gateway: ContextGateway | None = None,
 ) -> FastAPI:
     application = FastAPI(lifespan=lifespan)
     settings = load_settings()
     application.state.settings = settings
     application.state.context_gateway = context_gateway
+    application.state.llm_gateway = llm_gateway
+    application.state.reviewer = reviewer
     application.state.ledger_service = EvidenceService(
         PostgresEvidenceStore(settings.database_url),
         settings.character_ids,
         delivery_timeout_seconds=settings.delivery_timeout_seconds,
     )
     application.state.identity_service = IdentityService(
-        PostgresIdentityStore(settings.database_url), llm_gateway
+        PostgresIdentityStore(settings.database_url), llm_gateway, reviewer
     )
     application.include_router(evidence_router(lambda: application.state.ledger_service))
     application.include_router(recall_router(lambda: application.state.recall_service))

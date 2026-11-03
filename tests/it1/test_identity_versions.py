@@ -5,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 from threading import Barrier
-from typing import Protocol, cast
+from typing import cast
 
 import psycopg
 import pytest
@@ -13,25 +13,22 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from psycopg import sql
 
+from digital_souls_memory_hindsight.identity.ports import Temperament
+from tests.consistency_doubles import Gateway, Reviewer
 from tests.ut.test_identity_http import seed_body
 
 pytestmark = pytest.mark.it1
 ROOT = "/characters/char-a"
 
 
-class TemperamentValue(Protocol):
-    description: str
-    version: int
-
-
 @dataclass
-class Renderer:
+class Renderer(Gateway):
     error: Exception | None = None
     result: str = "架空の人物は穏やかに好奇心を示します。"
     calls: list[tuple[dict[str, float], str, int, str]] = field(default_factory=list)
 
     def render_personality(
-        self, aspects: dict[str, float], temperament: TemperamentValue, renderer_version: str
+        self, aspects: dict[str, float], temperament: Temperament, renderer_version: str
     ) -> str:
         self.calls.append(
             (dict(aspects), temperament.description, temperament.version, renderer_version)
@@ -57,7 +54,7 @@ def identity_app(
     monkeypatch.delenv("MEMORY_AUTHOR_ID", raising=False)
     monkeypatch.delenv("MEMORY_AUTHOR_TOKEN", raising=False)
     module = importlib.import_module("digital_souls_memory_hindsight.app")
-    return cast(FastAPI, module.create_app(llm_gateway=renderer))
+    return cast(FastAPI, module.create_app(llm_gateway=renderer, reviewer=Reviewer()))
 
 
 @pytest.mark.parametrize(

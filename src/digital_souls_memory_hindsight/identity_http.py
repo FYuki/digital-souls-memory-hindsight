@@ -10,7 +10,12 @@ from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
 from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictStr
 
-from .identity.ports import IdentityConflict, IdentityNotFound, IdentityUnavailable
+from .identity.ports import (
+    IdentityConflict,
+    IdentityInconsistent,
+    IdentityNotFound,
+    IdentityUnavailable,
+)
 from .identity.service import IdentityService
 
 PathIdentifier = Annotated[str, Path(pattern=r"^[A-Za-z0-9_-]+$")]
@@ -95,6 +100,17 @@ class IdentityRoute(APIRoute):
                 return JSONResponse({"detail": "Identity already exists"}, status_code=409)
             except IdentityNotFound:
                 return JSONResponse({"detail": "Identity not found"}, status_code=404)
+            except IdentityInconsistent as error:
+                return JSONResponse(
+                    {
+                        "detail": "Identity inconsistent",
+                        "consistency_review": {
+                            "consistent": error.review.consistent,
+                            "reason": error.review.reason,
+                        },
+                    },
+                    status_code=422,
+                )
             except IdentityUnavailable:
                 return JSONResponse({"detail": "Identity unavailable"}, status_code=503)
 
