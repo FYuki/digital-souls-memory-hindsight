@@ -22,7 +22,7 @@
 | A6 | Hindsightの統合（consolidation）は、標準の自動実行（取り込みのたびに非同期で実行）をそのまま使う。内省と記憶整理（Phase 2）はHindsightの外側で別途行う | 決定（2026-10-26、本人） |
 | A7 | 試験は合成データで行う。実モデルを使う試験（IT2・ST）は、別途許可を得てから実施する | 既定 |
 | A8 | 投影の単位は、Hindsightの想定に合わせて「1キャラbank × 1 Session ＝ 1 document」とし、知覚したTurnをappendで追加する。1往復単位にはこだわらない。Turnを削除したときは、台帳に残ったTurnからそのSessionのdocumentをreplaceで作り直す | 決定（2026-10-26、本人がHindsightに合わせると明示。具体の単位はAIの提案） |
-| A9 | Coreが呼ぶHTTP APIは、既存digital-souls-memoryのエンドポイントとスキーマに合わせ、内部の実装は新しく作る。Core側も開発途中のため、STでの接続確認はCoreで実装済みの機能に限り、それ以外はIT1で確認する | 決定（2026-10-27、本人） |
+| A9 | Coreが呼ぶHTTP APIは、既存digital-souls-memoryのエンドポイントとスキーマに合わせ、内部の実装は新しく作る。この定めは既存実装との比較用で、受け入れ条件の要求により合う方法があればそれを採ってよい（位置づけの追記：2026-11-03、Issue #44）。Core側も開発途中のため、STでの接続確認はCoreで実装済みの機能に限り、それ以外はIT1で確認する | 決定（2026-10-27、本人） |
 | A10 | IT1では、外部ネットワークに接続しないコンテナ網に、OpenAI互換のスタブ（LLM・embedding）とCohere互換のスタブrerankerを置き、Hindsightサーバーの接続先をそこへ向ける。棄権はrerankerのスコアで判定する。rrfとスタブembeddingでは棄権を判定できないため変更した。サーバーはslimイメージを使う（スタブで動くことを確認済み、7章） | 決定（2026-10-29、本人。slimは2026-10-27の委任に基づきAIが動作確認で判断） |
 | A11 | PostgreSQLは台帳とHindsightで同じインスタンスを使い、データベースを分ける。イメージはpgvectorとPGroongaを入れたものをこのリポジトリでビルドし、版とdigestを固定する。Hindsightの全文検索は `HINDSIGHT_API_TEXT_SEARCH_EXTENSION=pgroonga` とする | 決定（2026-10-27、本人） |
 | A12 | 台帳からHindsightへの投影・削除などの非同期処理は、PostgreSQLのoutboxテーブルと、同じサービス内のworkerで行う | 決定（2026-10-27、本人） |
@@ -96,7 +96,7 @@ FAIL・SKIP・NOT RUNはPASSと区別して報告する。
 | AC-I1 | CoreIdentity・Temperament・PersonalityProfile（author_seedと記述文）は、登録APIでのみ版が上がる。記憶や統合の処理から書き換えられない。Hindsightのbank設定（mission・disposition）を正本にしない | UT, IT1 |
 | AC-I2 | VoiceExemplarとVerbatimAnchorは逐語で保存し、言い換えを禁止し、登録には承認を必要とする | UT |
 | AC-I3 | CharacterStateは窓口・セッション単位の揮発状態として扱う | UT |
-| AC-I4 | 常駐コンテキストAPIは、セッション開始時点の人格版を返し、自動の更新は次のセッションから適用する | IT1, ST |
+| AC-I4 | 常駐コンテキストAPIは、提供のたびにその時点で登録済みの最新版のCoreIdentity・Temperament・PersonalityProfileと、その時点で利用可能な代表発話・CharacterProfileを返す。セッション単位では固定せず、途中の登録・設定変更は次の提供から反映する。返した内容と一致する人格の版・代表発話ID・CharacterProfileのrevisionと返却項目をProvisionRecordに保存し、commit後に成功を返す。自動の人格更新はPhase 3の対象とする | IT1（ST は Epic 5） |
 | AC-I5 | 登録時に整合チェックを1回実行し、結果を作者に返す | IT2 |
 
 ### 3.7 運用と再現性
@@ -182,3 +182,9 @@ FAIL・SKIP・NOT RUNはPASSと区別して報告する。
 - 再送前に `completed` となった場合は前提不成立として失敗する。
   この処理中再送の結果は、既存の完了後再送の確認と区別する。
   本実測では重複する欠陥は観測されず、製品コードの変更は行っていない。
+
+### 2026-11-03 AC-I4 の改訂（Epic 4）
+
+本人決定（2026-11-03、Epic #43 / Issue #44）により、セッション開始時点の版への固定を廃止し、提供ごとの最新版を使う仕様へ改訂した。
+版の記録は固定のためではなく、各応答がどの人格の版・代表発話ID・CharacterProfileのrevisionと返却項目を提供したか、ProvisionRecordから後で辿れるようにするために残す。
+ターン想起は `resident_provision_id` で常駐の提供記録へ辿る。決定と正本・既存実装との違いは [ADR 0001](decisions/0001-resident-context-latest-version-per-provision.md) に記録する。
