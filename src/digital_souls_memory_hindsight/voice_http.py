@@ -12,8 +12,8 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StrictInt, Str
 
 from .evidence.domain import EvidenceValidationError
 from .evidence.ports import EvidenceNotFound, EvidenceUnavailable
-from .voice.domain import Span, VoiceExemplar, VoiceValidationError
-from .voice.ports import VoiceConflict, VoiceNotFound
+from .voice.domain import Span, VoiceExemplar, VoiceRegistration, VoiceValidationError
+from .voice.ports import VoiceConflict, VoiceNotFound, VoiceUnavailable
 from .voice.service import VoiceService
 
 Identifier = Annotated[StrictStr, Field(pattern=r"^[A-Za-z0-9_-]+$")]
@@ -59,6 +59,26 @@ class VoiceResponse(BaseModel):
         return cls(**asdict(value))
 
 
+class ConsistencyReviewResponse(BaseModel):
+    consistent: bool
+    reason: str
+
+
+class VoiceRegistrationResponse(VoiceResponse):
+    consistency_review: ConsistencyReviewResponse | None
+
+    @classmethod
+    def from_registration(cls, value: VoiceRegistration) -> "VoiceRegistrationResponse":
+        return cls(
+            **asdict(value.exemplar),
+            consistency_review=None
+            if value.review is None
+            else ConsistencyReviewResponse(
+                consistent=value.review.result.consistent, reason=value.review.result.reason
+            ),
+        )
+
+
 class VoiceRoute(APIRoute):
     def get_route_handler(self) -> Callable[[Request], Coroutine[None, None, Response]]:
         endpoint = super().get_route_handler()
@@ -72,7 +92,7 @@ class VoiceRoute(APIRoute):
                 return JSONResponse({"detail": "Voice already exists"}, status_code=409)
             except (VoiceNotFound, EvidenceNotFound):
                 return JSONResponse({"detail": "Voice not found"}, status_code=404)
-            except (EvidenceUnavailable, EvidenceValidationError):
+            except (VoiceUnavailable, EvidenceUnavailable, EvidenceValidationError):
                 return JSONResponse({"detail": "Voice unavailable"}, status_code=503)
 
         return handle
@@ -82,7 +102,7 @@ def voice_router(service: Callable[[], VoiceService]) -> APIRouter:
     router = APIRouter(route_class=VoiceRoute)
 
     @router.post("/characters/{character_id}/voice-exemplars", status_code=201)
-    def register(character_id: PathIdentifier, body: VoiceRequest) -> VoiceResponse:
+    def register(character_id: PathIdentifier, body: VoiceRequest) -> VoiceRegistrationResponse:
         value = service().register(
             character_id,
             body.exemplar_id,
@@ -93,7 +113,7 @@ def voice_router(service: Callable[[], VoiceService]) -> APIRouter:
             answer_span=body.answer_span.to_span() if body.answer_span is not None else None,
             question_span=body.question_span.to_span() if body.question_span is not None else None,
         )
-        return VoiceResponse.from_value(value)
+        return VoiceRegistrationResponse.from_registration(value)
 
     @router.get("/characters/{character_id}/voice-exemplars")
     def list_exemplars(

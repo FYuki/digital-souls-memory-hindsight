@@ -6,6 +6,7 @@ import importlib
 from dataclasses import dataclass, field
 from datetime import timedelta
 from pathlib import Path
+from threading import Lock
 from typing import TYPE_CHECKING
 
 import pytest
@@ -15,11 +16,13 @@ from fastapi.testclient import TestClient
 from digital_souls_memory_hindsight.evidence.ports import EvidenceUnavailable
 from digital_souls_memory_hindsight.evidence.service import EvidenceService
 from digital_souls_memory_hindsight.evidence_http import evidence_router
+from tests.consistency_doubles import Gateway, Reviewer
 from tests.ut.test_delivery_scope import Clock
 from tests.ut.test_evidence_http import MemoryStore, receipt_body, session_body, turn_body
+from tests.ut.test_identity_service import IdentityStore
 
 if TYPE_CHECKING:
-    from digital_souls_memory_hindsight.voice.domain import VoiceExemplar
+    from digital_souls_memory_hindsight.voice.domain import VoiceExemplar, VoiceReview
 
 pytestmark = pytest.mark.ut
 BASE = "/characters/char-a/voice-exemplars"
@@ -56,15 +59,27 @@ def turn_voice(**changes: object) -> dict[str, object]:
 class VoiceStore:
     values: dict[tuple[str, str], VoiceExemplar] = field(default_factory=dict)
     error: Exception | None = None
+    reviews: dict[str, VoiceReview] = field(default_factory=dict)
+    lock: Lock = field(default_factory=Lock)
 
-    def add(self, value: VoiceExemplar) -> None:
+    def reviewed(self, character_id: str) -> bool:
         if self.error is not None:
             raise self.error
-        key = (value.character_id, value.exemplar_id)
-        if key in self.values:
-            ports = importlib.import_module("digital_souls_memory_hindsight.voice.ports")
-            raise ports.VoiceConflict()
-        self.values[key] = value
+        return character_id in self.reviews
+
+    def add(self, value: VoiceExemplar, review: VoiceReview | None) -> bool:
+        if self.error is not None:
+            raise self.error
+        with self.lock:
+            key = (value.character_id, value.exemplar_id)
+            if key in self.values:
+                ports = importlib.import_module("digital_souls_memory_hindsight.voice.ports")
+                raise ports.VoiceConflict()
+            self.values[key] = value
+            if review is not None and value.character_id not in self.reviews:
+                self.reviews[value.character_id] = review
+                return True
+            return False
 
     def get(self, character_id: str, exemplar_id: str) -> VoiceExemplar | None:
         if self.error is not None:
@@ -95,7 +110,9 @@ def application(
     module = importlib.import_module("digital_souls_memory_hindsight.voice.service")
     http = importlib.import_module("digital_souls_memory_hindsight.voice_http")
     evidence = EvidenceService(ledger, characters, clock=clock)
-    voice = module.VoiceService(store, evidence, deletion, clock=clock)
+    voice = module.VoiceService(
+        store, evidence, deletion, IdentityStore(), Gateway(), Reviewer(), clock=clock
+    )
     app = FastAPI()
     app.state.evidence = evidence
     app.include_router(evidence_router(lambda: evidence))
@@ -143,6 +160,7 @@ def test_seed_roundtrip_preserves_verbatim_answer_question_and_approval(
         response = client.post(BASE, json=body)
         assert response.status_code == 201, response.text
         saved = response.json()
+        saved.pop("consistency_review")
         for key, value in body.items():
             assert saved[key] == value
         assert saved.get("question") == question
@@ -188,6 +206,7 @@ def test_turn_codepoint_spans_roundtrip_without_normalization(qa: bool) -> None:
         response = client.post(BASE, json=body)
         assert response.status_code == 201, response.text
         saved = response.json()
+        saved.pop("consistency_review")
         for key, value in body.items():
             assert saved[key] == value
         assert client.get(BASE + "/voice-1").json() == saved
@@ -340,7 +359,9 @@ def test_reads_recheck_current_delivery_and_exclude_entire_qa(side: str) -> None
         created = client.post(BASE, json=body)
         assert created.status_code == 201, created.text
         assert client.post(BASE, json=voice_body(exemplar_id="kept")).status_code == 201
-        assert client.get(BASE + "/voice-1").json() == created.json()
+        assert client.get(BASE + "/voice-1").json() == {
+            k: v for k, v in created.json().items() if k != "consistency_review"
+        }
         receipt(client, "cq" if side == "q" else "ca", 2)
         assert client.get(BASE + "/voice-1").status_code == 404
         assert [item["exemplar_id"] for item in client.get(BASE).json()] == ["kept"]
@@ -403,10 +424,11 @@ def test_duplicate_is_409_and_keeps_first_value_scoped_to_character() -> None:
         first = client.post(BASE, json=voice_body())
         assert first.status_code == 201
         assert client.post(BASE, json=voice_body(answer="置換禁止")).status_code == 409
-        assert client.get(BASE + "/voice-1").json() == first.json()
+        saved = {k: v for k, v in first.json().items() if k != "consistency_review"}
+        assert client.get(BASE + "/voice-1").json() == saved
         other = client.post(BASE.replace("char-a", "char-b"), json=voice_body())
         assert other.status_code == 201
-        assert client.get(BASE).json() == [first.json()]
+        assert client.get(BASE).json() == [saved]
 
 
 @pytest.mark.parametrize("operation", ["register", "get", "list"])

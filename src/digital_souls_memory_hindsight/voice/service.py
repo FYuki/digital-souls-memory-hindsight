@@ -3,11 +3,16 @@
 from collections.abc import Callable
 from datetime import UTC, datetime
 
+from ..consistency.ports import Reviewer, checked_review
 from ..evidence.ports import EvidenceNotFound
 from ..evidence.service import EvidenceService
+from ..identity.ports import LLMGateway
 from .domain import (
+    TYPICAL_SITUATION,
     Span,
     VoiceExemplar,
+    VoiceRegistration,
+    VoiceReview,
     VoiceValidationError,
     check_answer,
     check_question,
@@ -15,7 +20,14 @@ from .domain import (
     span_visible,
     validate_shape,
 )
-from .ports import DeletionState, SourceTurns, VoiceNotFound, VoiceStore
+from .ports import (
+    DeletionState,
+    IdentityReader,
+    SourceTurns,
+    VoiceNotFound,
+    VoiceStore,
+    VoiceUnavailable,
+)
 
 
 def _utc_now() -> datetime:
@@ -54,12 +66,18 @@ class VoiceService:
         store: VoiceStore,
         evidence: EvidenceService,
         deletion: DeletionState,
+        identity: IdentityReader,
+        gateway: LLMGateway | None,
+        reviewer: Reviewer | None,
         *,
         clock: Callable[[], datetime] = _utc_now,
     ) -> None:
         self._store = store
         self._evidence = evidence
         self._deletion = deletion
+        self._identity = identity
+        self._gateway = gateway
+        self._reviewer = reviewer
         self._clock = clock
 
     def register(
@@ -72,7 +90,7 @@ class VoiceService:
         question: str | None = None,
         answer_span: Span | None = None,
         question_span: Span | None = None,
-    ) -> VoiceExemplar:
+    ) -> VoiceRegistration:
         self._evidence.require_character(character_id)
         value = VoiceExemplar(
             character_id,
@@ -88,8 +106,29 @@ class VoiceService:
         validate_shape(value)
         if not exemplar_available(value, self._evidence, self._deletion):
             raise VoiceValidationError()
-        self._store.add(value)
-        return value
+        review = None if self._store.reviewed(character_id) else self._initial_review(value)
+        committed_review = self._store.add(value, review)
+        return VoiceRegistration(value, review if committed_review else None)
+
+    def _initial_review(self, value: VoiceExemplar) -> VoiceReview:
+        if self._gateway is None or self._reviewer is None:
+            raise VoiceUnavailable()
+        try:
+            current = self._identity.current(value.character_id)
+            temperament = None if current.temperament is None else current.temperament.description
+            response = self._gateway.respond_in_voice(
+                TYPICAL_SITUATION, value.answer, value.question, temperament
+            )
+            if not isinstance(response, str) or not response.strip():
+                raise VoiceUnavailable()
+            result = checked_review(
+                self._reviewer.review_voice(
+                    TYPICAL_SITUATION, response, value.answer, value.question, temperament
+                )
+            )
+        except Exception as error:
+            raise VoiceUnavailable() from error
+        return VoiceReview(result, self._clock())
 
     def get(self, character_id: str, exemplar_id: str) -> VoiceExemplar:
         self._evidence.require_character(character_id)

@@ -8,7 +8,7 @@ from psycopg.rows import tuple_row
 
 from .evidence.ports import EvidenceUnavailable
 from .postgres_evidence import PostgresEvidenceStore
-from .voice.domain import Span, VoiceExemplar, VoiceValidationError
+from .voice.domain import Span, VoiceExemplar, VoiceReview, VoiceValidationError
 from .voice.ports import VoiceConflict
 
 _COLUMNS = (
@@ -54,7 +54,21 @@ class PostgresVoiceStore:
     def __init__(self, database_url: str) -> None:
         self._url = database_url
 
-    def add(self, value: VoiceExemplar) -> None:
+    def reviewed(self, character_id: str) -> bool:
+        try:
+            with psycopg.connect(self._url, connect_timeout=5) as connection:
+                return (
+                    connection.execute(
+                        "SELECT 1 FROM voice_consistency_reviews WHERE character_id = %s",
+                        (character_id,),
+                    ).fetchone()
+                    is not None
+                )
+        except psycopg.Error as error:
+            raise EvidenceUnavailable() from error
+
+    def add(self, value: VoiceExemplar, review: VoiceReview | None) -> bool:
+        committed_review = False
         try:
             with psycopg.connect(self._url, connect_timeout=5) as connection:
                 connection.isolation_level = psycopg.IsolationLevel.READ_COMMITTED
@@ -105,8 +119,26 @@ class PostgresVoiceStore:
                 ).fetchone()
                 if inserted is None:
                     raise VoiceConflict()
+                if review is not None:
+                    committed_review = (
+                        connection.execute(
+                            "INSERT INTO voice_consistency_reviews "
+                            "(character_id, exemplar_id, consistent, reason, reviewed_at) "
+                            "VALUES (%s,%s,%s,%s,%s) ON CONFLICT (character_id) DO NOTHING "
+                            "RETURNING character_id",
+                            (
+                                value.character_id,
+                                value.exemplar_id,
+                                review.result.consistent,
+                                review.result.reason,
+                                review.reviewed_at,
+                            ),
+                        ).fetchone()
+                        is not None
+                    )
         except psycopg.Error as error:
             raise EvidenceUnavailable() from error
+        return committed_review
 
     def get(self, character_id: str, exemplar_id: str) -> VoiceExemplar | None:
         try:
