@@ -181,7 +181,7 @@ bash scripts/run-it1.sh
 ビルド・pull・依存取得の後、PostgreSQL・Hindsight・スタブ・サービスと試験コンテナを
 `internal: true` の専用ネットワークで起動します。ホストへのポート公開はしません。
 台帳の `ledger` とHindsightの `hindsight` は同一PostgreSQLインスタンス上の別DBです。
-DBのDockerfileとpackages.lockは `digital-souls-memory@a5e386c` から変更せず取り込んでいます。
+DBのDockerfileとpackages.lockは `digital-souls-memory@a5e386c` から取り込み、apt の取得元だけを固定時点に変えています（下記「DB イメージのパッケージ固定」）。
 Hindsightは指定digestの `1.1.0-slim`、全文検索はPGroongaを使います。
 LLM・embeddingは標準ライブラリ製のOpenAI互換スタブ、rerankerは同じスタブの
 Cohere互換エンドポイントへ向けます。自動統合は有効のままです。
@@ -197,3 +197,19 @@ pytestの既定socket禁止を保ち、IT1だけ `--allow-hosts=postgres,hindsig
 
 試験コンテナには `DATABASE_URL`、`HINDSIGHT_DATABASE_URL`、`SERVICE_URL`、`HINDSIGHT_URL`、
 `STUB_REQUEST_LOG` をComposeから渡します。要求ログは合成データ用の専用volumeに保存し、試験側は読み取り専用です。
+
+### DB イメージのパッケージ固定
+
+`docker/retrieval-postgres/Dockerfile` は、ビルド時に入れるパッケージを最新版から取りません。
+Debian は `snapshot.debian.org` の固定時点（`DEBIAN_SNAPSHOT`）、PGDG は全版を残す
+`apt-archive.postgresql.org` の `trixie-pgdg-archive` から、版を指定して入れます。
+入った版は `packages.lock` と照合し、違えばビルドを失敗させます。
+
+パッケージの汚染に備え、版は自動で上げず、次の手順で意識的に上げます。
+
+1. 公開から 7 日以上たった時点を選び、`DEBIAN_SNAPSHOT` を変える（直近の 7 日は選ばない）。
+2. 変更点（上がるパッケージと版）を確認する。
+3. イメージをビルドし、`dpkg-query -W` の出力で `packages.lock` を作り直す。
+4. 上の 2 つを 1 つの PR にまとめ、差分の版を PR 本文に書く。
+
+現在の固定時点は `20261027T000000Z`（2026-11-03 に設定。`a5e386c` の `packages.lock` と一致）。
