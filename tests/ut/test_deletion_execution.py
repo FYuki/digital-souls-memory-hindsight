@@ -33,6 +33,9 @@ def test_cascade_result_contains_only_deleted_identifiers_and_document_targets()
         ],
         "deleted_provision_ids": ["p-span", "p-memory"],
         "deleted_voice_exemplars": [{"character_id": "char-a", "exemplar_id": "voice-1"}],
+        "deleted_profile_entries": [
+            {"character_id": "char-a", "turn_id": "t-1", "start": 1, "end": 3, "revision": 2}
+        ],
         "rebuilt_documents": [{"bank_id": "bank-a", "document_id": "document"}],
         "deleted_documents": [{"bank_id": "bank-b", "document_id": "document"}],
         "content": "合成の削除本文",
@@ -48,6 +51,9 @@ def test_cascade_result_contains_only_deleted_identifiers_and_document_targets()
         ],
         "deleted_provision_ids": ["p-span", "p-memory"],
         "deleted_voice_exemplars": [{"character_id": "char-a", "exemplar_id": "voice-1"}],
+        "deleted_profile_entries": [
+            {"character_id": "char-a", "turn_id": "t-1", "start": 1, "end": 3, "revision": 2}
+        ],
     }
 
 
@@ -69,7 +75,61 @@ def test_empty_deletion_cascade_has_empty_identifier_lists() -> None:
         "deleted_anchors": [],
         "deleted_voice_exemplars": [],
         "deleted_provision_ids": [],
+        "deleted_profile_entries": [],
     }
+
+
+@pytest.mark.parametrize("voice_present", [False, True])
+@pytest.mark.parametrize("profile_present", [False, True])
+def test_cascade_result_defaults_only_missing_new_progress_keys(
+    voice_present: bool, profile_present: bool
+) -> None:
+    execution = importlib.import_module("digital_souls_memory_hindsight.deletion.execution")
+    progress: dict[str, object] = {
+        "rebuilt_documents": [{"bank_id": "bank", "document_id": "document"}],
+        "deleted_documents": [],
+        "deleted_anchors": [{"character_id": "char-a", "anchor_id": "anchor"}],
+        "deleted_provision_ids": ["provision"],
+    }
+    voices = [{"character_id": "char-a", "exemplar_id": "voice"}]
+    entries = [{"character_id": "char-a", "turn_id": "t-1", "start": 0, "end": 2, "revision": 3}]
+    if voice_present:
+        progress["deleted_voice_exemplars"] = voices
+    if profile_present:
+        progress["deleted_profile_entries"] = entries
+    assert execution.build_cascade_result(request(), progress) == {
+        **{
+            key: progress[key]
+            for key in (
+                "rebuilt_documents",
+                "deleted_documents",
+                "deleted_anchors",
+                "deleted_provision_ids",
+            )
+        },
+        "deleted_turn_ids": ["t-1"],
+        "deleted_voice_exemplars": voices if voice_present else [],
+        "deleted_profile_entries": entries if profile_present else [],
+    }
+
+
+@pytest.mark.parametrize(
+    "missing",
+    ["rebuilt_documents", "deleted_documents", "deleted_anchors", "deleted_provision_ids"],
+)
+def test_cascade_result_still_requires_original_progress_keys(missing: str) -> None:
+    execution = importlib.import_module("digital_souls_memory_hindsight.deletion.execution")
+    progress: dict[str, object] = {
+        "rebuilt_documents": [],
+        "deleted_documents": [],
+        "deleted_anchors": [],
+        "deleted_provision_ids": [],
+        "deleted_voice_exemplars": [],
+        "deleted_profile_entries": [],
+    }
+    del progress[missing]
+    with pytest.raises(KeyError):
+        execution.build_cascade_result(request(), progress)
 
 
 @pytest.mark.parametrize(
