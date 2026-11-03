@@ -1,9 +1,10 @@
 """Evidence values and registration rules, independent of HTTP and storage."""
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, fields, replace
 from datetime import datetime
 from types import MappingProxyType
+from typing import NamedTuple
 
 
 class EvidenceValidationError(ValueError):
@@ -131,3 +132,17 @@ def validate_receipt(value: DeliveryReceipt, turn: Turn, session: Session) -> No
         or (value.status == "partial" and 0 < value.spoken_until < length)
     ):
         raise EvidenceValidationError("Receipt range does not match text")
+
+
+class StateKey(NamedTuple):
+    character_id: str
+    session_id: str
+    surface: str
+
+
+def state_keys(turns: Iterable[Turn]) -> frozenset[StateKey]:
+    return frozenset(
+        StateKey(character, turn.session_id, turn.surface)
+        for turn in turns
+        for character in turn.perceived_by
+    )

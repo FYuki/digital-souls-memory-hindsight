@@ -4,6 +4,7 @@ from contextlib import AbstractContextManager
 from datetime import datetime
 from typing import Protocol
 
+from ..evidence.domain import StateKey
 from ..outbox import RetainOperation
 from .delivery import DeliveryScope
 from .domain import DeliveryReceipt, Session, SessionEnding, Turn
@@ -22,6 +23,16 @@ class EvidenceUnavailable(Exception):
 
 
 class EvidenceStore(Protocol):
+    def advance_character_states(self, keys: frozenset[StateKey], now: datetime) -> None: ...
+    def clear_character_states(self, session_id: str) -> None: ...
+    def list_state_turns(
+        self,
+        character_id: str,
+        session_id: str,
+        surface: str,
+        before: tuple[datetime, datetime, str] | None,
+        limit: int,
+    ) -> tuple[Turn, ...]: ...
     def is_tombstoned(self, turn_id: str) -> bool: ...
     def lock_session(self, session_id: str) -> None: ...
     def list_projection_sessions(self, bank_id: str) -> tuple[str, ...]: ...

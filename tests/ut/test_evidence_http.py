@@ -23,6 +23,7 @@ from digital_souls_memory_hindsight.evidence.domain import (
     DeliveryReceipt,
     Session,
     SessionEnding,
+    StateKey,
     Turn,
 )
 from digital_souls_memory_hindsight.evidence.ports import EvidenceConflict, EvidenceStore
@@ -85,6 +86,41 @@ class MemoryStore:
         self.delivery_scopes: list[DeliveryScope] = []
         self.outbox: dict[str, RetainOperation] = {}
         self.tombstones: set[str] = set()
+        self.state_generations: dict[StateKey, int] = {}
+        self.state_pending: dict[StateKey, datetime] = {}
+
+    def advance_character_states(self, keys: frozenset[StateKey], now: datetime) -> None:
+        for key in keys:
+            self.state_generations[key] = self.state_generations.get(key, 0) + 1
+            self.state_pending[key] = now
+
+    def clear_character_states(self, session_id: str) -> None:
+        for key in self.state_generations:
+            if key.session_id == session_id:
+                self.state_generations[key] += 1
+                self.state_pending.pop(key, None)
+
+    def list_state_turns(
+        self,
+        character_id: str,
+        session_id: str,
+        surface: str,
+        before: tuple[datetime, datetime, str] | None,
+        limit: int,
+    ) -> tuple[Turn, ...]:
+        candidates = (
+            turn
+            for turn in self.turns.values()
+            if character_id in turn.perceived_by
+            and turn.session_id == session_id
+            and turn.surface == surface
+            and (before is None or (turn.occurred_at, turn.recorded_at, turn.turn_id) < before)
+        )
+        return tuple(
+            sorted(
+                candidates, key=lambda t: (t.occurred_at, t.recorded_at, t.turn_id), reverse=True
+            )[:limit]
+        )
 
     def is_tombstoned(self, turn_id: str) -> bool:
         return turn_id in self.tombstones
@@ -117,11 +153,17 @@ class MemoryStore:
     def transaction(self) -> Iterator[EvidenceStore]:
         turns, receipts, scopes = dict(self.turns), list(self.receipts), list(self.delivery_scopes)
         outbox = dict(self.outbox)
+        generations, pending, endings = (
+            dict(self.state_generations),
+            dict(self.state_pending),
+            dict(self.endings),
+        )
         try:
             yield self
         except Exception:
             self.turns, self.receipts, self.delivery_scopes = turns, receipts, scopes
             self.outbox = outbox
+            self.state_generations, self.state_pending, self.endings = generations, pending, endings
             raise
 
     def add_retain(self, value: RetainOperation) -> None:
