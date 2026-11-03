@@ -202,6 +202,7 @@ def test_author_deletion_nulls_reference_without_deleting_referring_turn_record(
                 "deleted_anchors",
                 "deleted_provision_ids",
                 "deleted_voice_exemplars",
+                "deleted_profile_entries",
             }
             deleted = result["deleted_provision_ids"]
             assert isinstance(deleted, list)

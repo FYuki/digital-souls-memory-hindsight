@@ -9,6 +9,8 @@ from hindsight_client import Hindsight
 
 from digital_souls_memory_hindsight.anchor_http import anchor_router
 from digital_souls_memory_hindsight.anchors.service import AnchorService
+from digital_souls_memory_hindsight.character_profile.service import CharacterProfileService
+from digital_souls_memory_hindsight.character_profile_http import character_profile_router
 from digital_souls_memory_hindsight.deletion.execution import DeletionExecutor
 from digital_souls_memory_hindsight.deletion.service import DeletionService
 from digital_souls_memory_hindsight.deletion_http import AuthorCredentials, deletion_router
@@ -21,6 +23,7 @@ from digital_souls_memory_hindsight.identity.ports import LLMGateway
 from digital_souls_memory_hindsight.identity.service import IdentityService
 from digital_souls_memory_hindsight.identity_http import identity_router
 from digital_souls_memory_hindsight.postgres_anchors import PostgresAnchorStore
+from digital_souls_memory_hindsight.postgres_character_profile import PostgresCharacterProfileStore
 from digital_souls_memory_hindsight.postgres_deletion import PostgresDeletionStore
 from digital_souls_memory_hindsight.postgres_evidence import PostgresEvidenceStore
 from digital_souls_memory_hindsight.postgres_identity import PostgresIdentityStore
@@ -48,6 +51,9 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
     deletion_store = PostgresDeletionStore(settings.database_url)
     application.state.voice_service = VoiceService(
         PostgresVoiceStore(settings.database_url), ledger, deletion_store
+    )
+    application.state.character_profile_service = CharacterProfileService(
+        PostgresCharacterProfileStore(settings.database_url), ledger, deletion_store
     )
     application.state.deletion_service = DeletionService(deletion_store, ledger)
     application.state.recall_service = RecallService(
@@ -103,6 +109,9 @@ def create_app(*, llm_gateway: LLMGateway | None = None) -> FastAPI:
     application.include_router(anchor_router(lambda: application.state.anchor_service))
     application.include_router(identity_router(lambda: application.state.identity_service))
     application.include_router(voice_router(lambda: application.state.voice_service))
+    application.include_router(
+        character_profile_router(lambda: application.state.character_profile_service)
+    )
     application.include_router(
         deletion_router(
             lambda: application.state.deletion_service,

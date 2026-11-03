@@ -341,3 +341,42 @@ def test_fencing_revision_generates_reversible_outbox_constraint(
         assert "deletion_request_id IS NOT NULL" in result.stdout
         assert "update_mode = 'replace'" in result.stdout
         assert "turn_id IS NULL" in result.stdout and "source_scope_id IS NULL" in result.stdout
+
+
+@pytest.mark.parametrize("operation", ["upgrade", "downgrade"])
+def test_profile_revision_offline_changes_only_profile_storage(
+    tmp_path: Path, operation: str
+) -> None:
+    target = (
+        "0013_voice_exemplars:0014_character_profiles"
+        if operation == "upgrade"
+        else "0014_character_profiles:0013_voice_exemplars"
+    )
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "alembic",
+            "-c",
+            str(ROOT / "alembic.ini"),
+            operation,
+            target,
+            "--sql",
+        ],
+        cwd=tmp_path,
+        env={
+            "PATH": os.defpath,
+            "HOME": str(tmp_path),
+            "PYTHONPATH": str(ROOT / "src"),
+            "DATABASE_URL": "postgresql://it1@postgres:5432/synthetic_ledger",
+        },
+        capture_output=True,
+        text=True,
+        timeout=15,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert set(re.findall(r"(?:CREATE|DROP|ALTER) TABLE\s+(\w+)", result.stdout)) == {
+        "character_profiles",
+        "character_profile_entries",
+    }

@@ -295,6 +295,19 @@ class PostgresDeletionStore:
                 "OR question_turn_id = ANY(%s) RETURNING character_id, exemplar_id",
                 (targets, targets),
             ).fetchall()
+            profile_entries = connection.execute(
+                "DELETE FROM character_profile_entries WHERE turn_id = ANY(%s) "
+                "RETURNING character_id, turn_id, span_start, span_end",
+                (targets,),
+            ).fetchall()
+            profile_revisions = {}
+            if profile_entries:
+                rows = connection.execute(
+                    "UPDATE character_profiles SET revision = revision + 1, updated_at = %s "
+                    "WHERE character_id = ANY(%s) RETURNING character_id, revision",
+                    (now, sorted({str(row[0]) for row in profile_entries})),
+                ).fetchall()
+                profile_revisions = {str(row[0]): row[1] for row in rows}
             provisions = connection.execute(
                 "DELETE FROM provision_records WHERE EXISTS (SELECT 1 FROM "
                 "jsonb_array_elements(source_spans) span WHERE span->>'turn_id' = ANY(%s)) "
@@ -421,6 +434,16 @@ class PostgresDeletionStore:
                 "deleted_voice_exemplars": [
                     {"character_id": str(character), "exemplar_id": str(exemplar)}
                     for character, exemplar in sorted(voices)
+                ],
+                "deleted_profile_entries": [
+                    {
+                        "character_id": str(character),
+                        "turn_id": str(turn),
+                        "start": start,
+                        "end": end,
+                        "revision": profile_revisions[str(character)],
+                    }
+                    for character, turn, start, end in sorted(profile_entries)
                 ],
                 "rebuilt_documents": rebuilt,
                 "deleted_documents": deleted,

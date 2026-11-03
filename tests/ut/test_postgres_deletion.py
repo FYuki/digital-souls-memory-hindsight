@@ -27,6 +27,40 @@ from tests.ut.test_delivery_scope import NOW
 pytestmark = pytest.mark.ut
 
 
+@pytest.mark.parametrize("has_entries", [False, True])
+def test_profile_deletion_progress_records_removed_spans_and_updated_revision(
+    monkeypatch: pytest.MonkeyPatch, has_entries: bool
+) -> None:
+    connection = MagicMock(spec=psycopg.Connection)
+    connection.__enter__.return_value = connection
+
+    def execute(sql: str, parameters: object = None) -> MagicMock:
+        result = MagicMock()
+        result.fetchone.return_value = ({},)
+        result.fetchall.return_value = []
+        if "DELETE FROM character_profile_entries" in sql:
+            result.fetchall.return_value = (
+                [("char-a", "t-1", 2, 4), ("char-a", "t-1", 0, 1)] if has_entries else []
+            )
+        elif "UPDATE character_profiles" in sql:
+            result.fetchall.return_value = [("char-a", 3)] if has_entries else []
+        return result
+
+    connection.execute.side_effect = execute
+    monkeypatch.setattr(psycopg, "connect", MagicMock(return_value=connection))
+    module = importlib.import_module("digital_souls_memory_hindsight.postgres_deletion")
+    monkeypatch.setattr(module, "PostgresEvidenceStore", MagicMock())
+    item = DeletionItem(
+        "d", "processing", 1, NOW, "lease", NOW + timedelta(seconds=60), None, None, {}
+    )
+    progress = PostgresDeletionStore("synthetic-db").delete_turns(item, request(), NOW)
+    expected = [
+        {"character_id": "char-a", "turn_id": "t-1", "start": 0, "end": 1, "revision": 3},
+        {"character_id": "char-a", "turn_id": "t-1", "start": 2, "end": 4, "revision": 3},
+    ]
+    assert progress["deleted_profile_entries"] == (expected if has_entries else [])
+
+
 def test_turn_deletion_state_returns_only_matching_identifiers(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
