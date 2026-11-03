@@ -242,13 +242,15 @@ def test_acceptance_storage_failure_does_not_return_success(
 ) -> None:
     connection = MagicMock(spec=psycopg.Connection)
     connection.execute.return_value.fetchone.return_value = ("d",)
-    if stage == "request":
-        connection.execute.side_effect = psycopg.OperationalError("synthetic insert failure")
-    if stage == "blocks":
-        connection.execute.side_effect = [
-            connection.execute.return_value,
-            psycopg.OperationalError("synthetic block failure"),
-        ]
+    if stage in {"request", "blocks"}:
+        table = "deletion_requests" if stage == "request" else "deletion_blocks"
+
+        def execute(statement: str, parameters: object) -> MagicMock:
+            if f"INSERT INTO {table}" in statement:
+                raise psycopg.OperationalError("synthetic acceptance failure")
+            return cast(MagicMock, connection.execute.return_value)
+
+        connection.execute.side_effect = execute
 
     @contextmanager
     def connect(

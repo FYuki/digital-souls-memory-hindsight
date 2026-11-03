@@ -15,11 +15,37 @@ from .domain import (
     span_visible,
     validate_shape,
 )
-from .ports import DeletionState, VoiceNotFound, VoiceStore
+from .ports import DeletionState, SourceTurns, VoiceNotFound, VoiceStore
 
 
 def _utc_now() -> datetime:
     return datetime.now(UTC)
+
+
+def exemplar_available(
+    value: VoiceExemplar, evidence: SourceTurns, deletion: DeletionState
+) -> bool:
+    if value.source == "canonical_seed":
+        return True
+    spans = tuple(s for s in (value.answer_span, value.question_span) if s is not None)
+    if deletion.turns_under_deletion(frozenset(s.turn_id for s in spans)):
+        return False
+    try:
+        assert value.answer_span is not None
+        answer_turn = evidence.get_turn(value.answer_span.turn_id)
+        check_answer(answer_turn, value.character_id, value.answer_span, value.answer)
+        if value.question_span is not None:
+            assert value.question is not None
+            question_turn = evidence.get_turn(value.question_span.turn_id)
+            check_question(answer_turn, question_turn, value.question_span, value.question)
+        for span in spans:
+            turn = evidence.get_turn(span.turn_id)
+            scope = evidence.get_delivery_scope(span.turn_id)
+            if not span_visible(turn, scope, value.character_id, span):
+                return False
+    except (EvidenceNotFound, VoiceValidationError):
+        return False
+    return True
 
 
 class VoiceService:
@@ -60,42 +86,23 @@ class VoiceService:
             self._clock(),
         )
         validate_shape(value)
-        if not self._available(value):
+        if not exemplar_available(value, self._evidence, self._deletion):
             raise VoiceValidationError()
         self._store.add(value)
         return value
 
-    def _available(self, value: VoiceExemplar) -> bool:
-        if value.source == "canonical_seed":
-            return True
-        spans = tuple(s for s in (value.answer_span, value.question_span) if s is not None)
-        if self._deletion.turns_under_deletion(frozenset(s.turn_id for s in spans)):
-            return False
-        try:
-            assert value.answer_span is not None
-            answer_turn = self._evidence.get_turn(value.answer_span.turn_id)
-            check_answer(answer_turn, value.character_id, value.answer_span, value.answer)
-            if value.question_span is not None:
-                assert value.question is not None
-                question_turn = self._evidence.get_turn(value.question_span.turn_id)
-                check_question(answer_turn, question_turn, value.question_span, value.question)
-            for span in spans:
-                turn = self._evidence.get_turn(span.turn_id)
-                scope = self._evidence.get_delivery_scope(span.turn_id)
-                if not span_visible(turn, scope, value.character_id, span):
-                    return False
-        except (EvidenceNotFound, VoiceValidationError):
-            return False
-        return True
-
     def get(self, character_id: str, exemplar_id: str) -> VoiceExemplar:
         self._evidence.require_character(character_id)
         value = self._store.get(character_id, exemplar_id)
-        if value is None or not self._available(value):
+        if value is None or not exemplar_available(value, self._evidence, self._deletion):
             raise VoiceNotFound()
         return value
 
     def list(self, character_id: str, query: str | None = None) -> tuple[VoiceExemplar, ...]:
         self._evidence.require_character(character_id)
-        values = tuple(v for v in self._store.list(character_id) if self._available(v))
+        values = tuple(
+            v
+            for v in self._store.list(character_id)
+            if exemplar_available(v, self._evidence, self._deletion)
+        )
         return rank(values, query)

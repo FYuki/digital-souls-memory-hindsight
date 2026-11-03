@@ -250,10 +250,9 @@ def test_deletion_waits_for_inflight_put_then_cascades(projection: Projection) -
                 assert not pending.done(), "PUT terminated before INSERT"
                 assert time.monotonic() < deadline, "PUT did not reach INSERT"
                 time.sleep(0.01)
-            request = service.accept("race-insert", "synthetic-author", ("target",), None)
-            item = store.claim(p.clock.now, timedelta(seconds=60))
-            assert item is not None
-            deleted = executor.submit(store.delete_turns, item, request, p.clock.now)
+            accepted = executor.submit(
+                service.accept, "race-insert", "synthetic-author", ("target",), None
+            )
             while True:
                 blocked = gate.execute(
                     "SELECT 1 FROM pg_stat_activity WHERE %s = ANY(pg_blocking_pids(pid))",
@@ -261,7 +260,7 @@ def test_deletion_waits_for_inflight_put_then_cascades(projection: Projection) -
                 ).fetchone()
                 if blocked is not None:
                     break
-                assert not deleted.done(), "Deletion bypassed source locks"
+                assert not accepted.done(), "Deletion acceptance bypassed source locks"
                 assert time.monotonic() < deadline, "Deletion did not wait for PUT"
                 time.sleep(0.01)
         finally:
@@ -269,7 +268,10 @@ def test_deletion_waits_for_inflight_put_then_cascades(projection: Projection) -
         response = pending.result(timeout=15)
         assert response.status_code == 200, response.text
         assert response.json()["revision"] == 1
-        progress = deleted.result(timeout=15)
+        request = accepted.result(timeout=15)
+        item = store.claim(p.clock.now, timedelta(seconds=60))
+        assert item is not None
+        progress = store.delete_turns(item, request, p.clock.now)
         assert progress["deleted_profile_entries"] == [
             {
                 "character_id": p.characters[0],

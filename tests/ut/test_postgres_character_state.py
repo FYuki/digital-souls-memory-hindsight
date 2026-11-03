@@ -18,7 +18,7 @@ from tests.ut.test_delivery_scope import NOW
 pytestmark = pytest.mark.ut
 
 
-def test_state_migration_extends_profile_as_the_only_head() -> None:
+def test_state_migration_remains_in_a_single_revision_chain() -> None:
     from alembic.config import Config
     from alembic.script import ScriptDirectory
 
@@ -26,7 +26,7 @@ def test_state_migration_extends_profile_as_the_only_head() -> None:
     config = Config(str(root / "alembic.ini"))
     config.set_main_option("script_location", str(root / "migrations"))
     scripts = ScriptDirectory.from_config(config)
-    assert scripts.get_heads() == ["0015_character_states"]
+    assert len(scripts.get_heads()) == 1
     revision = scripts.get_revision("0015_character_states")
     assert revision is not None
     assert revision.down_revision == "0014_character_profiles"

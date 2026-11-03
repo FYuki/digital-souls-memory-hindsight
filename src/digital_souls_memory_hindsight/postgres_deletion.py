@@ -66,6 +66,11 @@ class PostgresDeletionStore:
         keys: frozenset[StateKey],
     ) -> DeletionRequest:
         with self._connection() as connection:
+            if request.target_turn_ids:
+                connection.execute(
+                    "SELECT turn_id FROM turns WHERE turn_id = ANY(%s) ORDER BY turn_id FOR UPDATE",
+                    (sorted(request.target_turn_ids),),
+                ).fetchall()
             inserted = connection.execute(
                 "INSERT INTO deletion_requests "
                 "(request_id, requested_by, target_turn_ids, status, cascade_result, error, "
@@ -324,6 +329,20 @@ class PostgresDeletionStore:
                 (targets,),
             ).fetchall()
             provision_ids = {str(row[0]) for row in provisions}
+            resident_profiles = connection.execute(
+                "DELETE FROM provision_records WHERE kind='resident' AND EXISTS "
+                "(SELECT 1 FROM jsonb_array_elements(profile_entries) entry "
+                "WHERE entry->>'turn_id' = ANY(%s)) RETURNING provision_id",
+                (targets,),
+            ).fetchall()
+            provision_ids.update(str(row[0]) for row in resident_profiles)
+            for character, exemplar in voices:
+                rows = connection.execute(
+                    "DELETE FROM provision_records WHERE kind='resident' AND character_id=%s "
+                    "AND %s = ANY(exemplar_ids) RETURNING provision_id",
+                    (character, exemplar),
+                ).fetchall()
+                provision_ids.update(str(row[0]) for row in rows)
             for character, anchor in anchors:
                 rows = connection.execute(
                     "DELETE FROM provision_records WHERE character_id = %s "

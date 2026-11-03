@@ -93,10 +93,9 @@ def test_get_restores_profile_revision_and_ordered_original_intervals(
     domain = importlib.import_module("digital_souls_memory_hindsight.character_profile.domain")
     connection = MagicMock(spec=psycopg.Connection)
     connection.__enter__.return_value = connection
-    connection.execute.return_value.fetchone.return_value = ("char-a", 5, 7, NOW)
-    connection.execute.return_value.fetchall.return_value = [
-        (entry.turn_id, entry.start, entry.end) for entry in entries
-    ]
+    cursor = connection.cursor.return_value.__enter__.return_value
+    cursor.fetchone.return_value = ("char-a", 5, 7, NOW)
+    cursor.fetchall.return_value = [(entry.turn_id, entry.start, entry.end) for entry in entries]
     monkeypatch.setattr(psycopg, "connect", MagicMock(return_value=connection))
     assert module.PostgresCharacterProfileStore("synthetic-db").get("char-a") == (
         domain.CharacterProfile("char-a", 5, 7, entries, NOW)

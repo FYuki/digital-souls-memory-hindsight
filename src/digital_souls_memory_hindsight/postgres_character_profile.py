@@ -4,11 +4,37 @@ from datetime import datetime
 from typing import cast
 
 import psycopg
+from psycopg.rows import tuple_row
 
 from .character_profile.domain import CharacterProfile, ProfileValidationError
 from .evidence.ports import EvidenceUnavailable
 from .postgres_evidence import PostgresEvidenceStore
 from .voice.domain import Span
+
+
+def read_profile(
+    connection: psycopg.Connection[object], character_id: str
+) -> CharacterProfile | None:
+    with connection.cursor(row_factory=tuple_row) as cursor:
+        cursor.execute(
+            "SELECT character_id, char_limit, revision, updated_at "
+            "FROM character_profiles WHERE character_id = %s",
+            (character_id,),
+        )
+        row = cursor.fetchone()
+        if row is None:
+            return None
+        cursor.execute(
+            "SELECT turn_id, span_start, span_end FROM character_profile_entries "
+            "WHERE character_id = %s ORDER BY position",
+            (character_id,),
+        )
+        entries = tuple(
+            Span(str(r[0]), cast(int, r[1]), cast(int, r[2])) for r in cursor.fetchall()
+        )
+        return CharacterProfile(
+            str(row[0]), cast(int, row[1]), cast(int, row[2]), entries, cast(datetime, row[3])
+        )
 
 
 class PostgresCharacterProfileStore:
@@ -76,25 +102,6 @@ class PostgresCharacterProfileStore:
             with psycopg.connect(self._url, connect_timeout=5) as connection:
                 # Header and entries must describe the same committed revision.
                 connection.isolation_level = psycopg.IsolationLevel.REPEATABLE_READ
-                row = connection.execute(
-                    "SELECT character_id, char_limit, revision, updated_at "
-                    "FROM character_profiles WHERE character_id = %s",
-                    (character_id,),
-                ).fetchone()
-                if row is None:
-                    return None
-                rows = connection.execute(
-                    "SELECT turn_id, span_start, span_end FROM character_profile_entries "
-                    "WHERE character_id = %s ORDER BY position",
-                    (character_id,),
-                ).fetchall()
-                entries = tuple(Span(str(r[0]), cast(int, r[1]), cast(int, r[2])) for r in rows)
-                return CharacterProfile(
-                    str(row[0]),
-                    cast(int, row[1]),
-                    cast(int, row[2]),
-                    entries,
-                    cast(datetime, row[3]),
-                )
+                return read_profile(connection, character_id)
         except psycopg.Error as error:
             raise EvidenceUnavailable() from error

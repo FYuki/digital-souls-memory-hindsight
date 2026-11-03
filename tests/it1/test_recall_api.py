@@ -6,7 +6,7 @@ import json
 import os
 import shutil
 from collections.abc import Iterator
-from dataclasses import replace
+from dataclasses import fields, replace
 from pathlib import Path
 from uuid import uuid4
 
@@ -276,7 +276,7 @@ def test_recall_persists_response_and_duplicate_keeps_original_row(
     storage = importlib.import_module("digital_souls_memory_hindsight.postgres_provision")
     record = ports.ProvisionRecord(
         **{
-            **row,
+            **{field.name: row[field.name] for field in fields(ports.ProvisionRecord)},
             "memory_ids": tuple(row["memory_ids"]),
             "source_spans": tuple(ports.ProvisionSpan(**span) for span in row["source_spans"]),
             "verbatim_anchor_ids": tuple(row["verbatim_anchor_ids"]),

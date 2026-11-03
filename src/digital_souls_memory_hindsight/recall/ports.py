@@ -64,8 +64,8 @@ class ProvisionRecord:
     memory_trust: tuple[Trust, ...]
     source_span_trust: tuple[Trust, ...]
     verbatim_anchor_trust: tuple[Trust, ...]
-    temperament_version: str | None
-    personality_version: str | None
+    temperament_version: int | None
+    personality_version: int | None
     created_at: datetime
     resident_provision_id: str | None
 
