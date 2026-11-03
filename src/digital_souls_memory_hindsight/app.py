@@ -11,6 +11,10 @@ from digital_souls_memory_hindsight.anchor_http import anchor_router
 from digital_souls_memory_hindsight.anchors.service import AnchorService
 from digital_souls_memory_hindsight.character_profile.service import CharacterProfileService
 from digital_souls_memory_hindsight.character_profile_http import character_profile_router
+from digital_souls_memory_hindsight.character_state.generator import CharacterStateGenerator
+from digital_souls_memory_hindsight.character_state.ports import ContextGateway
+from digital_souls_memory_hindsight.character_state.service import CharacterStateService
+from digital_souls_memory_hindsight.character_state_http import character_state_router
 from digital_souls_memory_hindsight.deletion.execution import DeletionExecutor
 from digital_souls_memory_hindsight.deletion.service import DeletionService
 from digital_souls_memory_hindsight.deletion_http import AuthorCredentials, deletion_router
@@ -24,6 +28,7 @@ from digital_souls_memory_hindsight.identity.service import IdentityService
 from digital_souls_memory_hindsight.identity_http import identity_router
 from digital_souls_memory_hindsight.postgres_anchors import PostgresAnchorStore
 from digital_souls_memory_hindsight.postgres_character_profile import PostgresCharacterProfileStore
+from digital_souls_memory_hindsight.postgres_character_state import PostgresCharacterStateStore
 from digital_souls_memory_hindsight.postgres_deletion import PostgresDeletionStore
 from digital_souls_memory_hindsight.postgres_evidence import PostgresEvidenceStore
 from digital_souls_memory_hindsight.postgres_identity import PostgresIdentityStore
@@ -56,6 +61,10 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
         PostgresCharacterProfileStore(settings.database_url), ledger, deletion_store
     )
     application.state.deletion_service = DeletionService(deletion_store, ledger)
+    state_store = PostgresCharacterStateStore(settings.database_url)
+    application.state.character_state_service = CharacterStateService(
+        state_store, ledger, deletion_store, ttl_seconds=settings.character_state_ttl_seconds
+    )
     application.state.recall_service = RecallService(
         ledger,
         HindsightRecall(client, min_reranker_score=settings.recall_min_reranker_score)
@@ -74,6 +83,15 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
             deletion_store,
             HindsightDeletion(client) if client is not None else None,
         ),
+        state=CharacterStateGenerator(
+            state_store,
+            ledger,
+            deletion_store,
+            application.state.context_gateway,
+            input_max_chars=settings.character_state_input_max_chars,
+        )
+        if application.state.context_gateway is not None
+        else None,
     )
     task = asyncio.create_task(worker.run())
     try:
@@ -92,10 +110,13 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-def create_app(*, llm_gateway: LLMGateway | None = None) -> FastAPI:
+def create_app(
+    *, llm_gateway: LLMGateway | None = None, context_gateway: ContextGateway | None = None
+) -> FastAPI:
     application = FastAPI(lifespan=lifespan)
     settings = load_settings()
     application.state.settings = settings
+    application.state.context_gateway = context_gateway
     application.state.ledger_service = EvidenceService(
         PostgresEvidenceStore(settings.database_url),
         settings.character_ids,
@@ -111,6 +132,9 @@ def create_app(*, llm_gateway: LLMGateway | None = None) -> FastAPI:
     application.include_router(voice_router(lambda: application.state.voice_service))
     application.include_router(
         character_profile_router(lambda: application.state.character_profile_service)
+    )
+    application.include_router(
+        character_state_router(lambda: application.state.character_state_service)
     )
     application.include_router(
         deletion_router(

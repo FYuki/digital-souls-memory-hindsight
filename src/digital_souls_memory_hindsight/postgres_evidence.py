@@ -16,6 +16,7 @@ from .evidence.domain import (
     EvidenceValidationError,
     Session,
     SessionEnding,
+    StateKey,
     Turn,
     matches_saved_turn,
 )
@@ -29,6 +30,69 @@ class PostgresEvidenceStore:
     ) -> None:
         self._url = database_url
         self._bound = connection
+
+    def advance_character_states(self, keys: frozenset[StateKey], now: datetime) -> None:
+        with self._connection() as connection:
+            for key in sorted(keys):
+                row = connection.execute(
+                    "INSERT INTO character_states (character_id,session_id,surface,generation) "
+                    "VALUES (%s,%s,%s,1) ON CONFLICT (character_id,session_id,surface) "
+                    "DO UPDATE SET generation=character_states.generation+1 RETURNING generation",
+                    key,
+                ).fetchone()
+                if row is None:
+                    raise EvidenceUnavailable()
+                connection.execute(
+                    "INSERT INTO character_state_outbox "
+                    "(character_id,session_id,surface,generation,available_at) "
+                    "VALUES (%s,%s,%s,%s,%s) "
+                    "ON CONFLICT (character_id,session_id,surface) DO UPDATE SET "
+                    "generation=EXCLUDED.generation,status='pending',attempts=0,"
+                    "available_at=EXCLUDED.available_at,lease_token=NULL,lease_until=NULL,"
+                    "last_error=NULL,completed_at=NULL",
+                    (*key, row[0], now),
+                )
+
+    def clear_character_states(self, session_id: str) -> None:
+        with self._connection() as connection:
+            connection.execute(
+                "SELECT generation FROM character_states WHERE session_id=%s "
+                "ORDER BY character_id,session_id,surface FOR UPDATE",
+                (session_id,),
+            ).fetchall()
+            connection.execute(
+                "UPDATE character_states SET generation=generation+1,mood=NULL,"
+                "relationship_temperature=NULL,current_topic=NULL,state_generation=NULL,"
+                "generated_at=NULL WHERE session_id=%s",
+                (session_id,),
+            )
+            connection.execute(
+                "DELETE FROM character_state_outbox WHERE session_id=%s", (session_id,)
+            )
+
+    def list_state_turns(
+        self,
+        character_id: str,
+        session_id: str,
+        surface: str,
+        before: tuple[datetime, datetime, str] | None,
+        limit: int,
+    ) -> tuple[Turn, ...]:
+        with (
+            self._connection() as connection,
+            connection.cursor(row_factory=class_row(Turn)) as cursor,
+        ):
+            query = (
+                "SELECT * FROM turns WHERE perceived_by @> ARRAY[%s]::text[] "
+                "AND session_id=%s AND surface=%s "
+            )
+            parameters: tuple[object, ...] = (character_id, session_id, surface)
+            if before is not None:
+                query += 'AND (occurred_at,recorded_at,turn_id COLLATE "C") < (%s,%s,%s) '
+                parameters += before
+            query += 'ORDER BY occurred_at DESC,recorded_at DESC,turn_id COLLATE "C" DESC LIMIT %s'
+            cursor.execute(query, (*parameters, limit))
+            return tuple(cursor.fetchall())
 
     @contextmanager
     def _connection(self) -> Iterator[psycopg.Connection[tuple[object, ...]]]:

@@ -6,6 +6,7 @@ from collections.abc import Callable
 from contextlib import suppress
 from datetime import UTC, datetime, timedelta
 
+from .character_state.generator import CharacterStateGenerator
 from .deletion.domain import DeletionItem, DeletionLeaseLost
 from .deletion.ports import DeletionQueue, DeletionStep, DeletionStepResult
 from .evidence.ports import EvidenceUnavailable
@@ -28,6 +29,7 @@ class Worker:
         *,
         clock: Callable[[], datetime] = _utc_now,
         deletion: DeletionStep | None = None,
+        state: CharacterStateGenerator | None = None,
         deletion_lease: timedelta = timedelta(seconds=60),
         deletion_heartbeat: timedelta = timedelta(seconds=20),
     ) -> None:
@@ -38,6 +40,7 @@ class Worker:
         self._evidence = evidence
         self._clock = clock
         self._deletion = deletion
+        self._state = state
         self._deletion_lease = deletion_lease
         self._deletion_heartbeat = deletion_heartbeat
 
@@ -45,6 +48,8 @@ class Worker:
         await asyncio.to_thread(self._evidence.confirm_expired_deliveries)
         await self._retain_once()
         await self._deletion_once()
+        if self._state is not None:
+            await self._state.run_once()
 
     async def _retain_once(self) -> None:
         item = await asyncio.to_thread(self._store.claim, self._clock(), timedelta(seconds=60))

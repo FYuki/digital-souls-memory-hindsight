@@ -1,8 +1,9 @@
 """Evidence registration and queries through the persistence port."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from datetime import UTC, datetime, timedelta
 
+from ..evidence.domain import state_keys
 from .delivery import (
     DEFAULT_DELIVERY_TIMEOUT_SECONDS,
     DeliveryScope,
@@ -86,6 +87,7 @@ class EvidenceService:
             if initial is not None and store.get_delivery_scope(saved.turn_id) is None:
                 store.add_delivery_scope(initial)
             enqueue_projection(store, saved, store.get_delivery_scope(saved.turn_id))
+            store.advance_character_states(state_keys((saved,)), self._clock())
         return saved
 
     def get_turn(self, turn_id: str) -> Turn:
@@ -119,6 +121,7 @@ class EvidenceService:
                 )
                 if scope.spoken_until != latest.spoken_until:
                     update_projection(store, turn, latest)
+            store.advance_character_states(state_keys((turn,)), self._clock())
         return saved
 
     def get_delivery_scope(self, turn_id: str) -> DeliveryScope | None:
@@ -141,6 +144,32 @@ class EvidenceService:
             raise EvidenceUnavailable()
         if character_id not in self._character_ids:
             raise EvidenceNotFound()
+
+    def state_input_sources(
+        self, character_id: str, session_id: str, surface: str, page_size: int
+    ) -> Iterator[ProjectionSource]:
+        before: tuple[datetime, datetime, str] | None = None
+        while True:
+            page = self._store.list_state_turns(
+                character_id, session_id, surface, before, page_size
+            )
+            for turn in page:
+                scope = None
+                if (
+                    character_id in turn.perceived_by
+                    and character_id != turn.actor
+                    and turn.kind != "thought"
+                ):
+                    scope = self._store.get_delivery_scope(turn.turn_id)
+                    if scope is None:
+                        raise EvidenceUnavailable("Delivery scope is missing")
+                text = projection_text(turn, character_id, scope)
+                if text:
+                    yield turn, text
+            if len(page) < page_size:
+                return
+            last = page[-1]
+            before = (last.occurred_at, last.recorded_at, last.turn_id)
 
     def projection_sources(
         self, character_id: str, document_ids: frozenset[str]
@@ -179,6 +208,7 @@ class EvidenceService:
                         DeliveryScope(turn.turn_id, "assumed_confirmed", len(turn.text), now)
                     )
                     update_projection(store, turn, latest)
+                    store.advance_character_states(state_keys((turn,)), now)
                     confirmed.append(turn.turn_id)
         return tuple(confirmed)
 
@@ -190,6 +220,7 @@ class EvidenceService:
         self, session_id: str, ended_at: datetime, reported_by: str
     ) -> tuple[SessionEnding, bool]:
         with self._store.transaction() as store:
+            store.lock_session(session_id)
             session = store.get_session(session_id)
             if session is None:
                 raise EvidenceNotFound()
@@ -198,6 +229,8 @@ class EvidenceService:
             saved = store.add_ending(
                 SessionEnding(session_id, ended_at, reported_by, self._clock())
             )
+            if saved[1]:
+                store.clear_character_states(session_id)
         return saved
 
     def list_endings(self, session_id: str) -> tuple[SessionEnding, ...]:

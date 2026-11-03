@@ -18,6 +18,7 @@ from .deletion.domain import (
     DeletionStatus,
 )
 from .deletion.ports import DeletionTransitionRejected
+from .evidence.domain import StateKey
 from .evidence.ports import EvidenceUnavailable
 from .evidence.projection import bank_id, document_content, document_id
 from .outbox import RetainOperation
@@ -58,7 +59,12 @@ class PostgresDeletionStore:
         with self._connection() as connection:
             return self._get(connection, request_id)
 
-    def add(self, request: DeletionRequest, blocks: frozenset[tuple[str, str]]) -> DeletionRequest:
+    def add(
+        self,
+        request: DeletionRequest,
+        blocks: frozenset[tuple[str, str]],
+        keys: frozenset[StateKey],
+    ) -> DeletionRequest:
         with self._connection() as connection:
             inserted = connection.execute(
                 "INSERT INTO deletion_requests "
@@ -93,6 +99,9 @@ class PostgresDeletionStore:
             connection.execute(
                 "INSERT INTO deletion_outbox (request_id, available_at) VALUES (%s, %s)",
                 (request.request_id, request.requested_at),
+            )
+            PostgresEvidenceStore(self._url, connection).advance_character_states(
+                keys, request.requested_at
             )
         return request
 

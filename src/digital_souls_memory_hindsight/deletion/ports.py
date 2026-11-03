@@ -3,6 +3,7 @@
 from datetime import datetime, timedelta
 from typing import Literal, Protocol
 
+from ..evidence.domain import StateKey
 from .domain import DeletionItem, DeletionRequest, DeletionStatus
 from .domain import DeletionTransitionRejected as DeletionTransitionRejected
 
@@ -22,7 +23,10 @@ class DeletionTargetNotFound(Exception):
 class DeletionStore(Protocol):
     def get(self, request_id: str) -> DeletionRequest | None: ...
     def add(
-        self, request: DeletionRequest, blocks: frozenset[tuple[str, str]]
+        self,
+        request: DeletionRequest,
+        blocks: frozenset[tuple[str, str]],
+        keys: frozenset[StateKey],
     ) -> DeletionRequest: ...
     def save_transition(
         self, previous_status: DeletionStatus, updated: DeletionRequest
