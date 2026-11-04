@@ -214,5 +214,17 @@ pytestの既定socket禁止を保ち、IT1だけ `--allow-hosts=postgres,hindsig
 固定時点を上げる手順：
 
 1. 公開から 7 日以上たった時点を選ぶ（直近の 7 日は選ばない）。
-2. Python は `exclude-newer` を変えて `uv lock`、apt は `DEBIAN_SNAPSHOT` を変えてビルドし、`dpkg-query -W` の出力で `packages.lock` を作り直す。
+2. Python は `exclude-newer` を変えて `uv lock` を実行する。apt は `DEBIAN_SNAPSHOT` を変えたうえで、`packages.lock` を作り直す。
+   版が変わると Dockerfile 最後の `cmp` でビルドが失敗し、照合前の一覧（`/usr/share/retrieval-build-packages.txt`）を持つイメージが残らない。
+   そこで `cmp` の行だけを除いた Dockerfile でイメージを作り、そのイメージから一覧を取り出す（Dockerfile 自体は変えない）。
+
+   ```bash
+   sed '/^RUN cmp /d' docker/retrieval-postgres/Dockerfile \
+     | docker build -f - -t retrieval-postgres-lock-tmp docker/retrieval-postgres
+   docker run --rm --entrypoint cat retrieval-postgres-lock-tmp \
+     /usr/share/retrieval-build-packages.txt > docker/retrieval-postgres/packages.lock
+   docker image rm retrieval-postgres-lock-tmp
+   ```
+
+   作り直した後、通常のビルド（`cmp` あり）が通ることを確かめる。
 3. 上がるパッケージと版を確認し、lockfile の差分とあわせて 1 つの PR にまとめ、差分の版を PR 本文に書く。
