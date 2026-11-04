@@ -24,6 +24,7 @@ from tests.ut.test_evidence_http import MemoryStore, session_body, turn_body
 
 if TYPE_CHECKING:
     from digital_souls_memory_hindsight.deletion.domain import DeletionRequest, DeletionStatus
+    from digital_souls_memory_hindsight.evidence.domain import StateKey
 
 pytestmark = pytest.mark.ut
 AUTH = {"Authorization": "Bearer synthetic-deletion-token"}
@@ -34,18 +35,25 @@ class DeletionStore:
     values: dict[str, DeletionRequest] = field(default_factory=dict)
     blocks: dict[str, frozenset[tuple[str, str]]] = field(default_factory=dict)
     error: Exception | None = None
+    state_keys: dict[str, frozenset[StateKey]] = field(default_factory=dict)
 
     def get(self, request_id: str) -> DeletionRequest | None:
         if self.error:
             raise self.error
         return self.values.get(request_id)
 
-    def add(self, request: DeletionRequest, blocks: frozenset[tuple[str, str]]) -> DeletionRequest:
+    def add(
+        self,
+        request: DeletionRequest,
+        blocks: frozenset[tuple[str, str]],
+        keys: frozenset[StateKey],
+    ) -> DeletionRequest:
         if self.error:
             raise self.error
         if request.request_id not in self.values:
             self.values[request.request_id] = request
             self.blocks[request.request_id] = blocks
+            self.state_keys[request.request_id] = keys
         return self.values[request.request_id]
 
     def save_transition(
@@ -159,6 +167,7 @@ def test_accept_get_and_normalized_replay_preserve_public_response() -> None:
             json={"request_id": "d", "target_turn_ids": ["t-1", "t-1"]},
         )
         assert created.status_code == 202, created.text
+        assert store.state_keys["d"] == frozenset({("char-a", "s-1", "Web")})
         body = created.json()
         assert set(body) == {
             "request_id",
@@ -304,14 +313,17 @@ def test_replay_returns_current_status_and_original_time() -> None:
 def test_acceptance_compares_request_inserted_after_initial_lookup(same: bool) -> None:
     class RacingStore(DeletionStore):
         def add(
-            self, request: DeletionRequest, blocks: frozenset[tuple[str, str]]
+            self,
+            request: DeletionRequest,
+            blocks: frozenset[tuple[str, str]],
+            keys: frozenset[StateKey],
         ) -> DeletionRequest:
             winner = replace(
                 request,
                 user_id=request.user_id if same else "other-user",
                 requested_at=NOW - timedelta(seconds=1),
             )
-            return super().add(winner, blocks)
+            return super().add(winner, blocks, keys)
 
     with TestClient(application(RacingStore())) as client:
         response = client.post(
@@ -378,7 +390,7 @@ def test_production_app_loads_author_and_exposes_both_deletion_routes(
     monkeypatch.setattr(module, "PostgresDeletionStore", MagicMock(return_value=DeletionStore()))
     monkeypatch.setattr(module, "PostgresAnchorStore", MagicMock(return_value=AnchorStore()))
     monkeypatch.setattr(
-        module, "ledger_service", EvidenceService(MemoryStore(), frozenset({"char-a"}))
+        module.app.state, "ledger_service", EvidenceService(MemoryStore(), frozenset({"char-a"}))
     )
     worker = MagicMock()
     worker.run = AsyncMock()

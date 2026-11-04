@@ -6,6 +6,7 @@ import os
 import re
 from dataclasses import dataclass, field
 
+from .character_state.domain import DEFAULT_INPUT_MAX_CHARS, DEFAULT_TTL_SECONDS
 from .evidence.delivery import DEFAULT_DELIVERY_TIMEOUT_SECONDS
 
 # 仮の既定値。epic 5 の IT2 で実モデルを使って決める。
@@ -21,6 +22,8 @@ class Settings:
     recall_min_reranker_score: float
     author_id: str | None
     author_token: str | None = field(repr=False)
+    character_state_ttl_seconds: int
+    character_state_input_max_chars: int
 
 
 def load_settings() -> Settings:
@@ -53,6 +56,12 @@ def load_settings() -> Settings:
         raise ValueError("RECALL_MIN_RERANKER_SCORE must be finite and between 0 and 1")
     author_id = os.environ.get("MEMORY_AUTHOR_ID")
     author_token = os.environ.get("MEMORY_AUTHOR_TOKEN")
+    state_ttl = int(os.environ.get("CHARACTER_STATE_TTL_SECONDS", str(DEFAULT_TTL_SECONDS)))
+    state_chars = int(
+        os.environ.get("CHARACTER_STATE_INPUT_MAX_CHARS", str(DEFAULT_INPUT_MAX_CHARS))
+    )
+    if state_ttl <= 0 or state_chars <= 0:
+        raise ValueError("Character state limits must be positive")
     return Settings(
         database_url=database_url,
         character_ids=character_ids,
@@ -61,4 +70,6 @@ def load_settings() -> Settings:
         recall_min_reranker_score=recall_min_reranker_score,
         author_id=author_id if author_id is not None and author_id.strip() else None,
         author_token=author_token if author_token is not None and author_token.strip() else None,
+        character_state_ttl_seconds=state_ttl,
+        character_state_input_max_chars=state_chars,
     )

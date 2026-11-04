@@ -10,11 +10,46 @@ import psycopg
 import pytest
 
 from digital_souls_memory_hindsight.evidence.delivery import DeliveryScope
-from digital_souls_memory_hindsight.evidence.domain import EvidenceValidationError, Session
+from digital_souls_memory_hindsight.evidence.domain import (
+    EvidenceValidationError,
+    Session,
+    StateKey,
+)
 from digital_souls_memory_hindsight.evidence.ports import EvidenceUnavailable
 from digital_souls_memory_hindsight.postgres_evidence import PostgresEvidenceStore
+from tests.ut.test_character_state_domain import source
+from tests.ut.test_delivery_scope import NOW
 
 pytestmark = pytest.mark.ut
+
+
+def test_state_generation_and_outbox_share_the_bound_connection_and_generation() -> None:
+    connection = MagicMock(spec=psycopg.Connection)
+    connection.execute.return_value.fetchone.return_value = (3,)
+    store = PostgresEvidenceStore("synthetic-db", connection)
+    key = StateKey("char-a", "s-1", "Web")
+    other = StateKey("char-b", "s-1", "App")
+    store.advance_character_states(frozenset({other, key}), NOW)
+    assert connection.execute.call_args_list[0].args[1] == key
+    assert connection.execute.call_args_list[1].args[1] == (*key, 3, NOW)
+    assert connection.execute.call_args_list[2].args[1] == other
+    assert connection.execute.call_args_list[3].args[1] == (*other, 3, NOW)
+
+
+def test_state_input_query_preserves_character_session_and_surface() -> None:
+    connection = MagicMock(spec=psycopg.Connection)
+    cursor = connection.cursor.return_value.__enter__.return_value
+    turn, _ = source("synthetic-turn", 0, "架空のお茶")
+    cursor.fetchall.return_value = [turn]
+    store = PostgresEvidenceStore("synthetic-db", connection)
+    assert store.list_state_turns("char-a", "s-1", "Web", None, 20) == (turn,)
+    assert cursor.execute.call_args.args[1] == ("char-a", "s-1", "Web", 20)
+    assert 'turn_id COLLATE "C" DESC LIMIT %s' in cursor.execute.call_args.args[0]
+    before = (turn.occurred_at, turn.recorded_at, turn.turn_id)
+    assert store.list_state_turns("char-a", "s-1", "Web", before, 7) == (turn,)
+    query, parameters = cursor.execute.call_args.args
+    assert parameters == ("char-a", "s-1", "Web", *before, 7)
+    assert 'AND (occurred_at,recorded_at,turn_id COLLATE "C") < (%s,%s,%s)' in query
 
 
 def test_projection_sessions_returns_rows_for_the_bound_bank() -> None:
@@ -68,7 +103,18 @@ def test_failed_commit_does_not_return_success(monkeypatch: pytest.MonkeyPatch) 
 
 @pytest.mark.parametrize(
     "operation",
-    ["write", "read", "lock", "pending", "session-lock", "projection-turns", "projection-sessions"],
+    [
+        "write",
+        "read",
+        "lock",
+        "pending",
+        "session-lock",
+        "projection-turns",
+        "projection-sessions",
+        "state-advance",
+        "state-clear",
+        "state-turns",
+    ],
 )
 @pytest.mark.parametrize("error", [psycopg.OperationalError, psycopg.IntegrityError])
 def test_delivery_storage_failures_preserve_error_translation(
@@ -94,5 +140,11 @@ def test_delivery_storage_failures_preserve_error_translation(
             store.list_projection_turns("s-1", "bank")
         elif operation == "projection-sessions":
             store.list_projection_sessions("bank")
+        elif operation == "state-advance":
+            store.advance_character_states(frozenset({StateKey("char-a", "s-1", "Web")}), now)
+        elif operation == "state-clear":
+            store.clear_character_states("s-1")
+        elif operation == "state-turns":
+            store.list_state_turns("char-a", "s-1", "Web", None, 20)
         else:
             store.list_pending_deliveries(now)

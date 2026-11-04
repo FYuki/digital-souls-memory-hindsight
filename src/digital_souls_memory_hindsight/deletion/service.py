@@ -3,6 +3,7 @@
 from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 
+from ..evidence.domain import state_keys
 from ..evidence.ports import EvidenceNotFound
 from ..evidence.service import EvidenceService
 from .domain import DeletionRequest, DeletionStatus, same_selection, transition
@@ -62,7 +63,7 @@ class DeletionService:
         blocks = frozenset(
             (character, turn.session_id) for turn in targets for character in turn.perceived_by
         )
-        saved = self._store.add(request, blocks)
+        saved = self._store.add(request, blocks, state_keys(targets))
         if not same_selection(saved, target_turn_ids, user_id):
             raise DeletionConflict()
         return saved

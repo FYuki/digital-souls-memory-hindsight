@@ -18,6 +18,7 @@ from .deletion.domain import (
     DeletionStatus,
 )
 from .deletion.ports import DeletionTransitionRejected
+from .evidence.domain import StateKey
 from .evidence.ports import EvidenceUnavailable
 from .evidence.projection import bank_id, document_content, document_id
 from .outbox import RetainOperation
@@ -27,6 +28,16 @@ from .postgres_evidence import PostgresEvidenceStore
 class PostgresDeletionStore:
     def __init__(self, database_url: str) -> None:
         self._url = database_url
+
+    def turns_under_deletion(self, turn_ids: frozenset[str]) -> frozenset[str]:
+        with self._connection() as connection:
+            rows = connection.execute(
+                "SELECT DISTINCT target FROM deletion_requests, "
+                "unnest(target_turn_ids) AS target "
+                "WHERE status <> 'completed' AND target = ANY(%s)",
+                (sorted(turn_ids),),
+            ).fetchall()
+            return frozenset(str(row[0]) for row in rows)
 
     @contextmanager
     def _connection(self) -> Iterator[psycopg.Connection[tuple[object, ...]]]:
@@ -48,8 +59,18 @@ class PostgresDeletionStore:
         with self._connection() as connection:
             return self._get(connection, request_id)
 
-    def add(self, request: DeletionRequest, blocks: frozenset[tuple[str, str]]) -> DeletionRequest:
+    def add(
+        self,
+        request: DeletionRequest,
+        blocks: frozenset[tuple[str, str]],
+        keys: frozenset[StateKey],
+    ) -> DeletionRequest:
         with self._connection() as connection:
+            if request.target_turn_ids:
+                connection.execute(
+                    "SELECT turn_id FROM turns WHERE turn_id = ANY(%s) ORDER BY turn_id FOR UPDATE",
+                    (sorted(request.target_turn_ids),),
+                ).fetchall()
             inserted = connection.execute(
                 "INSERT INTO deletion_requests "
                 "(request_id, requested_by, target_turn_ids, status, cascade_result, error, "
@@ -83,6 +104,9 @@ class PostgresDeletionStore:
             connection.execute(
                 "INSERT INTO deletion_outbox (request_id, available_at) VALUES (%s, %s)",
                 (request.request_id, request.requested_at),
+            )
+            PostgresEvidenceStore(self._url, connection).advance_character_states(
+                keys, request.requested_at
             )
         return request
 
@@ -280,6 +304,24 @@ class PostgresDeletionStore:
                 "RETURNING character_id, anchor_id",
                 (targets,),
             ).fetchall()
+            voices = connection.execute(
+                "DELETE FROM voice_exemplars WHERE answer_turn_id = ANY(%s) "
+                "OR question_turn_id = ANY(%s) RETURNING character_id, exemplar_id",
+                (targets, targets),
+            ).fetchall()
+            profile_entries = connection.execute(
+                "DELETE FROM character_profile_entries WHERE turn_id = ANY(%s) "
+                "RETURNING character_id, turn_id, span_start, span_end",
+                (targets,),
+            ).fetchall()
+            profile_revisions = {}
+            if profile_entries:
+                rows = connection.execute(
+                    "UPDATE character_profiles SET revision = revision + 1, updated_at = %s "
+                    "WHERE character_id = ANY(%s) RETURNING character_id, revision",
+                    (now, sorted({str(row[0]) for row in profile_entries})),
+                ).fetchall()
+                profile_revisions = {str(row[0]): row[1] for row in rows}
             provisions = connection.execute(
                 "DELETE FROM provision_records WHERE EXISTS (SELECT 1 FROM "
                 "jsonb_array_elements(source_spans) span WHERE span->>'turn_id' = ANY(%s)) "
@@ -287,6 +329,20 @@ class PostgresDeletionStore:
                 (targets,),
             ).fetchall()
             provision_ids = {str(row[0]) for row in provisions}
+            resident_profiles = connection.execute(
+                "DELETE FROM provision_records WHERE kind='resident' AND EXISTS "
+                "(SELECT 1 FROM jsonb_array_elements(profile_entries) entry "
+                "WHERE entry->>'turn_id' = ANY(%s)) RETURNING provision_id",
+                (targets,),
+            ).fetchall()
+            provision_ids.update(str(row[0]) for row in resident_profiles)
+            for character, exemplar in voices:
+                rows = connection.execute(
+                    "DELETE FROM provision_records WHERE kind='resident' AND character_id=%s "
+                    "AND %s = ANY(exemplar_ids) RETURNING provision_id",
+                    (character, exemplar),
+                ).fetchall()
+                provision_ids.update(str(row[0]) for row in rows)
             for character, anchor in anchors:
                 rows = connection.execute(
                     "DELETE FROM provision_records WHERE character_id = %s "
@@ -403,6 +459,20 @@ class PostgresDeletionStore:
                     for character, anchor in sorted(anchors)
                 ],
                 "deleted_provision_ids": sorted(provision_ids),
+                "deleted_voice_exemplars": [
+                    {"character_id": str(character), "exemplar_id": str(exemplar)}
+                    for character, exemplar in sorted(voices)
+                ],
+                "deleted_profile_entries": [
+                    {
+                        "character_id": str(character),
+                        "turn_id": str(turn),
+                        "start": start,
+                        "end": end,
+                        "revision": profile_revisions[str(character)],
+                    }
+                    for character, turn, start, end in sorted(profile_entries)
+                ],
                 "rebuilt_documents": rebuilt,
                 "deleted_documents": deleted,
                 "fenced_operations": fenced,

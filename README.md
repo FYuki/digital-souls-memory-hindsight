@@ -181,7 +181,7 @@ bash scripts/run-it1.sh
 ビルド・pull・依存取得の後、PostgreSQL・Hindsight・スタブ・サービスと試験コンテナを
 `internal: true` の専用ネットワークで起動します。ホストへのポート公開はしません。
 台帳の `ledger` とHindsightの `hindsight` は同一PostgreSQLインスタンス上の別DBです。
-DBのDockerfileとpackages.lockは `digital-souls-memory@a5e386c` から変更せず取り込んでいます。
+DBのDockerfileとpackages.lockは `digital-souls-memory@a5e386c` から取り込み、apt の取得元だけを固定時点に変えています（下記「依存パッケージの固定」）。
 Hindsightは指定digestの `1.1.0-slim`、全文検索はPGroongaを使います。
 LLM・embeddingは標準ライブラリ製のOpenAI互換スタブ、rerankerは同じスタブの
 Cohere互換エンドポイントへ向けます。自動統合は有効のままです。
@@ -197,3 +197,34 @@ pytestの既定socket禁止を保ち、IT1だけ `--allow-hosts=postgres,hindsig
 
 試験コンテナには `DATABASE_URL`、`HINDSIGHT_DATABASE_URL`、`SERVICE_URL`、`HINDSIGHT_URL`、
 `STUB_REQUEST_LOG` をComposeから渡します。要求ログは合成データ用の専用volumeに保存し、試験側は読み取り専用です。
+
+### 依存パッケージの固定
+
+パッケージの汚染に備え、どの依存も最新版を自動では使いません。
+公開から 7 日以上たった版だけを使い、固定時点を意識的に上げます。
+
+| 対象 | 固定のしかた | 現在の固定時点 |
+| --- | --- | --- |
+| Python | `pyproject.toml` の `[tool.uv] exclude-newer` と `uv.lock`（配布物ハッシュ） | `2026-10-27T00:00:00Z` |
+| DB イメージの apt | `docker/retrieval-postgres/Dockerfile` の `DEBIAN_SNAPSHOT`（snapshot.debian.org）、PGDG は全版を残す `apt-archive.postgresql.org` から版を指定。入った版を `packages.lock` と照合し、違えばビルドを失敗させる | `20261027T000000Z`（`a5e386c` の `packages.lock` と一致） |
+| コンテナの基底イメージ | `FROM` を digest で固定 | 各 Dockerfile |
+| uv 本体 | `uv==0.8.22` | - |
+| npm | 使っていない。使う場合も lockfile と同じ 7 日の規則に従う | - |
+
+固定時点を上げる手順：
+
+1. 公開から 7 日以上たった時点を選ぶ（直近の 7 日は選ばない）。
+2. Python は `exclude-newer` を変えて `uv lock` を実行する。apt は `DEBIAN_SNAPSHOT` を変えたうえで、`packages.lock` を作り直す。
+   版が変わると Dockerfile 最後の `cmp` でビルドが失敗し、照合前の一覧（`/usr/share/retrieval-build-packages.txt`）を持つイメージが残らない。
+   そこで `cmp` の行だけを除いた Dockerfile でイメージを作り、そのイメージから一覧を取り出す（Dockerfile 自体は変えない）。
+
+   ```bash
+   sed '/^RUN cmp /d' docker/retrieval-postgres/Dockerfile \
+     | docker build -f - -t retrieval-postgres-lock-tmp docker/retrieval-postgres
+   docker run --rm --entrypoint cat retrieval-postgres-lock-tmp \
+     /usr/share/retrieval-build-packages.txt > docker/retrieval-postgres/packages.lock
+   docker image rm retrieval-postgres-lock-tmp
+   ```
+
+   作り直した後、通常のビルド（`cmp` あり）が通ることを確かめる。
+3. 上がるパッケージと版を確認し、lockfile の差分とあわせて 1 つの PR にまとめ、差分の版を PR 本文に書く。

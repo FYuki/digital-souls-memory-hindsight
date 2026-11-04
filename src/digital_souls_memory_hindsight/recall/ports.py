@@ -36,6 +36,10 @@ class ProvisionConflict(Exception):
     """The provision identifier has already been recorded."""
 
 
+class ResidentProvisionNotFound(Exception):
+    """The reference is not a resident provision for this character and session."""
+
+
 @dataclass(frozen=True)
 class ProvisionSpan:
     turn_id: str
@@ -60,9 +64,10 @@ class ProvisionRecord:
     memory_trust: tuple[Trust, ...]
     source_span_trust: tuple[Trust, ...]
     verbatim_anchor_trust: tuple[Trust, ...]
-    temperament_version: str | None
-    personality_version: str | None
+    temperament_version: int | None
+    personality_version: int | None
     created_at: datetime
+    resident_provision_id: str | None
 
 
 class ProvisionStore(Protocol):

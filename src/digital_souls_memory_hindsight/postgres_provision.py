@@ -4,7 +4,7 @@ import psycopg
 from psycopg.types.json import Jsonb
 
 from .evidence.ports import EvidenceUnavailable
-from .recall.ports import ProvisionConflict, ProvisionRecord
+from .recall.ports import ProvisionConflict, ProvisionRecord, ResidentProvisionNotFound
 
 
 class PostgresProvisionStore:
@@ -15,14 +15,22 @@ class PostgresProvisionStore:
         try:
             with psycopg.connect(self._url, connect_timeout=5) as connection:
                 connection.isolation_level = psycopg.IsolationLevel.READ_COMMITTED
+                if value.resident_provision_id is not None:
+                    resident = connection.execute(
+                        "SELECT 1 FROM provision_records WHERE provision_id=%s "
+                        "AND kind='resident' AND character_id=%s AND session_id=%s FOR KEY SHARE",
+                        (value.resident_provision_id, value.character_id, value.session_id),
+                    ).fetchone()
+                    if resident is None:
+                        raise ResidentProvisionNotFound()
                 inserted = connection.execute(
                     "INSERT INTO provision_records "
                     "(provision_id, kind, character_id, session_id, surface, query, turn_id, "
                     "sensitivity, classifier_version, memory_ids, source_spans, "
                     "verbatim_anchor_ids, memory_trust, source_span_trust, verbatim_anchor_trust, "
-                    "temperament_version, personality_version, created_at) "
+                    "temperament_version, personality_version, created_at, resident_provision_id) "
                     "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, "
-                    "%s, %s, %s) "
+                    "%s, %s, %s, %s) "
                     "ON CONFLICT (provision_id) DO NOTHING RETURNING provision_id",
                     (
                         value.provision_id,
@@ -48,6 +56,7 @@ class PostgresProvisionStore:
                         value.temperament_version,
                         value.personality_version,
                         value.created_at,
+                        value.resident_provision_id,
                     ),
                 ).fetchone()
                 if inserted is None:

@@ -9,7 +9,12 @@ from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
 from pydantic import BaseModel, ConfigDict, Field, StrictStr, field_validator, model_validator
 
-from .recall.ports import ProvisionConflict, RecallSourceNotFound, RecallUnavailable
+from .recall.ports import (
+    ProvisionConflict,
+    RecallSourceNotFound,
+    RecallUnavailable,
+    ResidentProvisionNotFound,
+)
 from .recall.service import RecallService
 from .recall.trust import Trust
 
@@ -24,6 +29,7 @@ class RecallRequest(BaseModel):
     turn_id: Nonempty | None = None
     sensitivity: Nonempty | None = None
     classifier_version: Nonempty | None = None
+    resident_provision_id: Nonempty | None = None
 
     @field_validator("format", mode="before")
     @classmethod
@@ -95,6 +101,8 @@ class RecallRoute(APIRoute):
                 return JSONResponse({"detail": details}, status_code=422)
             except RecallSourceNotFound:
                 return JSONResponse({"detail": "Recall source not found"}, status_code=404)
+            except ResidentProvisionNotFound:
+                return JSONResponse({"detail": "Resident provision not found"}, status_code=422)
             except ProvisionConflict:
                 return JSONResponse({"detail": "Provision already exists"}, status_code=409)
             except RecallUnavailable:
@@ -116,6 +124,7 @@ def recall_router(service: Callable[[], RecallService]) -> APIRouter:
             body.turn_id,
             body.sensitivity,
             body.classifier_version,
+            body.resident_provision_id,
         )
         return RecallResponse.model_validate(provision)
 

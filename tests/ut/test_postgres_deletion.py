@@ -27,6 +27,52 @@ from tests.ut.test_delivery_scope import NOW
 pytestmark = pytest.mark.ut
 
 
+@pytest.mark.parametrize("has_entries", [False, True])
+def test_profile_deletion_progress_records_removed_spans_and_updated_revision(
+    monkeypatch: pytest.MonkeyPatch, has_entries: bool
+) -> None:
+    connection = MagicMock(spec=psycopg.Connection)
+    connection.__enter__.return_value = connection
+
+    def execute(sql: str, parameters: object = None) -> MagicMock:
+        result = MagicMock()
+        result.fetchone.return_value = ({},)
+        result.fetchall.return_value = []
+        if "DELETE FROM character_profile_entries" in sql:
+            result.fetchall.return_value = (
+                [("char-a", "t-1", 2, 4), ("char-a", "t-1", 0, 1)] if has_entries else []
+            )
+        elif "UPDATE character_profiles" in sql:
+            result.fetchall.return_value = [("char-a", 3)] if has_entries else []
+        return result
+
+    connection.execute.side_effect = execute
+    monkeypatch.setattr(psycopg, "connect", MagicMock(return_value=connection))
+    module = importlib.import_module("digital_souls_memory_hindsight.postgres_deletion")
+    monkeypatch.setattr(module, "PostgresEvidenceStore", MagicMock())
+    item = DeletionItem(
+        "d", "processing", 1, NOW, "lease", NOW + timedelta(seconds=60), None, None, {}
+    )
+    progress = PostgresDeletionStore("synthetic-db").delete_turns(item, request(), NOW)
+    expected = [
+        {"character_id": "char-a", "turn_id": "t-1", "start": 0, "end": 1, "revision": 3},
+        {"character_id": "char-a", "turn_id": "t-1", "start": 2, "end": 4, "revision": 3},
+    ]
+    assert progress["deleted_profile_entries"] == (expected if has_entries else [])
+
+
+def test_turn_deletion_state_returns_only_matching_identifiers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    connection = MagicMock(spec=psycopg.Connection)
+    connection.__enter__.return_value = connection
+    connection.execute.return_value.fetchall.return_value = [("q",), ("a",)]
+    monkeypatch.setattr(psycopg, "connect", MagicMock(return_value=connection))
+    assert PostgresDeletionStore("synthetic-db").turns_under_deletion(
+        frozenset({"q", "a", "kept"})
+    ) == frozenset({"q", "a"})
+
+
 def request() -> DeletionRequest:
     return DeletionRequest(
         request_id="d",
@@ -134,7 +180,9 @@ def test_add_returns_existing_request_without_adding_new_blocks(
     connection.execute.return_value.fetchone.return_value = None
     connection.cursor.return_value.__enter__.return_value.fetchone.return_value = previous
     monkeypatch.setattr(psycopg, "connect", MagicMock(return_value=connection))
-    actual = PostgresDeletionStore("synthetic-db").add(previous, frozenset({("char-a", "s-1")}))
+    actual = PostgresDeletionStore("synthetic-db").add(
+        previous, frozenset({("char-a", "s-1")}), frozenset()
+    )
     assert actual == previous
     assert not any(
         "INSERT INTO deletion_blocks" in call.args[0] for call in connection.execute.call_args_list
@@ -153,7 +201,7 @@ def test_new_acceptance_enqueues_deletion_on_the_same_connection(
     connect = MagicMock(return_value=connection)
     monkeypatch.setattr(psycopg, "connect", connect)
     saved = PostgresDeletionStore("synthetic-db").add(
-        request(), frozenset({("char-a", "s-1"), ("char-b", "s-1")})
+        request(), frozenset({("char-a", "s-1"), ("char-b", "s-1")}), frozenset()
     )
     assert saved == request()
     connect.assert_called_once()
@@ -182,7 +230,9 @@ def test_outbox_insert_failure_does_not_report_accepted_deletion(
     connection.execute.side_effect = execute
     monkeypatch.setattr(psycopg, "connect", MagicMock(return_value=connection))
     with pytest.raises(EvidenceUnavailable):
-        PostgresDeletionStore("synthetic-db").add(request(), frozenset({("char-a", "s-1")}))
+        PostgresDeletionStore("synthetic-db").add(
+            request(), frozenset({("char-a", "s-1")}), frozenset()
+        )
     assert connection.__exit__.call_args.args[0] is psycopg.OperationalError
 
 
@@ -192,13 +242,15 @@ def test_acceptance_storage_failure_does_not_return_success(
 ) -> None:
     connection = MagicMock(spec=psycopg.Connection)
     connection.execute.return_value.fetchone.return_value = ("d",)
-    if stage == "request":
-        connection.execute.side_effect = psycopg.OperationalError("synthetic insert failure")
-    if stage == "blocks":
-        connection.execute.side_effect = [
-            connection.execute.return_value,
-            psycopg.OperationalError("synthetic block failure"),
-        ]
+    if stage in {"request", "blocks"}:
+        table = "deletion_requests" if stage == "request" else "deletion_blocks"
+
+        def execute(statement: str, parameters: object) -> MagicMock:
+            if f"INSERT INTO {table}" in statement:
+                raise psycopg.OperationalError("synthetic acceptance failure")
+            return cast(MagicMock, connection.execute.return_value)
+
+        connection.execute.side_effect = execute
 
     @contextmanager
     def connect(
@@ -212,7 +264,9 @@ def test_acceptance_storage_failure_does_not_return_success(
 
     monkeypatch.setattr(psycopg, "connect", connect)
     with pytest.raises(EvidenceUnavailable):
-        PostgresDeletionStore("synthetic-db").add(request(), frozenset({("char-a", "s-1")}))
+        PostgresDeletionStore("synthetic-db").add(
+            request(), frozenset({("char-a", "s-1")}), frozenset()
+        )
 
 
 @pytest.mark.parametrize("matched", [False, True])
@@ -288,7 +342,7 @@ def test_projection_preflight_waits_only_for_a_live_lease(
     assert PostgresDeletionStore("synthetic").projections_busy("d", NOW) == (lease_seconds > 0)
 
 
-@pytest.mark.parametrize("operation", ["get", "blocked_sessions"])
+@pytest.mark.parametrize("operation", ["get", "blocked_sessions", "turns_under_deletion"])
 @pytest.mark.parametrize("stage", ["connect", "execute", "commit"])
 def test_database_failure_is_unavailable_instead_of_empty_result(
     monkeypatch: pytest.MonkeyPatch, operation: str, stage: str
@@ -316,7 +370,9 @@ def test_database_failure_is_unavailable_instead_of_empty_result(
 
     monkeypatch.setattr(psycopg, "connect", connect)
     with pytest.raises(EvidenceUnavailable):
-        getattr(module.PostgresDeletionStore("synthetic-db"), operation)("synthetic-id")
+        getattr(module.PostgresDeletionStore("synthetic-db"), operation)(
+            frozenset({"synthetic-id"}) if operation == "turns_under_deletion" else "synthetic-id"
+        )
 
 
 @pytest.mark.parametrize("remaining", [True, False])
