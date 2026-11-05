@@ -173,3 +173,9 @@ def test_tests_receive_selected_model_and_persistent_writable_result_mount(
     assert mounts[0]["source"] == str(artifacts)
     assert mounts[0].get("read_only", False) is False
     assert mounts[0].get("bind", {}).get("create_host_path", False) is False
+
+
+def test_llama_tmpfs_is_one_mount_and_generation_disables_thinking() -> None:
+    text = Path("compose.it2.yml").read_text(encoding="utf-8")
+    assert 'tmpfs: ["/tmp:rw,noexec,nosuid,size=256m,mode=1777"]' in text
+    assert '--reasoning, "off", --chat-template-kwargs, "{\\"enable_thinking\\":false}"' in text
