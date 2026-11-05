@@ -19,7 +19,9 @@ LLAMA_IMAGE = (
 class Volume(TypedDict, total=False):
     type: str
     source: str
+    target: str
     read_only: bool
+    bind: dict[str, object]
 
 
 class Port(TypedDict):
@@ -44,10 +46,12 @@ class ComposeConfig(TypedDict):
     networks: dict[str, dict[str, object]]
 
 
-def _config(tmp_path: Path, *files: str) -> ComposeConfig:
+def _config(
+    tmp_path: Path, *files: str, environment: dict[str, str] | None = None
+) -> ComposeConfig:
     empty_env = tmp_path / "compose.env"
     empty_env.write_text("")
-    args = ["docker", "compose", "--env-file", str(empty_env)]
+    args = ["docker", "compose", "--profile", "test", "--env-file", str(empty_env)]
     for filename in files:
         args.extend(["-f", str(ROOT / filename)])
     result = subprocess.run(
@@ -59,6 +63,7 @@ def _config(tmp_path: Path, *files: str) -> ComposeConfig:
             "IT2_MODEL_DIR": str(tmp_path / "models"),
             "IT2_CODEX_HOME": str(tmp_path / "synthetic-auth"),
             "IT2_GPU_DEVICE": "1",
+            **(environment if environment is not None else {}),
         },
         capture_output=True,
         text=True,
@@ -135,3 +140,36 @@ def test_only_luna_hindsight_has_egress_and_persistent_writable_auth(
     assert generation["MEMORY_LLM_MODEL"] == "gemma4-12b"
     assert generation["MEMORY_LLM_API_KEY"]
     assert float(generation["MEMORY_LLM_TIMEOUT_SECONDS"]) > 0
+
+
+@pytest.mark.parametrize("model", ["gemma4-12b", "gpt-6-luna"])
+def test_tests_receive_selected_model_and_persistent_writable_result_mount(
+    tmp_path: Path,
+    model: str,
+) -> None:
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+    files = (
+        ("compose.it2.yml", "compose.it2.gpt-6-luna.yml")
+        if model == "gpt-6-luna"
+        else ("compose.it2.yml",)
+    )
+    config = _config(
+        tmp_path,
+        *files,
+        environment={
+            "IT2_GENERATION_MODEL": model,
+            "IT2_ARTIFACT_DIR": str(artifacts),
+        },
+    )
+    service = config["services"]["tests"]
+    assert service["environment"]["IT2_GENERATION_MODEL"] == model
+    assert service["environment"]["IT2_RESULT_DIR"] == "/it2-artifacts"
+    mounts = [
+        volume for volume in service.get("volumes", []) if volume.get("target") == "/it2-artifacts"
+    ]
+    assert len(mounts) == 1
+    assert mounts[0]["type"] == "bind"
+    assert mounts[0]["source"] == str(artifacts)
+    assert mounts[0].get("read_only", False) is False
+    assert mounts[0].get("bind", {}).get("create_host_path", False) is False
