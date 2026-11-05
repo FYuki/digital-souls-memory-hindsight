@@ -317,7 +317,7 @@ Hindsight の UID 1000 が読み書きでき、リポジトリ・成果物・一
 他のコンテナから同時に使わず、実際の場所や認証内容をレポートに書きません。
 このモードだけ上書き Compose を加え、Hindsight だけに書き込み可能な認証 mount と外部網を与えます。
 LLMGateway・Reviewer・ContextGatewayは両モードとも`llama-generation`のgemma4-12bを使います。
-`service`に上記4変数を渡し、`MEMORY_LLM_TIMEOUT_SECONDS`のCompose既定は仮の120秒です。
+`service`と`tests`に上記4変数を渡し、`MEMORY_LLM_TIMEOUT_SECONDS`のCompose既定は仮の120秒です。
 実モデルで十分かは未確認であり、CharacterState生成の上限は30秒のままです。
 
 runner は共通 flock で実行を直列化し、3 モデルの hash を検査してから専用 project の残骸を片付け、
@@ -356,3 +356,18 @@ service の HTTP API から固定ケースを投入し、自動統合の完了�
 `costs_and_constraints`に記録し、後の成功で隠さないでください。
 誤統合率・統合漏れ率は記録用で、採用モデルと棄権閾値の決定は別Issueです。
 公開結果は [レポート生成手順](docs/reports/it2/README.md) に従い、採用決定は Issue 5-7 に残します。
+
+登録時の整合チェック（AC-I5）は、監督が次を実行します。
+
+```sh
+bash scripts/run-it2.sh tests/it2/test_consistency.py
+```
+
+固定文章をReviewerへ直接渡す評価と、実生成→実審査→HTTP応答・保存を通す評価を分けます。
+全15ケースを新しいキャラで固定3回実行し、全回の全ケースが合格した場合だけPASSです。
+口調の削除後・後続・再起動後の登録は同じキャラで連続して確認します。
+再起動は同じDBを使うアプリの再生成で、コンテナの実再起動ではありません。
+生成の失敗・審査の失敗を別々に記録し、FAILも全試行とともに保存します。
+seed矛盾ケースは生成内容にも左右されるため、固定文章による評価と合わせて監督が確認します。
+詳細と公開記録は[整合チェックの手順](docs/reports/it2/README.md#登録時の整合チェックac-i5)を参照してください。
+workerによる実モデルの結果はIT2 NOT RUNです。

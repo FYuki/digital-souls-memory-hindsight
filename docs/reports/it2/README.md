@@ -130,3 +130,33 @@ uv run --no-sync python -m tests.it2.recall_report \
 安全検査後に排他作成し、既存のMarkdownを上書きしない。
 公開時は実行許可・環境・revision・日時・モデルとイメージの版・費用と制約を監督が別途併記する。
 正式閾値、既定値とREADMEの値の更新、モデル採用は監督・本人が行う。
+
+## 登録時の整合チェック（AC-I5）
+
+workerの結果は **IT2 NOT RUN**。監督はREADMEのモデル・VRAMなどの事前条件を満たして実行する。
+
+```sh
+bash scripts/run-it2.sh tests/it2/test_consistency.py
+```
+
+固定ケースと期待結果は`tests/it2/cases/consistency.json`、判定規則は
+[採点契約](../../it2-scoring-contract.md#登録時の整合チェックac-i5)を正本とする。
+LLMGateway・Reviewerは`MEMORY_LLM_*`を使い、Hindsightの比較モデル設定とは分ける。
+試験コンテナ内のHTTPアプリに実部品を注入し、実ルート・実DBを通す。
+元Turnの削除はserviceのWorkerが実行する。再起動は同じDBでのアプリ再生成として観測する。
+
+`IT2_ARTIFACT_DIR`以下の`consistency-<MEMORY_LLM_MODEL>.json`に、
+モデル名・採点器版・全体判定・Reviewer単体と全経路の判定・全3試行を保存する。
+各試行には全ケースのID・段・キャラID・分類・理由・手順を含む。
+手順はHTTP状態、審査の合否と理由、生成文、保存の有無、部品呼び出し回数・例外型を持つ。
+例外本文、認証情報、接続文字列は記録しない。
+FAILでも最終JSONを保存してから試験を失敗させる。
+同じ保存先の`.progress.jsonl`は試行完了ごとに閉じて保存し、最終結果の後も残す。
+既存の結果・進捗は上書きしない。中断時は確定済みの試行行が残り、最終JSONは作らない。
+
+公開時は保存した3試行を`trials`へ転記し、`models`に部品モデル、`completion`に
+全体・段ごとの判定を記録する。実行許可・環境・revision・日時・モデルのsha256・
+イメージ・費用と制約・合成入力を監督が補って、既存の公開JSON生成器へ渡す。
+中断・FAIL・再実行の履歴を`costs_and_constraints`へ残し、後の成功で隠さない。
+seed矛盾ケースが生成に左右されること、再起動の観測範囲、削除待機の実時間も記録する。
+Issue #66は監督の結果記録が完了するまで開いたままとする。

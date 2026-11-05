@@ -135,6 +135,10 @@ services:
     environment:
       IT2_GENERATION_MODEL: "${IT2_GENERATION_MODEL:-gemma4-12b}"
       IT2_RESULT_DIR: /it2-artifacts
+      MEMORY_LLM_BASE_URL: http://llama-generation:8080/v1
+      MEMORY_LLM_MODEL: gemma4-12b
+      MEMORY_LLM_API_KEY: local-unused
+      MEMORY_LLM_TIMEOUT_SECONDS: "${MEMORY_LLM_TIMEOUT_SECONDS:-120}"
       RECALL_MIN_RERANKER_SCORE: "${RECALL_MIN_RERANKER_SCORE:-0.5}"
       DATABASE_URL: postgresql://it1@postgres:5432/ledger
       HINDSIGHT_DATABASE_URL: postgresql://it1@postgres:5432/hindsight
