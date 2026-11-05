@@ -171,24 +171,14 @@ def test_distinct_facts_remain_separate_for_each_fixed_difference(
     assert result["observations"]["merged_different_fact_pairs"] == 0
 
 
-@pytest.mark.parametrize("merge_in", ["lineage", "fact_text", "observation_text"])
-def test_distinct_pair_merged_in_text_or_lineage_fails_once(
-    quality: ModuleType, merge_in: str
-) -> None:
+def test_single_fact_holding_both_values_fails_once(quality: ModuleType) -> None:
     case = _case("difference-number-001")
     session = "difference-number-s1"
     rows = [
         _memory("f1", "青い石は三個", session, None),
         _memory("f2", "青い石は五個", session, None),
-        _memory("o1", "青い石は三個", None, ["f1"]),
-        _memory("o2", "青い石は五個", None, ["f2"]),
+        _memory("f3", "青い石は三個または五個", session, None),
     ]
-    if merge_in == "lineage":
-        rows += [_memory("o3", "青い石", None, ["f1", "f2"])]
-    elif merge_in == "fact_text":
-        rows += [_memory("f3", "青い石は三個または五個", session, None)]
-    else:
-        rows += [_memory("o3", "青い石は三個または五個", None, ["f1"])]
     result = quality.score_quality(
         cases=[case],
         character_id=CHARACTER,
@@ -199,6 +189,111 @@ def test_distinct_pair_merged_in_text_or_lineage_fails_once(
     assert result["failures"] == {case["id"]: "false_merge"}
     assert result["observations"]["merged_different_fact_pairs"] == 1
     assert calculate_metrics(**result["observations"])["false_merge_rate"] == 1
+
+
+@pytest.mark.parametrize(
+    ("identifier", "facts", "observation"),
+    [
+        ("difference-number-001", ["青い石は三個", "青い石は五個"], "青い石は五個である"),
+        (
+            "difference-negation-001",
+            ["澪は柚子茶を飲む", "澪は柚子茶を飲まない"],
+            "澪は柚子茶を飲まない。以前は飲むとされていた。",
+        ),
+        (
+            "difference-tense-001",
+            ["澪は働いていた | When: 2026-11-04", "澪は働く予定 | When: 2026-11-06"],
+            "澪は2026年11月6日に働く予定で、2026年11月4日にも働いた",
+        ),
+    ],
+)
+def test_update_or_history_passes_when_facts_stay_separate(
+    quality: ModuleType, identifier: str, facts: list[str], observation: str
+) -> None:
+    case = _case(identifier)
+    session = case["input"]["sessions"][0]["session_id"]
+    rows = [_memory(f"f{i}", text, session, None) for i, text in enumerate(facts)]
+    rows.append(_memory("o1", observation, None, ["f0", "f1"]))
+    result = quality.score_quality(cases=[case], character_id=CHARACTER, memories=rows, recalls={})
+    assert result["cases"] == {identifier: True}
+    assert result["observations"]["merged_different_fact_pairs"] == 0
+
+
+def test_observation_without_either_value_fails(quality: ModuleType) -> None:
+    case = _case("difference-number-001")
+    session = "difference-number-s1"
+    rows = [
+        _memory("f1", "青い石は三個", session, None),
+        _memory("f2", "青い石は五個", session, None),
+        _memory("o1", "青い石は四個", None, ["f1", "f2"]),
+    ]
+    result = quality.score_quality(cases=[case], character_id=CHARACTER, memories=rows, recalls={})
+    assert result["failures"] == {case["id"]: "observation_value_unresolved"}
+
+
+@pytest.mark.parametrize(
+    ("text", "sources"),
+    [("澪と凪は赤い鍵を持っている", ["f1"]), ("赤い鍵の持ち主は澪である", ["f1", "f2"])],
+)
+def test_different_subjects_are_never_an_update(
+    quality: ModuleType, text: str, sources: list[str]
+) -> None:
+    case = _case("difference-subject-001")
+    session = "difference-subject-s1"
+    rows = [
+        _memory("f1", "澪は赤い鍵を持っている", session, None),
+        _memory("f2", "凪は赤い鍵を持っている", session, None),
+        _memory("o1", text, None, sources),
+    ]
+    result = quality.score_quality(cases=[case], character_id=CHARACTER, memories=rows, recalls={})
+    assert result["failures"] == {case["id"]: "false_merge"}
+
+
+def test_date_written_with_digits_is_not_read_as_the_number_value(quality: ModuleType) -> None:
+    case = _case("difference-number-001")
+    session = "difference-number-s1"
+    rows = [
+        _memory("f1", "青い石は三個 | When: 2026年11月5日", session, None),
+        _memory("f2", "青い石は五個 | When: 2026年11月5日", session, None),
+    ]
+    result = quality.score_quality(cases=[case], character_id=CHARACTER, memories=rows, recalls={})
+    assert result["cases"] == {case["id"]: True}
+
+
+@pytest.mark.parametrize(
+    ("text", "passed"),
+    [
+        ("凪との約束 | When: 2026-11-05", True),
+        ("凪との約束は2026年11月5日にある", True),
+        ("凪との約束は二〇二六年十一月五日だ", True),
+        ("凪との約束 | When: 2026-11-06", False),
+        ("凪との約束は十一月五日だ", False),
+    ],
+)
+def test_extracted_date_passes_in_any_form_of_the_same_date(
+    quality: ModuleType, text: str, passed: bool
+) -> None:
+    case = _case("japanese-date-extracted_fact")
+    session = case["input"]["sessions"][0]["session_id"]
+    result = quality.score_quality(
+        cases=[case],
+        character_id=CHARACTER,
+        memories=[_memory("f1", text, session, None)],
+        recalls={},
+    )
+    assert result["cases"] == {case["id"]: passed}
+
+
+def test_returned_source_still_requires_the_original_date_form(quality: ModuleType) -> None:
+    case = _case("japanese-date-returned_source")
+    mention = case["input"]["sessions"][0]["mentions"][0]["id"]
+    result = quality.score_quality(
+        cases=[case],
+        character_id=CHARACTER,
+        memories=[],
+        recalls={case["id"]: _recall(None, [mention], "凪との約束は2026年11月5日だ")},
+    )
+    assert result["cases"] == {case["id"]: False}
 
 
 def test_english_negation_does_not_match_the_positive_side(quality: ModuleType) -> None:
@@ -248,8 +343,6 @@ def test_japanese_fact_and_returned_source_are_scored_independently(
     cases = [_case(f"japanese-{feature}-{unit}") for unit in ("extracted_fact", "returned_source")]
     text = cases[0]["input"]["sessions"][0]["mentions"][0]["text"]
     fact_text = "unpreserved translation" if lost_in in {"fact", "both"} else text
-    if feature == "date" and lost_in in {"fact", "both"}:
-        fact_text = "凪との約束は2026年11月5日だ。"
     source_text = "unpreserved translation" if lost_in in {"source", "both"} else text
     result = quality.score_quality(
         cases=cases,
