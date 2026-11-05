@@ -71,7 +71,7 @@ def validate_output(raw: object) -> CharacterState:
     values: list[str] = []
     for field in ("mood", "relationship_temperature", "current_topic"):
         value = raw.get(field)
-        if not isinstance(value, str) or len(value) > MAX_OUTPUT_CHARS:
+        if not isinstance(value, str) or not value.strip() or len(value) > MAX_OUTPUT_CHARS:
             raise InvalidStateOutput()
         values.append(value)
     return CharacterState(*values)

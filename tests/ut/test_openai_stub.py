@@ -70,6 +70,35 @@ def test_startup_probe_answers_ok(stub: Stub) -> None:
     assert completion_content(stub, request) == "ok"
 
 
+@pytest.mark.parametrize(
+    "operation",
+    [
+        "render_personality",
+        "respond_in_voice",
+        "review_personality",
+        "review_voice",
+        "generate_state",
+    ],
+)
+def test_stub_accepts_actual_gateway_prompts(stub: Stub, operation: str) -> None:
+    import httpx
+
+    from digital_souls_memory_hindsight.character_state.domain import validate_output
+    from digital_souls_memory_hindsight.consistency.ports import checked_review
+    from tests.ut.test_openai_compatible import gateway, invoke
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=stub.chat_completion(json.loads(request.content)))
+
+    result = invoke(gateway(handle), operation)
+    if operation.startswith("review_"):
+        assert checked_review(result).consistent is True
+    elif operation == "generate_state":
+        assert validate_output(result).mood.strip()
+    else:
+        assert isinstance(result, str) and result.strip()
+
+
 def test_explicit_schema_overrides_longer_prompt_schema(stub: Stub) -> None:
     explicit = {
         "type": "object",

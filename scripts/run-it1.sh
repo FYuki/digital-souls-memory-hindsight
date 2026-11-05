@@ -39,4 +39,4 @@ until "${compose[@]}" logs --no-color hindsight > "$artifact_dir/hindsight-start
     sleep 1
 done
 "${compose[@]}" run --rm --no-deps tests uv run --no-sync pytest -m it1 \
-    --allow-hosts=postgres,hindsight,service -q "$@"
+    --allow-hosts=postgres,hindsight,service,stub -q "$@"

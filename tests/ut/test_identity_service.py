@@ -157,12 +157,16 @@ def test_identity_registration_appends_and_reads_versions(
     two = client.post(f"{ROOT}/{path}", json=second)
     assert one.status_code == two.status_code == 201
     assert [one.json()["version"], two.json()["version"]] == [1, 2]
-    assert client.get(f"{ROOT}/{path}/1").json() == one.json()
+    assert client.get(f"{ROOT}/{path}/1").json() == {
+        k: v for k, v in one.json().items() if k != "review"
+    }
     for name, value in first.items():
         assert one.json()[name] == value
     for name, value in second.items():
         assert two.json()[name] == value
-    assert client.get(f"{ROOT}/identity/current").json()[key] == two.json()
+    assert client.get(f"{ROOT}/identity/current").json()[key] == {
+        k: v for k, v in two.json().items() if k != "review"
+    }
     other = client.post(f"/characters/other_A-1/{path}", json=first)
     assert other.status_code == 201
     assert other.json()["version"] == 1
@@ -199,7 +203,10 @@ def test_seed_renders_latest_temperament_once_and_preserves_source_version(
         "temperament_version": 2,
         "renderer_version": "fixture-renderer-1",
     }
-    assert response.json() == expected
+    assert response.json() == {
+        **expected,
+        "review": {"consistent": True, "reason": "架空の審査理由"},
+    }
     assert len(renderer.calls) == 1
     aspects, temperament, renderer_version = renderer.calls[0]
     assert aspects == seed_body()["aspects"]

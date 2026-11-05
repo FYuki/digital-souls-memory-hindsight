@@ -107,7 +107,7 @@ Epic 5 の必須合成ケースは実行前に固定し、試行ごとに新し�
 | AC-I2 | VoiceExemplarとVerbatimAnchorは逐語で保存し、言い換えを禁止し、登録には承認を必要とする | UT |
 | AC-I3 | CharacterStateは窓口・セッション単位の揮発状態として扱う | UT |
 | AC-I4 | 常駐コンテキストAPIは、提供のたびにその時点で登録済みの最新版のCoreIdentity・Temperament・PersonalityProfileと、その時点で利用可能な代表発話・CharacterProfileを返す。セッション単位では固定せず、途中の登録・設定変更は次の提供から反映する。返した内容と一致する人格の版・代表発話ID・CharacterProfileのrevisionと返却項目をProvisionRecordに保存し、commit後に成功を返す。自動の人格更新はPhase 3の対象とする | IT1、代替 E2E（IT2：想定する Core の呼び出し順。Core の検証ではない）。Core からの ST は NOT RUN |
-| AC-I5 | 人格は登録時に整合チェックを1回実行し、矛盾があれば拒否し、登録成功時にも審査結果を作者へ返す。temperament 更新時も再審査する。口調は初回登録で 1 回だけ審査し、矛盾があっても登録して結果を返す。成功時に人格の審査結果を返す API の変更は Epic 5 の要求であり、Issue 5-1 では文書を改訂する。現行の人格 API は成功時の審査結果返却に未対応 | IT2 |
+| AC-I5 | 人格は登録時に整合チェックを1回実行し、矛盾があれば拒否し、登録成功時にも審査結果を作者へ返す。temperament 更新時も再審査する。口調は初回登録で 1 回だけ審査し、矛盾があっても登録して結果を返す。人格登録の成功応答は `review`（`consistent`・`reason`）を返し、profileのない気質登録ではnullとする。人格の審査結果は保存しない | UT, IT1, IT2 |
 
 ### 3.7 運用と再現性
 

@@ -86,7 +86,7 @@ def test_input_window_skips_empty_candidates_without_using_the_budget() -> None:
 
 
 @pytest.mark.parametrize("field", ["mood", "relationship_temperature", "current_topic"])
-@pytest.mark.parametrize("bad", [None, 3, True, [], "あ" * 201])
+@pytest.mark.parametrize("bad", [None, 3, True, [], "", " \t\n", "あ" * 201])
 def test_each_output_field_must_be_a_bounded_string(field: str, bad: object) -> None:
     domain = importlib.import_module("digital_souls_memory_hindsight.character_state.domain")
     raw = {"mood": "穏やか", "relationship_temperature": "温かい", "current_topic": "お茶"}

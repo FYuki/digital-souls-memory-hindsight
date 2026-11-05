@@ -87,7 +87,7 @@ bash scripts/run-it1.sh
 `compose.it1.yml` のinternalネットワーク上で試験を実行します。ビルド・pullには外部接続が必要ですが、
 試験実行中のコンテナは内部ネットワークだけに接続します。
 pytestの既定 `--disable-socket` は変更せず、IT1にだけ
-`--allow-hosts=postgres,hindsight,service` を渡します。IT2・STや実モデルは実行しません。
+`--allow-hosts=postgres,hindsight,service,stub` を渡します。IT2・STや実モデルは実行しません。
 
 合成データだけを使い、要求ログはスタブ専用volumeから読みます。
 外部遮断はpytest-socketを読み込まない子プロセスの内部接続成功・外部TCP接続失敗で確認します。

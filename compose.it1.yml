@@ -93,7 +93,7 @@ services:
       STUB_CONTROL_DIR: /control
     volumes: [stub-requests:/requests:ro, stub-control:/control]
     networks: [it1]
-    command: [uv, run, --no-sync, pytest, -m, it1, "--allow-hosts=postgres,hindsight,service", -q]
+    command: [uv, run, --no-sync, pytest, -m, it1, "--allow-hosts=postgres,hindsight,service,stub", -q]
 
 networks:
   it1:

@@ -15,6 +15,8 @@ from .identity.ports import (
     IdentityInconsistent,
     IdentityNotFound,
     IdentityUnavailable,
+    ProfileRegistration,
+    TemperamentRegistration,
 )
 from .identity.service import IdentityService
 
@@ -87,6 +89,34 @@ class CurrentResponse(BaseModel):
     personality_profile: ProfileResponse | None
 
 
+class ReviewResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    consistent: bool
+    reason: str
+
+
+class TemperamentRegistrationResponse(TemperamentResponse):
+    review: ReviewResponse | None
+
+    @classmethod
+    def from_registration(cls, value: TemperamentRegistration) -> "TemperamentRegistrationResponse":
+        return cls(
+            **TemperamentResponse.model_validate(value.temperament).model_dump(),
+            review=None if value.review is None else ReviewResponse.model_validate(value.review),
+        )
+
+
+class ProfileRegistrationResponse(ProfileResponse):
+    review: ReviewResponse
+
+    @classmethod
+    def from_registration(cls, value: ProfileRegistration) -> "ProfileRegistrationResponse":
+        return cls(
+            **ProfileResponse.model_validate(value.profile).model_dump(),
+            review=ReviewResponse.model_validate(value.review),
+        )
+
+
 class IdentityRoute(APIRoute):
     def get_route_handler(self) -> Callable[[Request], Coroutine[None, None, Response]]:
         endpoint = super().get_route_handler()
@@ -129,14 +159,14 @@ def identity_router(service: Callable[[], IdentityService]) -> APIRouter:
     @router.post("/characters/{character_id}/temperaments", status_code=201)
     def register_temperament(
         character_id: PathIdentifier, body: TemperamentRequest
-    ) -> TemperamentResponse:
-        return TemperamentResponse.model_validate(
+    ) -> TemperamentRegistrationResponse:
+        return TemperamentRegistrationResponse.from_registration(
             service().register_temperament(character_id, body.description)
         )
 
     @router.post("/characters/{character_id}/personality-profiles/author-seed", status_code=201)
-    def seed(character_id: PathIdentifier, body: SeedRequest) -> ProfileResponse:
-        return ProfileResponse.model_validate(
+    def seed(character_id: PathIdentifier, body: SeedRequest) -> ProfileRegistrationResponse:
+        return ProfileRegistrationResponse.from_registration(
             service().author_seed(character_id, body.aspects.model_dump(), body.renderer_version)
         )
 

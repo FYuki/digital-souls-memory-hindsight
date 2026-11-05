@@ -130,3 +130,8 @@ def test_only_luna_hindsight_has_egress_and_persistent_writable_auth(
     if luna:
         assert not hindsight.get("HINDSIGHT_API_LLM_BASE_URL")
     assert config["services"]["llama-generation"]["image"] == LLAMA_IMAGE
+    generation = config["services"]["service"]["environment"]
+    assert generation["MEMORY_LLM_BASE_URL"] == "http://llama-generation:8080/v1"
+    assert generation["MEMORY_LLM_MODEL"] == "gemma4-12b"
+    assert generation["MEMORY_LLM_API_KEY"]
+    assert float(generation["MEMORY_LLM_TIMEOUT_SECONDS"]) > 0

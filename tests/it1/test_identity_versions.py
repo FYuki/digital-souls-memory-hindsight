@@ -86,9 +86,15 @@ def test_registration_appends_versions_and_preserves_old_values(
         for name, value in payload.items():
             assert response.json()[name] == value
         assert response.json()["character_id"] == "char-a"
-    assert client.get(f"{ROOT}/{path}/1").json() == one.json()
-    assert client.get(f"{ROOT}/{path}/2").json() == two.json()
-    assert client.get(f"{ROOT}/identity/current").json()[key] == two.json()
+    assert client.get(f"{ROOT}/{path}/1").json() == {
+        k: v for k, v in one.json().items() if k != "review"
+    }
+    assert client.get(f"{ROOT}/{path}/2").json() == {
+        k: v for k, v in two.json().items() if k != "review"
+    }
+    assert client.get(f"{ROOT}/identity/current").json()[key] == {
+        k: v for k, v in two.json().items() if k != "review"
+    }
     # A separate connection observes the response's version only after commit.
     table = "core_identities" if key == "core_identity" else "temperaments"
     with psycopg.connect(database, connect_timeout=5) as connection:
@@ -139,7 +145,10 @@ def test_author_seed_uses_latest_temperament_once_and_never_exposes_aspects(
         "temperament_version": 2,
         "renderer_version": "fixture-renderer-1",
     }
-    assert seeded.json() == expected
+    assert seeded.json() == {
+        **expected,
+        "review": {"consistent": True, "reason": "架空の審査理由"},
+    }
     assert renderer.calls == [
         (seed_body()["aspects"], "生成に使う架空の気質", 2, "fixture-renderer-1")
     ]
