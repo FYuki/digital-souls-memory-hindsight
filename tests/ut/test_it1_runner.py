@@ -60,6 +60,10 @@ def test_runner_preserves_exit_status_and_collects_logs_before_cleanup(
     assert "logs" in calls[-2]
     assert "down" in calls[-1] and "--volumes" in calls[-1]
     assert "Hindsight is running" in (artifacts / "compose.log").read_text()
+    if not failed_command and not signal_command:
+        run = next(call for call in calls if "run" in call)
+        hosts = next(arg.split("=", 1)[1] for arg in run if arg.startswith("--allow-hosts="))
+        assert set(hosts.split(",")) == {"postgres", "hindsight", "service", "stub"}
 
 
 def _run_with_delayed_ready_log(tmp_path: Path, ready_after: int, timeout: str) -> tuple[int, str]:

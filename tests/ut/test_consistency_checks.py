@@ -122,6 +122,7 @@ def test_seed_reviews_rendered_description_with_latest_temperament(
     response = client.post(ROOT + "/personality-profiles/author-seed", json=seed_body())
     assert response.status_code == 201
     assert reviewer.personality_calls == [("最新の気質", response.json()["description"])]
+    assert response.json()["review"] == {"consistent": True, "reason": reviewer.reason}
 
 
 def test_temperament_reviews_new_description_against_existing_profile(
@@ -130,9 +131,12 @@ def test_temperament_reviews_new_description_against_existing_profile(
     seed(client)
     profile = client.get(ROOT + "/identity/current").json()["personality_profile"]
     reviewer.personality_calls.clear()
+    reviewer.reason = "更新された気質についての別の審査理由"
     response = client.post(ROOT + "/temperaments", json={"description": "新しい気質"})
     assert response.status_code == 201
     assert reviewer.personality_calls == [("新しい気質", profile["description"])]
+    assert response.json()["review"] == {"consistent": True, "reason": reviewer.reason}
+    assert "review" not in client.get(ROOT + "/temperaments/2").json()
 
 
 def test_core_registration_with_profile_does_not_review(
@@ -154,13 +158,16 @@ def test_core_and_profileless_temperament_do_not_require_or_call_reviewer(
         ("core-identities", {"values": [], "prohibitions": []}),
         ("temperaments", {"description": "未審査の気質"}),
     ):
-        assert client.post(ROOT + "/" + path, json=body).status_code == 201
+        response = client.post(ROOT + "/" + path, json=body)
+        assert response.status_code == 201
+        if path == "temperaments":
+            assert response.json()["review"] is None
     assert reviewer.personality_calls == []
     module = importlib.import_module("digital_souls_memory_hindsight.app")
     unconfigured = TestClient(module.create_app())
-    assert (
-        unconfigured.post(ROOT + "/temperaments", json={"description": "気質"}).status_code == 201
-    )
+    response = unconfigured.post(ROOT + "/temperaments", json={"description": "気質"})
+    assert response.status_code == 201
+    assert response.json()["review"] is None
     assert (
         unconfigured.post(
             ROOT + "/core-identities", json={"values": [], "prohibitions": []}

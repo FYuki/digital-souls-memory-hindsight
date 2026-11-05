@@ -44,6 +44,51 @@ healthはプロセスの応答確認であり、DB接続の確認はIT1で行い
 未設定・不正設定ではTurn登録を503にし、明示的な空配列 `[]` とは区別します。
 この設定はmigrationとhealthの利用条件ではありません。設定変更はサービス再起動時に読み込みます。
 
+## OpenAI互換の生成・審査設定
+
+LLMGateway・Reviewer・ContextGatewayは、同じOpenAI互換chat completionsの実装を使います。
+接続先はサービス起動時に次の環境変数から読み込みます。
+
+| 変数 | 内容 |
+|---|---|
+| `MEMORY_LLM_BASE_URL` | `/v1`などを含むHTTP(S)のAPI基点。`/chat/completions`を追加して送信する |
+| `MEMORY_LLM_MODEL` | モデル名 |
+| `MEMORY_LLM_API_KEY` | Bearer認証キー。reprやログへ出力しない |
+| `MEMORY_LLM_TIMEOUT_SECONDS` | 正の有限数。httpxの接続・読み取りなど各操作のタイムアウト秒数 |
+
+4項目すべて未設定なら人格のauthor-seedと代表発話の初回登録は従来どおり503となり、
+状態生成は動きません。一部だけの設定、空白だけの値、不正なURL・タイムアウトは起動時に
+エラーになります。migrationも同じ設定ローダーを使うため、不正な設定では失敗します。
+`create_app()`にポートを明示注入した場合は、そのポートを優先し、未注入分だけを環境設定で補います。
+
+同期の生成・審査では上記タイムアウトは処理全体の総時間の上限ではありません。
+CharacterState生成には別に既存の30秒の上限があり、設定値によって延長されません。
+不正なJSON・欠損・空文字を既定文や自動承認で補いません。生成・審査の失敗は503となり、
+状態生成の通信失敗は`gateway_unavailable`、不正出力は`invalid_output`へ分類します。
+
+プロンプトの正本は`src/digital_souls_memory_hindsight/openai_prompts.py`の定数です。
+systemメッセージ先頭の`[dsm-memory/<操作名>/v1]`で版を識別できます。
+人格を生成するときだけaspectsを渡し、審査には記述文だけを渡します。審査応答は
+`consistent`・`reason`の2項目に限定し、プロンプトでも性格の数値の記載を禁止します。
+ただし理由は自由文なので数値が書かれないことをコードで完全には保証できません。
+実モデルでの確認・品質評価はIssue 5-5・5-6で行います。
+`renderer_version`は従来どおり作者指定のラベルで、プロンプトの版とは別です。
+
+## Identity API
+
+| 操作 | 経路 | 成功時 |
+|---|---|---|
+| 気質登録 | `POST /characters/{character_id}/temperaments` | 201。既存項目に`review`を追加 |
+| 人格の作者シード登録 | `POST /characters/{character_id}/personality-profiles/author-seed` | 201。既存項目に`review`を追加 |
+| 現在の人格取得 | `GET /characters/{character_id}/identity/current` | 200。既存の応答を維持 |
+| 気質・人格の版取得 | `GET /characters/{character_id}/temperaments/{version}`、`GET /characters/{character_id}/personality-profiles/{version}` | 200。既存の応答を維持 |
+
+author-seedと、PersonalityProfileがある場合の気質登録は、審査を通ってcommitした後に
+`"review": {"consistent": true, "reason": "審査理由"}`を返します。
+profileのない気質登録は審査せず、`"review": null`を返します。
+審査結果は保存せず、GET・currentにも追加しません。aspectsは応答へ出しません。
+矛盾時は従来どおり422で`detail`・`consistency_review`を返し、登録しません。
+
 ## Evidence API
 
 | 操作 | 経路 | 成功時 |
@@ -189,7 +234,7 @@ Cohere互換エンドポイントへ向けます。自動統合は有効のま�
 
 試験はhealth、Alembic upgrade、日本語のretain・recall、自動統合の要求記録、外部TCP接続の
 失敗を確認します。スタブの成功は実モデルの精度・性能の証拠ではありません。実モデルは呼びません。
-pytestの既定socket禁止を保ち、IT1だけ `--allow-hosts=postgres,hindsight,service` を指定します。
+pytestの既定socket禁止を保ち、IT1だけ `--allow-hosts=postgres,hindsight,service,stub` を指定します。
 
 実行ごとに専用のComposeプロジェクトを作り、成功・失敗・通常の中断時にはログ取得後に
 コンテナ・ネットワーク・volumeを削除します。ログは `.it1-artifacts/<実行名>/` に残ります。
@@ -263,8 +308,9 @@ Hindsight の抽出・統合だけを gpt-6-luna に切り替える場合は `IT
 Hindsight の UID 1000 が読み書きでき、リポジトリ・成果物・一時領域の外に置いてください。
 他のコンテナから同時に使わず、実際の場所や認証内容をレポートに書きません。
 このモードだけ上書き Compose を加え、Hindsight だけに書き込み可能な認証 mount と外部網を与えます。
-部品用の gemma4-12b サービスは両モードで残します。LLMGateway・Reviewer・ContextGateway の
-実装は Issue 5-2 が担当します。
+LLMGateway・Reviewer・ContextGatewayは両モードとも`llama-generation`のgemma4-12bを使います。
+`service`に上記4変数を渡し、`MEMORY_LLM_TIMEOUT_SECONDS`のCompose既定は仮の120秒です。
+実モデルで十分かは未確認であり、CharacterState生成の上限は30秒のままです。
 
 runner は共通 flock で実行を直列化し、3 モデルの hash を検査してから専用 project の残骸を片付け、
 単一 GPU の最大空きが既定 11000 MiB 以上かを確認します。
