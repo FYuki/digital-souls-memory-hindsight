@@ -9,6 +9,7 @@ import pytest
 
 from digital_souls_memory_hindsight.evidence.projection import document_id
 from tests.it2.cases_contract import load_cases
+from tests.it2.scoring import SCORER_VERSION
 
 pytestmark = pytest.mark.ut
 CORPUS = Path(__file__).resolve().parents[1] / "it2/cases"
@@ -89,7 +90,7 @@ def test_report_recomputes_confirmation_from_all_three_trials(
         json.dumps(
             {
                 "model": "gemma4-12b",
-                "scorer_version": "1",
+                "scorer_version": SCORER_VERSION,
                 "verdict": "PASS",
                 "threshold": 0.65,
                 "trials": trials,
@@ -188,7 +189,7 @@ def test_selection_table_is_rebuilt_from_candidate_scores(
         json.dumps(
             {
                 "model": "gemma4-12b",
-                "scorer_version": "1",
+                "scorer_version": SCORER_VERSION,
                 "trials": trials,
                 "threshold": 0.99,
                 "verdict": "FAIL",
@@ -254,7 +255,12 @@ def test_performance_table_recomputes_failure_from_samples(
     source = tmp_path / "recall-performance-gemma4-12b.json"
     source.write_text(
         json.dumps(
-            {"model": "gemma4-12b", "scorer_version": "1", "verdict": "PASS", "series": series}
+            {
+                "model": "gemma4-12b",
+                "scorer_version": SCORER_VERSION,
+                "verdict": "PASS",
+                "series": series,
+            }
         )
     )
     output = tmp_path / "performance.md"
