@@ -32,7 +32,7 @@ def _payload() -> dict[str, object]:
             "llama": "sha256:69019445c94c970496c8f6d6447214b837508162dfe1152768942c51237e3ab7"
         },
         "settings": {"recall_min_reranker_score": 0.5},
-        "scorer_version": "1",
+        "scorer_version": "2",
         "completion": "complete",
         "trials": [{"bank_id": f"b{i}", "passed": True} for i in range(1, 4)],
         "costs_and_constraints": "synthetic fixture; no model executed",

@@ -57,13 +57,22 @@ class _Decision:
 
 
 DIFFERENCE_FEATURES: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
-    "difference-number-001": (("三個", "3個", "three", "3"), ("五個", "5個", "five", "5")),
+    "difference-number-001": (("三個", "3個", "three"), ("五個", "5個", "five")),
     "difference-negation-001": (
         ("飲む", "drinks", "drink"),
         ("飲まない", "does not drink", "doesn't drink", "not drink"),
     ),
     "difference-subject-001": (("澪", "mio"), ("凪", "nagi")),
-    "difference-tense-001": (("昨日", "yesterday"), ("明日", "tomorrow")),
+    "difference-tense-001": (
+        ("昨日", "yesterday", "働いていた", "2026-11-04", "2026年11月4日"),
+        ("明日", "tomorrow", "予定", "2026-11-06", "2026年11月6日"),
+    ),
+}
+# Two different people cannot be an update of one value.
+NEVER_UPDATED = frozenset({"difference-subject-001"})
+# Forms of one date. The returned source is still compared with the original form.
+EQUIVALENT_DATES: dict[str, tuple[str, ...]] = {
+    "二〇二六年十一月五日": ("二〇二六年十一月五日", "2026-11-05", "2026年11月5日"),
 }
 
 
@@ -139,22 +148,29 @@ def _different_facts(case: Case, character: str, memories: Sequence[MemoryRow]) 
     }
     if any(len(sides) == 2 for sides in classified.values()):
         return _Decision("false_merge", False)
-    for observation in memories:
-        if observation.get("fact_type") != "observation":
-            continue
-        sources = set(observation.get("source_memory_ids") or []) & facts.keys()
-        if not sources and observation.get("document_id") not in documents:
-            continue
-        sides = set(_sides(observation.get("text") or "", features))
-        for source in sources:
-            sides.update(classified[source])
-        if len(sides) == 2:
-            return _Decision("false_merge", False)
+    sourced = [
+        (row, set(row.get("source_memory_ids") or []) & facts.keys())
+        for row in memories
+        if row.get("fact_type") == "observation"
+    ]
+    sourced = [(row, sources) for row, sources in sourced if sources]
+    if case["id"] in NEVER_UPDATED:
+        for observation, sources in sourced:
+            sides = set(_sides(observation.get("text") or "", features))
+            for source in sources:
+                sides.update(classified[source])
+            if len(sides) == 2:
+                return _Decision("false_merge", False)
     covered = {side for sides in classified.values() for side in sides}
-    if covered == {0, 1}:
-        return _Decision(None, False)
-    reason = "unresolved_fact" if any(not sides for sides in classified.values()) else "fact_lost"
-    return _Decision(reason, False)
+    if covered != {0, 1}:
+        reason = (
+            "unresolved_fact" if any(not sides for sides in classified.values()) else "fact_lost"
+        )
+        return _Decision(reason, False)
+    # A later value or a stated history is allowed; a value from neither Fact is not.
+    if any(not _sides(row.get("text") or "", features) for row, _ in sourced):
+        return _Decision("observation_value_unresolved", False)
+    return _Decision(None, False)
 
 
 def _japanese(
@@ -169,6 +185,11 @@ def _japanese(
             if row.get("fact_type") != "observation" and row.get("document_id") in documents
         ]
         reason = "extracted_fact_not_preserved"
+        forms = [EQUIVALENT_DATES.get(token, (token,)) for token in preserve]
+        preserved = any(
+            all(any(form in text for form in options) for options in forms) for text in texts
+        )
+        return _Decision(None if preserved else reason, False)
     elif case["scoring_unit"] == "returned_source":
         if recall is None:
             raise ValueError("Returned-source scoring requires recall materials")

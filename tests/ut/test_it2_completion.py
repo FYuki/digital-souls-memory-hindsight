@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from hindsight_client import Hindsight
+from hindsight_client_api.exceptions import NotFoundException
 from hindsight_client_api.models.bank_stats_response import BankStatsResponse
 from hindsight_client_api.models.operation_response import OperationResponse
 from hindsight_client_api.models.operations_list_response import OperationsListResponse
@@ -264,3 +265,31 @@ def test_fresh_operation_counts_cannot_be_hidden_by_older_operation_list(
 ) -> None:
     result = completion.evaluate_completion(**(_snapshot() | change))
     assert result.status == ("failed" if "failed_operations" in change else "waiting")
+
+
+def test_snapshot_treats_bank_before_first_projection_as_waiting(
+    completion: ModuleType,
+) -> None:
+    client = MagicMock(spec=Hindsight)
+    client.operations = MagicMock()
+    client.operations.list_operations = AsyncMock(side_effect=NotFoundException(status=404))
+    client.banks = MagicMock()
+    outbox = [{"operation_id": "op", "status": "pending", "update_mode": "append"}]
+    with patch.object(completion, "_read_outbox", return_value=outbox):
+        snapshot = asyncio.run(completion.read_completion_snapshot(client, "synthetic-db", "bank"))
+    assert snapshot["outbox"] == outbox
+    assert snapshot["operations"] == []
+    assert completion.evaluate_completion(**snapshot).status == "waiting"
+
+
+def test_missing_bank_after_completed_outbox_never_becomes_complete(
+    completion: ModuleType,
+) -> None:
+    client = MagicMock(spec=Hindsight)
+    client.operations = MagicMock()
+    client.operations.list_operations = AsyncMock(side_effect=NotFoundException(status=404))
+    client.banks = MagicMock()
+    outbox = [{"operation_id": "op", "status": "completed", "update_mode": "append"}]
+    with patch.object(completion, "_read_outbox", return_value=outbox):
+        snapshot = asyncio.run(completion.read_completion_snapshot(client, "synthetic-db", "bank"))
+    assert completion.evaluate_completion(**snapshot).status == "waiting"

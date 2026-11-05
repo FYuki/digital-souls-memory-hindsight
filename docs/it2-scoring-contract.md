@@ -5,7 +5,7 @@ Issue 5-1 で実行前に固定する契約。実モデルによる各 AC の試
 
 ## 固定ケース
 
-正本は `tests/it2/cases/` の JSON。`manifest.json` は schema_version=1、scorer_version=1、
+正本は `tests/it2/cases/` の JSON。`manifest.json` は schema_version=1、scorer_version=2、
 trial_count=3、読み込む 4 ファイルとキャラ ID を固定する。
 `cases_contract.load_cases` と `validate_cases` は、実行前に全件を検証する。
 ケースを変更した場合は、採点器の版・revision とともに変更を記録し、実行後に期待結果を変えない。
@@ -32,20 +32,34 @@ trial_count=3、読み込む 4 ファイルとキャラ ID を固定する。
   1つのobservationが覆うことを確認する。serviceのrecallが同じobservation IDと全Turnを返すことも確認する。
   observationなし、対象の分裂、言及元欠落、検索失敗の順で理由を1つ選ぶ。
   検索だけの失敗は統合漏れの分子へ含めない。
-- AC-M2：同じdocumentに2言及をappendするため、document数やchunk数を差分の判定に使わない。
-  採点器の固定`DIFFERENCE_FEATURES`で本文の側を分類し、observationの`source_memory_ids`と合わせる。
-  両側が1つのFactまたはobservationに入れば`false_merge`。
+- AC-M2（scorer_version=2、本人決定 2026-11-05）：同じdocumentに2言及をappendするため、
+  document数やchunk数を差分の判定に使わない。採点器の固定`DIFFERENCE_FEATURES`で本文の側を分類する。
+  差分のあるFactが別々に残れば合格とし、1つのFactに両側が入れば`false_merge`。
   片側が欠け、分類不能なFactがあれば`unresolved_fact`、なければ`fact_lost`。
+  統合Factは後の値への更新と履歴の併記を許す。Hindsightの標準の統合（A6）がこう動くため。
+  統合Factだけを読むと古い値が見えないことがあるが、Factと原文には残る。
+  どちらの値にも分類できない統合Factは`observation_value_unresolved`で不合格。
+  主体の差は更新として扱わず、統合Factの本文か系譜に両側が入れば`false_merge`。
   否定句など長い特徴語を先に照合して伏せ、肯定語の部分一致による誤分類を避ける。
   表にないケースは拒否する。表にない言い換えを合格と推測しない。
 - AC-R3：`extracted_fact`は対象documentの抽出Factだけ、`returned_source`は対象Turnの
   `source_spans[].text`だけで`preserve`を評価する。observationや別の出典で代用しない。
+  日付の`extracted_fact`は、同じ日付の固定の表記（`EQUIVALENT_DATES`）を合格にする（scorer_version=2、
+  本人決定 2026-11-05）。`returned_source`は元の表記を求める。固有名と逐語表現の基準は変えない。
 
 `test_extraction_quality.py`はAC-M1・M2・R3だけを実行する。共有言及は1回だけ投入し、
 Session・Turn IDに試行ごとのキャラIDを付ける。`expected`は投入やqueryに使わない。
 処理時間は最初のHTTP投入直前から完了判定が返るまでとし、読み取り・recall・採点の時間は含めない。
 各試行の結果を残し、例外本文は記録せず型名だけを記録する。
 照合規則やケースを実行結果に合わせて変更せず、変更が必要なら理由を報告して別PRにする。
+
+### 採点器の版
+
+scorer_version=1 では、統合Factが両側に触れるだけで誤統合とし、日付は元の表記だけを合格にした。
+両モデルとも同じ差分で不合格となり、本人の決定で版 2 に変えた。版 1 の結果は
+`docs/reports/it2/2026-11-05-5-3-*-attempt-*.json` に残す。
+`tests/it2/rescore.py`は、保存した試行データからAC-M2と抽出側のAC-R3だけを再採点する。
+想起の結果を要するケースは保存していないので、記録された結果のままとする。
 
 ## 統合の完了
 
