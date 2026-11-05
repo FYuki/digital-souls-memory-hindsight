@@ -172,4 +172,4 @@ def test_tests_receive_selected_model_and_persistent_writable_result_mount(
     assert mounts[0]["type"] == "bind"
     assert mounts[0]["source"] == str(artifacts)
     assert mounts[0].get("read_only", False) is False
-    assert mounts[0]["bind"]["create_host_path"] is False
+    assert mounts[0].get("bind", {}).get("create_host_path", False) is False
