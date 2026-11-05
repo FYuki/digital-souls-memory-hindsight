@@ -7,6 +7,7 @@ from typing import Literal, NotRequired, TypedDict
 
 import psycopg
 from hindsight_client import Hindsight
+from hindsight_client_api.exceptions import NotFoundException
 
 COMPLETION_WAIT_LIMIT_SECONDS = 1800
 COMPLETION_POLL_SECONDS = 1.0
@@ -130,12 +131,22 @@ async def read_completion_snapshot(
     operations: list[OperationStatus] = []
     offset = 0
     while True:
-        page = await client.operations.list_operations(
-            bank_id=bank_id,
-            limit=100,
-            offset=offset,
-            _request_timeout=10.0,
-        )
+        try:
+            page = await client.operations.list_operations(
+                bank_id=bank_id,
+                limit=100,
+                offset=offset,
+                _request_timeout=10.0,
+            )
+        except NotFoundException:
+            # The worker creates the bank on the first projection. No operation means
+            # this can only evaluate as waiting (or failed through the outbox).
+            return {
+                "outbox": await asyncio.to_thread(_read_outbox, database_url, bank_id),
+                "operations": [],
+                "pending_consolidation": 0,
+                "failed_consolidation": 0,
+            }
         operations.extend(
             {
                 "operation_id": item.id,
