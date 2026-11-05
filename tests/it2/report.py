@@ -44,6 +44,12 @@ def _contains_secret(value: object) -> bool:
     return False
 
 
+def validate_safe(value: object) -> None:
+    serialized = json.dumps(value, ensure_ascii=False, allow_nan=False)
+    if _SECRET.search(serialized) or _contains_secret(value):
+        raise ValueError("Report contains a credential-like value or personal home path")
+
+
 def generate_report(payload: dict[str, object], output_dir: Path) -> Path:
     if set(payload) != ALLOWED_FIELDS:
         raise ValueError("Report fields are missing or not approved")
@@ -55,8 +61,7 @@ def generate_report(payload: dict[str, object], output_dir: Path) -> Path:
     ):
         raise ValueError("Invalid report identifier")
     serialized = json.dumps(payload, ensure_ascii=False, allow_nan=False, indent=2) + "\n"
-    if _SECRET.search(serialized) or _contains_secret(payload):
-        raise ValueError("Report contains a credential-like value or personal home path")
+    validate_safe(payload)
     output_dir.mkdir(parents=True, exist_ok=True)
     target = output_dir / f"{identifier}.json"
     with target.open("x", encoding="utf-8") as output:

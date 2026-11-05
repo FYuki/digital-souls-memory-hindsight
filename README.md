@@ -328,6 +328,23 @@ docker compose -f compose.it2.yml config
 docker compose -f compose.it2.yml -f compose.it2.gpt-6-luna.yml config
 ```
 
-Issue 5-1 は基盤と固定ケースだけを用意します。実モデルの試験本体は Issue 5-3〜5-6 で追加し、
-それまでは it2 marker の試験が 0 件なので runner は FAIL になります。
+抽出・統合の品質（AC-M1・M2・R3）は、次の試験で確認します。
+
+```sh
+bash scripts/run-it2.sh tests/it2/test_extraction_quality.py
+```
+
+service の HTTP API から固定ケースを投入し、自動統合の完了を待って採点します。
+モデルごとに3 suiteを各3試行、新しいbankで実行し、全試行の全必須ケースが合格した場合だけPASSです。
+失敗した試行も保存し、成功するまでの再試行はしません。
+`IT2_ARTIFACT_DIR`を指定すると、そこへ`extraction-quality-<model>.json`を保存します。
+未指定時は`.it2-artifacts/<実行名>/`です。試験コンテナから書き込み可能な権限が必要です。
+既存の同名結果は上書きしません。FAILの結果も保存してから試験を失敗にします。
+同じ保存先の`extraction-quality-<model>.progress.jsonl`には、確定した試行ごとに1行を追記します。
+最終JSONがなく途中の記録だけがある実行は中断であり、PASSでも比較表の入力でもありません。
+最後の行が書き込み途中で切れている場合、その行は完了した行として扱いません。
+途中の記録も上書きせず、同じ保存先への再実行は拒否します。
+新しい保存先で再実行する場合は、中断した実行の失敗行と中断の事実を公開レポートの
+`costs_and_constraints`に記録し、後の成功で隠さないでください。
+誤統合率・統合漏れ率は記録用で、採用モデルと棄権閾値の決定は別Issueです。
 公開結果は [レポート生成手順](docs/reports/it2/README.md) に従い、採用決定は Issue 5-7 に残します。

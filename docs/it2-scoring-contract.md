@@ -22,8 +22,30 @@ trial_count=3、読み込む 4 ファイルとキャラ ID を固定する。
 | AC-R4 | `tuning`／`final` × `positive=true`／`false` の 4 区分。各 10 問を固定し、問い合わせを重複させない。単位は問い合わせ。負例では該当する記憶が空、正例では正解の記憶を返すことを求める |
 
 「明らかな例」は、合成データの作者が差分の種類と正解を 1 つに決められる例をいう。
-意味の照合を文字列の存在だけへ置き換えない。各 AC の照合処理は後続 Issue で実装する。
+意味の照合を文字列の存在だけへ置き換えない。抽出・統合の品質は
+`tests/it2/quality.py`で、以下の本文・系譜・返却元の照合を行う。
 `required_case_ids` は tuning を除く全ケースを返す。最終確認用だけで閾値を調整しない。
+
+### 抽出・統合の品質の照合
+
+- AC-M1：`source_memory_ids`から抽出Factの`document_id`をたどり、対象Sessionの全言及元を
+  1つのobservationが覆うことを確認する。serviceのrecallが同じobservation IDと全Turnを返すことも確認する。
+  observationなし、対象の分裂、言及元欠落、検索失敗の順で理由を1つ選ぶ。
+  検索だけの失敗は統合漏れの分子へ含めない。
+- AC-M2：同じdocumentに2言及をappendするため、document数やchunk数を差分の判定に使わない。
+  採点器の固定`DIFFERENCE_FEATURES`で本文の側を分類し、observationの`source_memory_ids`と合わせる。
+  両側が1つのFactまたはobservationに入れば`false_merge`。
+  片側が欠け、分類不能なFactがあれば`unresolved_fact`、なければ`fact_lost`。
+  否定句など長い特徴語を先に照合して伏せ、肯定語の部分一致による誤分類を避ける。
+  表にないケースは拒否する。表にない言い換えを合格と推測しない。
+- AC-R3：`extracted_fact`は対象documentの抽出Factだけ、`returned_source`は対象Turnの
+  `source_spans[].text`だけで`preserve`を評価する。observationや別の出典で代用しない。
+
+`test_extraction_quality.py`はAC-M1・M2・R3だけを実行する。共有言及は1回だけ投入し、
+Session・Turn IDに試行ごとのキャラIDを付ける。`expected`は投入やqueryに使わない。
+処理時間は最初のHTTP投入直前から完了判定が返るまでとし、読み取り・recall・採点の時間は含めない。
+各試行の結果を残し、例外本文は記録せず型名だけを記録する。
+照合規則やケースを実行結果に合わせて変更せず、変更が必要なら理由を報告して別PRにする。
 
 ## 統合の完了
 

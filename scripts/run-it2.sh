@@ -6,6 +6,8 @@ project_name=dsm-hindsight-it2
 generation_model=${IT2_GENERATION_MODEL-gemma4-12b}
 required_vram_mib=${IT2_REQUIRED_VRAM_MIB-11000}
 artifact_dir=$(realpath -m -- "${IT2_ARTIFACT_DIR:-$project_root/.it2-artifacts/$(date -u +%Y%m%dT%H%M%SZ)-$$}")
+export IT2_GENERATION_MODEL=$generation_model
+export IT2_ARTIFACT_DIR=$artifact_dir
 test_pid=
 
 fail() { printf '%s\n' "$1" >&2; exit 1; }

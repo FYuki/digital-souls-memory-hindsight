@@ -59,6 +59,10 @@ def runner(tmp_path: Path) -> dict[str, str]:
         "'\\n'.join(row['ID'] for row in rows))\n"
         "if command == 'logs':\n"
         "    print('CUDA out of memory' if os.environ.get('OOM') else 'synthetic llama log')\n"
+        "if command == 'run':\n"
+        "    pathlib.Path(os.environ['COMPOSE_ENV_LOG']).write_text(json.dumps({\n"
+        "        key: os.environ.get(key) for key in ('IT2_GENERATION_MODEL','IT2_ARTIFACT_DIR')\n"
+        "    }))\n"
         "if command == 'run' and os.environ.get('OOM'):\n"
         "    import time\n"
         "    time.sleep(2)\n"
@@ -95,6 +99,7 @@ def runner(tmp_path: Path) -> dict[str, str]:
         "GPU_CALLS": str(tmp_path / "gpu.jsonl"),
         "STARTED_FLAG": str(tmp_path / "started"),
         "SELECTED_GPU_LOG": str(tmp_path / "selected-gpu"),
+        "COMPOSE_ENV_LOG": str(tmp_path / "compose-environment.json"),
         "IT2_MODEL_DIR": str(models),
         "IT2_ARTIFACT_DIR": str(tmp_path / "artifacts"),
         "IT2_LOCK_FILE": str(tmp_path / "it2.lock"),
@@ -316,3 +321,27 @@ def test_luna_uses_overlay_with_writable_auth_outside_subject_project(
     assert all(
         any(value.endswith("compose.it2.gpt-6-luna.yml") for value in call) for call in calls
     )
+
+
+@pytest.mark.parametrize("use_defaults", [False, True])
+def test_runner_exports_resolved_model_and_artifact_directory_to_compose(
+    runner: dict[str, str],
+    use_defaults: bool,
+) -> None:
+    _accept_model_hashes(runner)
+    environment = dict(runner)
+    if use_defaults:
+        environment.pop("IT2_ARTIFACT_DIR")
+    else:
+        environment["IT2_GENERATION_MODEL"] = "gemma4-12b"
+    result, _ = _run(environment)
+    assert result.returncode == 0, result.stderr
+    exported = json.loads(Path(runner["COMPOSE_ENV_LOG"]).read_text())
+    assert exported["IT2_GENERATION_MODEL"] == "gemma4-12b"
+    assert isinstance(exported["IT2_ARTIFACT_DIR"], str)
+    artifacts = Path(exported["IT2_ARTIFACT_DIR"])
+    assert artifacts.is_absolute() and artifacts.is_dir()
+    if use_defaults:
+        assert artifacts.parent == Path(runner["TEST_SCRIPT"]).parents[1] / ".it2-artifacts"
+    else:
+        assert artifacts == Path(runner["IT2_ARTIFACT_DIR"])

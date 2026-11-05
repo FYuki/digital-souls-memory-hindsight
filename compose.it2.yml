@@ -133,10 +133,18 @@ services:
     image: dsm-hindsight-it1-runtime
     profiles: [test]
     environment:
+      IT2_GENERATION_MODEL: "${IT2_GENERATION_MODEL:-gemma4-12b}"
+      IT2_RESULT_DIR: /it2-artifacts
       DATABASE_URL: postgresql://it1@postgres:5432/ledger
       HINDSIGHT_DATABASE_URL: postgresql://it1@postgres:5432/hindsight
       SERVICE_URL: http://service:8000
       HINDSIGHT_URL: http://hindsight:8888
+    volumes:
+      - type: bind
+        source: ${IT2_ARTIFACT_DIR:-./.it2-artifacts-not-set}
+        target: /it2-artifacts
+        bind:
+          create_host_path: false
     networks: [it2]
     command: [uv, run, --no-sync, pytest, -m, it2, "--allow-hosts=postgres,hindsight,service,llama-generation,llama-embedding,llama-reranker", -q]
 
