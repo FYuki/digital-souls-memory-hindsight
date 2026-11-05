@@ -38,7 +38,7 @@ services:
 
   llama-generation:
     <<: *llama
-    command: [--model, /models/gemma4-12b.gguf, --alias, gemma4-12b, --host, 0.0.0.0, --port, "8080", --gpu-layers, "999", --ctx-size, "32768", --parallel, "1", --reasoning, "off", --chat-template-kwargs, "{\"enable_thinking\":false}"]
+    command: [--model, /models/gemma4-12b.gguf, --alias, gemma4-12b, --host, 0.0.0.0, --port, "8080", --gpu-layers, "999", --ctx-size, "32768", --parallel, "1", --reasoning, "off", --chat-template-kwargs, "{\"enable_thinking\":false}", --metrics]
     volumes:
       - type: bind
         source: ${IT2_MODEL_DIR:-./.it2-models-not-set}/gemma4-12b.gguf
@@ -111,7 +111,7 @@ services:
       dockerfile: docker/it1/Dockerfile
     environment:
       DATABASE_URL: postgresql://it1@postgres:5432/ledger
-      EVIDENCE_CHARACTER_IDS: '["it2-same-fact-t1","it2-same-fact-t2","it2-same-fact-t3","it2-difference-fact-t1","it2-difference-fact-t2","it2-difference-fact-t3","it2-japanese-t1","it2-japanese-t2","it2-japanese-t3","it2-abstention-t1","it2-abstention-t2","it2-abstention-t3"]'
+      EVIDENCE_CHARACTER_IDS: '["it2-same-fact-t1","it2-same-fact-t2","it2-same-fact-t3","it2-difference-fact-t1","it2-difference-fact-t2","it2-difference-fact-t3","it2-japanese-t1","it2-japanese-t2","it2-japanese-t3","it2-abstention-t1","it2-abstention-t2","it2-abstention-t3","it2-performance"]'
       HINDSIGHT_URL: http://hindsight:8888
       RECALL_MIN_RERANKER_SCORE: "${RECALL_MIN_RERANKER_SCORE:-0.5}"
       MEMORY_LLM_BASE_URL: http://llama-generation:8080/v1
@@ -135,6 +135,7 @@ services:
     environment:
       IT2_GENERATION_MODEL: "${IT2_GENERATION_MODEL:-gemma4-12b}"
       IT2_RESULT_DIR: /it2-artifacts
+      RECALL_MIN_RERANKER_SCORE: "${RECALL_MIN_RERANKER_SCORE:-0.5}"
       DATABASE_URL: postgresql://it1@postgres:5432/ledger
       HINDSIGHT_DATABASE_URL: postgresql://it1@postgres:5432/hindsight
       SERVICE_URL: http://service:8000

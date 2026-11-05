@@ -3,7 +3,7 @@
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import NotRequired, TypedDict
+from typing import Literal, NotRequired, TypedDict
 
 from digital_souls_memory_hindsight.evidence.projection import document_id
 
@@ -33,6 +33,21 @@ class QualityResult(TypedDict):
     cases: dict[str, bool]
     failures: dict[str, str]
     observations: MetricCounts
+
+
+def response_counts(
+    recall: RecallData,
+) -> dict[Literal["empty_fact_responses", "empty_responses"], int]:
+    fact_empty = not recall["memories"]
+    return {
+        "empty_fact_responses": int(fact_empty),
+        "empty_responses": int(
+            fact_empty
+            and not recall["source_spans"]
+            and not recall.get("verbatim_anchors")
+            and not recall.get("context")
+        ),
+    }
 
 
 @dataclass(frozen=True)
@@ -179,14 +194,8 @@ def score_quality(
 ) -> QualityResult:
     counts = empty_metric_counts()
     for recall in recalls.values():
-        if not recall["memories"]:
-            counts["empty_fact_responses"] += 1
-            if (
-                not recall["source_spans"]
-                and not recall.get("verbatim_anchors")
-                and not recall.get("context")
-            ):
-                counts["empty_responses"] += 1
+        for key, value in response_counts(recall).items():
+            counts[key] += value
     outcomes: dict[str, bool] = {}
     failures: dict[str, str] = {}
     for case in cases:

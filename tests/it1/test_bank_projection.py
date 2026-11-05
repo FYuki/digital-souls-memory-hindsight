@@ -87,7 +87,8 @@ class Projection:
         worker = Worker(
             PostgresOutbox(self.database), HindsightRetain(client), self.service, clock=self.clock
         )
-        deadline = asyncio.get_running_loop().time() + 60
+        # Hindsight may defer an append conflict for sixty seconds before retrying.
+        deadline = asyncio.get_running_loop().time() + 120
         while True:
             await worker.run_once()
             with psycopg.connect(self.database, connect_timeout=5) as connection:

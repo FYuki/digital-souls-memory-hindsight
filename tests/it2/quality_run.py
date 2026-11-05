@@ -3,7 +3,7 @@
 import asyncio
 import json
 import time
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -62,7 +62,7 @@ class JsonlTrialRecorder:
         with path.open("x", encoding="utf-8"):
             pass
 
-    def record(self, row: QualityTrial) -> None:
+    def record(self, row: Mapping[str, object]) -> None:
         validate_safe(row)
         serialized = json.dumps(row, ensure_ascii=False, allow_nan=False) + "\n"
         # Close each row before the next trial, including on process interruption.
@@ -70,22 +70,48 @@ class JsonlTrialRecorder:
             output.write(serialized)
 
 
+def session_payload(session_id: str) -> dict[str, object]:
+    return SessionRequest.model_validate(
+        {
+            "session_id": session_id,
+            "started_at": datetime(2026, 11, 5, tzinfo=UTC),
+            "surface": "IT2",
+            "reports_delivery": False,
+        }
+    ).model_dump(mode="json")
+
+
+def turn_payload(
+    *, character_id: str, session_id: str, turn_id: str, text: str, index: int
+) -> dict[str, object]:
+    return TurnRequest.model_validate(
+        {
+            "turn_id": turn_id,
+            "session_id": session_id,
+            "surface": "IT2",
+            "actor": character_id,
+            "kind": "utterance",
+            "text": text,
+            "perceived_by": [character_id],
+            "addressees": [],
+            "address_mode": "broadcast",
+            "language": "ja",
+            "register": {},
+            "sensitivity": "public",
+            "classifier_version": "it2-fixed-v1",
+            "occurred_at": datetime(2026, 11, 5, tzinfo=UTC) + timedelta(minutes=index),
+        }
+    ).model_dump(mode="json", by_alias=True)
+
+
 def build_ingest_plan(*, cases: Sequence[Case], character_id: str) -> IngestPlan:
     sessions: dict[str, dict[str, object]] = {}
     turns: dict[str, dict[str, object]] = {}
     recalls: dict[str, dict[str, object]] = {}
-    started = datetime(2026, 11, 5, tzinfo=UTC)
     for case in cases:
         for session in case["input"]["sessions"]:
             session_id = f"{character_id}-{session['session_id']}"
-            sessions[session_id] = SessionRequest.model_validate(
-                {
-                    "session_id": session_id,
-                    "started_at": started,
-                    "surface": "IT2",
-                    "reports_delivery": False,
-                }
-            ).model_dump(mode="json")
+            sessions[session_id] = session_payload(session_id)
             for mention in session["mentions"]:
                 turn_id = f"{character_id}-{mention['id']}"
                 if turn_id in turns:
@@ -93,24 +119,13 @@ def build_ingest_plan(*, cases: Sequence[Case], character_id: str) -> IngestPlan
                     if previous["text"] != mention["text"] or previous["session_id"] != session_id:
                         raise ValueError("Shared mention has conflicting input")
                     continue
-                turns[turn_id] = TurnRequest.model_validate(
-                    {
-                        "turn_id": turn_id,
-                        "session_id": session_id,
-                        "surface": "IT2",
-                        "actor": character_id,
-                        "kind": "utterance",
-                        "text": mention["text"],
-                        "perceived_by": [character_id],
-                        "addressees": [],
-                        "address_mode": "broadcast",
-                        "language": "ja",
-                        "register": {},
-                        "sensitivity": "public",
-                        "classifier_version": "it2-fixed-v1",
-                        "occurred_at": started + timedelta(minutes=len(turns)),
-                    }
-                ).model_dump(mode="json", by_alias=True)
+                turns[turn_id] = turn_payload(
+                    character_id=character_id,
+                    session_id=session_id,
+                    turn_id=turn_id,
+                    text=mention["text"],
+                    index=len(turns),
+                )
         if case["acceptance_id"] in {"AC-M1", "AC-R3"}:
             first = case["input"]["sessions"][0]
             recalls[case["id"]] = RecallRequest.model_validate(

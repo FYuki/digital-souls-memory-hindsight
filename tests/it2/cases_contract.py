@@ -67,7 +67,7 @@ def load_cases(directory: Path) -> list[Case]:
         f"it2-{Path(filename).stem.replace('_', '-')}-t{trial}"
         for filename in CASE_FILES
         for trial in range(1, 4)
-    }
+    } | {"it2-performance"}
     if (
         manifest["trial_count"] != 3
         or manifest["schema_version"] != 1
