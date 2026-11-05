@@ -78,7 +78,7 @@ def _payload(model: str) -> dict[str, object]:
         "models": {"generation": model},
         "images": {"hindsight": "sha256:" + "1" * 64},
         "settings": {"recall_min_reranker_score": 0.5},
-        "scorer_version": "1",
+        "scorer_version": "2",
         "completion": "complete",
         "trials": trials,
         "costs_and_constraints": "fixture only; no real model run",

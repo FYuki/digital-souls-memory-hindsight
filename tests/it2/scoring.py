@@ -3,7 +3,7 @@
 from collections.abc import Sequence, Set
 from typing import TypedDict
 
-SCORER_VERSION = "1"
+SCORER_VERSION = "2"
 
 
 class MetricCounts(TypedDict):
