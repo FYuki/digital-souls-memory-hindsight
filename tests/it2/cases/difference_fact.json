@@ -1,0 +1,122 @@
+[
+  {
+    "id": "difference-number-001",
+    "acceptance_id": "AC-M2",
+    "difference": "number",
+    "input": {
+      "sessions": [
+        {
+          "session_id": "difference-number-s1",
+          "mentions": [
+            {
+              "id": "number-m1",
+              "text": "澪が保管する青い石は三個である。"
+            },
+            {
+              "id": "number-m2",
+              "text": "澪が保管する青い石は五個である。"
+            }
+          ]
+        }
+      ]
+    },
+    "expected": {
+      "distinct_fact_count": 2,
+      "facts": [
+        "澪が保管する青い石は三個である。",
+        "澪が保管する青い石は五個である。"
+      ]
+    },
+    "scoring_unit": "different_fact_pair"
+  },
+  {
+    "id": "difference-negation-001",
+    "acceptance_id": "AC-M2",
+    "difference": "negation",
+    "input": {
+      "sessions": [
+        {
+          "session_id": "difference-negation-s1",
+          "mentions": [
+            {
+              "id": "negation-m1",
+              "text": "澪は柚子茶を飲む。"
+            },
+            {
+              "id": "negation-m2",
+              "text": "澪は柚子茶を飲まない。"
+            }
+          ]
+        }
+      ]
+    },
+    "expected": {
+      "distinct_fact_count": 2,
+      "facts": [
+        "澪は柚子茶を飲む。",
+        "澪は柚子茶を飲まない。"
+      ]
+    },
+    "scoring_unit": "different_fact_pair"
+  },
+  {
+    "id": "difference-subject-001",
+    "acceptance_id": "AC-M2",
+    "difference": "subject",
+    "input": {
+      "sessions": [
+        {
+          "session_id": "difference-subject-s1",
+          "mentions": [
+            {
+              "id": "subject-m1",
+              "text": "澪は赤い鍵を持っている。"
+            },
+            {
+              "id": "subject-m2",
+              "text": "凪は赤い鍵を持っている。"
+            }
+          ]
+        }
+      ]
+    },
+    "expected": {
+      "distinct_fact_count": 2,
+      "facts": [
+        "澪は赤い鍵を持っている。",
+        "凪は赤い鍵を持っている。"
+      ]
+    },
+    "scoring_unit": "different_fact_pair"
+  },
+  {
+    "id": "difference-tense-001",
+    "acceptance_id": "AC-M2",
+    "difference": "tense",
+    "input": {
+      "sessions": [
+        {
+          "session_id": "difference-tense-s1",
+          "mentions": [
+            {
+              "id": "tense-m1",
+              "text": "澪は昨日、星見資料館で働いていた。"
+            },
+            {
+              "id": "tense-m2",
+              "text": "澪は明日、星見資料館で働く予定だ。"
+            }
+          ]
+        }
+      ]
+    },
+    "expected": {
+      "distinct_fact_count": 2,
+      "facts": [
+        "澪は昨日、星見資料館で働いていた。",
+        "澪は明日、星見資料館で働く予定だ。"
+      ]
+    },
+    "scoring_unit": "different_fact_pair"
+  }
+]

@@ -9,3 +9,6 @@ dist/
 .env
 .env.*
 .it1-artifacts/
+.it2-artifacts/
+.it2-models-not-set/
+.it2-auth-not-set/
