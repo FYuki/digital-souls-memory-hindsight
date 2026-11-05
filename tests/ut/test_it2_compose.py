@@ -208,6 +208,23 @@ def test_generation_exposes_metrics(tmp_path: Path) -> None:
     assert "--metrics" in generation["command"]
 
 
+@pytest.mark.parametrize("luna", [False, True])
+def test_consistency_tests_receive_same_component_model_configuration_as_service(
+    tmp_path: Path, luna: bool
+) -> None:
+    files = ("compose.it2.yml", "compose.it2.gpt-6-luna.yml") if luna else ("compose.it2.yml",)
+    config = _config(tmp_path, *files)
+    service = config["services"]["service"]["environment"]
+    tests = config["services"]["tests"]["environment"]
+    for key in (
+        "MEMORY_LLM_BASE_URL",
+        "MEMORY_LLM_MODEL",
+        "MEMORY_LLM_API_KEY",
+        "MEMORY_LLM_TIMEOUT_SECONDS",
+    ):
+        assert tests[key] == service[key]
+
+
 def test_recorded_performance_conditions_match_compose(tmp_path: Path) -> None:
     config = _config(tmp_path, "compose.it2.yml")
     performance_run = import_module("tests.it2.performance_run")

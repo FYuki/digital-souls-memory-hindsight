@@ -5,7 +5,7 @@ Issue 5-1 で実行前に固定する契約。実モデルによる各 AC の試
 
 ## 固定ケース
 
-正本は `tests/it2/cases/` の JSON。`manifest.json` は schema_version=1、scorer_version=2、
+正本は `tests/it2/cases/` の JSON。抽出・想起用の `manifest.json` は schema_version=1、scorer_version=2、
 trial_count=3、読み込む 4 ファイルとキャラ ID を固定する。
 `cases_contract.load_cases` と `validate_cases` は、実行前に全件を検証する。
 ケースを変更した場合は、採点器の版・revision とともに変更を記録し、実行後に期待結果を変えない。
@@ -159,6 +159,56 @@ CharacterStateの別測定は新しい合成TurnのHTTP送信からキュー完�
 traceの数値duration項目はパスとともに記録し、取得できなければ未取得として扱う。
 本人が両モデルの結果を見て採用し、そのモデルで受け入れを判定する。
 両モデルとも不合格なら採用決定だけで PASS にしない。
+
+## 登録時の整合チェック（AC-I5）
+
+`consistency.json`はmanifestから独立した合成ケースで、`scorer_version`は
+`scoring.SCORER_VERSION`と照合し、`trial_count=3`を実行前に検証する。
+各ケースは`id`、`level`（`reviewer`または`path`）、`operation`、`input`、`expected.consistent`を持つ。
+人格のseedと口調の入力は、それぞれ既存の`SeedRequest`、`VoiceRequest`で検証する。
+重複ID、不正な識別子、必須の操作・合否区分の不足は実行前に拒否する。
+`expected`はモデルへ渡さない。ケースと期待結果を実行後に書き換えない。
+
+| ケースID | 期待する結果 |
+| --- | --- |
+| `reviewer-personality-consistent-001`、`-002` | 固定の人格文を直接審査しtrue、理由あり |
+| `reviewer-personality-contradiction-001`、`-002` | 固定の人格文を直接審査しfalse、理由あり |
+| `reviewer-voice-consistent-001`、`-002` | 固定の発話を直接審査しtrue、理由あり |
+| `reviewer-voice-contradiction-001`、`-002` | 固定の発話を直接審査しfalse、理由あり |
+| `path-seed-consistent-001` | 201、review=true、Profile版1を保存 |
+| `path-seed-contradiction-001` | 422、consistency_review=false、Profile版1は404、current不変 |
+| `path-temperament-consistent-001` | Profile準備後の更新が201、review=true、Temperament版2を保存 |
+| `path-temperament-contradiction-001` | Profile準備後の更新が422、consistency_review=false、版2は404、current不変 |
+| `path-voice-first-consistent-001` | 201、consistency_review=true、代表発話を保存 |
+| `path-voice-first-contradiction-001` | 201、consistency_review=false、代表発話を保存 |
+| `path-voice-no-rereview-001` | 同じキャラで初回登録→元Turn削除→再登録→後続登録→アプリ再生成後の登録。初回だけ審査 |
+
+全経路では、試験プロセス内の`create_app`へ実OpenAI互換部品を記録付きで注入し、
+TestClientから実ルートと実PostgreSQLを通す。人格の読み取り応答にはreviewを保存しない。
+Profileのない気質登録はreview=null、生成・審査0回とする。
+口調の後続登録はconsistency_review=null、生成・審査の累計は各1回、
+初回の`voice_consistency_reviews`行は削除・再生成の前後で不変とする。
+試験プロセスのWorkerは停止し、元Turnの削除はserviceの実Workerに任せる。
+削除のcompletedを最大1800秒、最大1秒間隔で待ち、一覧が空になったことを確認する。
+再起動の観測範囲は同じDBを使うアプリの再生成であり、コンテナの実再起動ではない。
+
+手順の分類順は、過剰な部品呼び出しを`contract_violation`、生成の例外・空白を
+`generation_failed`、審査例外を`review_failed`、完了した審査の合否違いを`misjudged`、
+HTTP・理由・保存・呼び出し回数などの不一致を`contract_violation`、全一致を`correct`とする。
+部品以外の例外・待機超過は`execution_error:<段階>:<型名>`を理由として記録する。
+ケースは実行順で最初の非correct手順の分類と理由を使い、実行した手順の記録を保持する。
+前提の準備に失敗した場合、別の状態で対象操作を代用せず、その準備の失敗を残す。
+生成文・理由の文面一致で合否を決めない。生成文と理由は監督の確認用に保存する。
+
+試行ごとのキャラIDは`it2-consistency-<case-id>-t1`〜`t3`とし、
+口調の連続シナリオを各試行の最後に置く。3試行すべてで全必須ケースがcorrectの場合だけPASS。
+Reviewer単体と全経路の判定も別々に記録する。再試行して最後の成功だけを採用しない。
+`MEMORY_LLM_*`を試験入口で解決し、モデル名に特定の名前を要求しない。
+
+seed矛盾ケースの人格文は固定文ではなく実モデルの生成結果である。
+モデルが矛盾を和らげた場合も固定の期待を変更せず、結果をFAILとして生成文とともに記録する。
+Reviewer単体の固定文評価と合わせて監督が生成と審査を確認し、必要な修正は別PRにする。
+削除の実時間、実モデルでの合否はworkerでは未確認（IT2 NOT RUN）。
 
 ## 公開レポート
 
