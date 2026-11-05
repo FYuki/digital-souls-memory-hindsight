@@ -172,6 +172,11 @@ Hindsight の failed／cancelled は outbox の failed に残し、自動で成�
 world・experience・observationに同じ判定を使い、スコアがない候補も除外します。
 閾値はサービス起動時に読み込み、未設定なら仮の既定値0.5を使います。
 実際の値はepic 5のIT2で実モデルを使って決めます。
+llama.cppのrerankは生のlogitを返します。Hindsightは1回の処理の全スコアが[0,1]なら
+そのまま使い、1つでも範囲外なら全スコアへsigmoidを適用します（監督の合成1問の実測に
+基づく仕様）。同じlogitでも同時に処理する候補によって比較値が変わり得るため、IT2は
+SDKが返した `scores.reranker` の実値を保存し、その値で閾値候補を評価します。
+Hindsightの処理は変更しません。
 有限な0〜1の数値だけを受け付け、空・非数値・非有限・範囲外は起動時に拒否します。
 
 全候補を除外してもHTTPは200で、`memories` は空配列です。問い合わせに一致するAnchorがあれば、
@@ -276,6 +281,9 @@ pytestの既定socket禁止を保ち、IT1だけ `--allow-hosts=postgres,hindsig
 3. 上がるパッケージと版を確認し、lockfile の差分とあわせて 1 つの PR にまとめ、差分の版を PR 本文に書く。
 
 ## IT2（監督による実モデル試験）
+
+AC-R4・R5の選択・確認・性能測定と表生成は
+[公開レポートの手順](docs/reports/it2/README.md#想起の閾値と性能)を参照してください。
 
 IT2 は VRAM に空きがあり、合成データだけを使うことを条件に許可済みです。
 TAKT worker は GPU・実モデルを使いません。ST の許可は別途確認し、Core からの ST は

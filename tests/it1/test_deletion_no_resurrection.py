@@ -45,6 +45,10 @@ pytestmark = pytest.mark.it1
 projection = projection_tests.projection
 consolidation_gate = recall_tests.consolidation_gate
 
+# finish_deletion can wait 90 seconds, including Hindsight's 60-second retry.
+# Keep the paused worker alive until deletion finishes and releases it.
+STALE_CLAIM_RELEASE_TIMEOUT = 120
+
 
 def deletion(p: Projection) -> tuple[DeletionService, PostgresDeletionStore]:
     store = PostgresDeletionStore(p.database)
@@ -543,14 +547,16 @@ def test_expired_append_claim_cannot_resurrect_a_deleted_turn(
                     assert item is not None and item.turn_id == "target"
                     if not pause_after_ownership:
                         claimed.set()
-                        assert release.wait(30), "Stale claim was not released"
+                        assert release.wait(STALE_CLAIM_RELEASE_TIMEOUT), (
+                            "Stale claim was not released"
+                        )
                     return item
 
             class Retain(HindsightRetain):
                 async def execute(self, operation: RetainOperation) -> RetainResult:
                     if pause_after_ownership:
                         claimed.set()
-                        assert await asyncio.to_thread(release.wait, 30)
+                        assert await asyncio.to_thread(release.wait, STALE_CLAIM_RELEASE_TIMEOUT)
                     return await super().execute(operation)
 
             task: asyncio.Task[None] | None = None

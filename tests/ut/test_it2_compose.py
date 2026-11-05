@@ -3,6 +3,7 @@
 import json
 import os
 import subprocess
+from importlib import import_module
 from pathlib import Path
 from typing import NotRequired, TypedDict
 
@@ -29,6 +30,7 @@ class Port(TypedDict):
 
 
 class Service(TypedDict):
+    command: NotRequired[list[str]]
     image: NotRequired[str]
     build: NotRequired[dict[str, object]]
     read_only: NotRequired[bool]
@@ -179,3 +181,50 @@ def test_llama_tmpfs_is_one_mount_and_generation_disables_thinking() -> None:
     text = Path("compose.it2.yml").read_text(encoding="utf-8")
     assert 'tmpfs: ["/tmp:rw,noexec,nosuid,size=256m,mode=1777"]' in text
     assert '--reasoning, "off", --chat-template-kwargs, "{\\"enable_thinking\\":false}"' in text
+
+
+@pytest.mark.parametrize("value", [None, "0.65"])
+def test_threshold_is_identical_for_service_and_supervisor_tests(
+    tmp_path: Path, value: str | None
+) -> None:
+    config = _config(
+        tmp_path,
+        "compose.it2.yml",
+        environment={} if value is None else {"RECALL_MIN_RERANKER_SCORE": value},
+    )
+    environments = [config["services"][name]["environment"] for name in ("service", "tests")]
+    assert [env["RECALL_MIN_RERANKER_SCORE"] for env in environments] == [value or "0.5"] * 2
+
+
+def test_performance_character_is_allowed(tmp_path: Path) -> None:
+    config = _config(tmp_path, "compose.it2.yml")
+    characters = json.loads(config["services"]["service"]["environment"]["EVIDENCE_CHARACTER_IDS"])
+    assert "it2-performance" in characters
+
+
+def test_generation_exposes_metrics(tmp_path: Path) -> None:
+    config = _config(tmp_path, "compose.it2.yml")
+    generation = config["services"]["llama-generation"]
+    assert "--metrics" in generation["command"]
+
+
+def test_recorded_performance_conditions_match_compose(tmp_path: Path) -> None:
+    config = _config(tmp_path, "compose.it2.yml")
+    performance_run = import_module("tests.it2.performance_run")
+    conditions = performance_run.measurement_conditions("gemma4-12b")
+    assert conditions["concurrency"] == 1
+    assert conditions["query_length"] == len(
+        performance_run.performance_query(index=0, positive=True)
+    )
+    for service, model in (
+        ("llama-generation", "gemma4-12b"),
+        ("llama-embedding", "bge-m3"),
+        ("llama-reranker", "bge-reranker-v2-m3"),
+    ):
+        command = config["services"][service]["command"]
+        assert conditions["model_context_lengths"][model] == int(
+            command[command.index("--ctx-size") + 1]
+        )
+        assert conditions["model_gpu_layers"][model] == int(
+            command[command.index("--gpu-layers") + 1]
+        )

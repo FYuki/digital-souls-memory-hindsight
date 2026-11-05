@@ -115,6 +115,48 @@ runner は実行前後に専用 DB volume を消し、前の実行の bank を�
 失敗・SKIP・NOT RUN を後の成功で置き換えない。
 
 必須ケースを通る棄権閾値がなければ AC-R4 を FAIL として本人へ戻す。
+閾値候補は実行前に0.00〜1.00の0.05刻みに固定する。候補表の再現率・棄権率はtuningの
+3試行合算から算出し、試行別の値も残す。finalの必須ケース全通過を制約とし、順位付けには
+tuningだけを使う。再現率90%以上では棄権率、再現率、低い閾値の順に選ぶ。
+目安に届く候補がなければ、必須通過候補の再現率、棄権率、低い閾値の順に選び、
+`guideline_met=false`を記録する。候補なしと試行未完了は区別する。
+
+llama.cppのrerankは生logitを返す。Hindsightは全スコアが[0,1]ならそのまま使い、
+1つでも範囲外なら全てへsigmoidを適用する。同じlogitでも同時処理の候補によって
+比較値が変わり得る。この性質は監督の合成1問の実測を出典とし、試験では
+`scores.reranker`の実値を記録・評価する。Hindsightは変更しない。
+
+選択時にもfinalを必須通過制約として使うため、finalは完全な未見データではない。
+最終確認は選択閾値でサービスを再起動し、新しいbankの3試行をservice応答から採点する。
+正解の系譜には、`expected.facts`と同じ入力本文を持つ全言及を含める。
+
+## 性能の測定契約
+
+100件と1,000件は、統合完了後のworld・experience・observationの合計で判定する。
+同じbankへ25言及ずつ追加し、各段階は目標の2倍の言及で停止する。Session数、入力Fact数、
+抽出Fact数、統合Fact数を保存する。IDの番号は段階をまたいで継続する。
+投入完了とCharacterStateキューの消化を待ち、固定20件のAnchor登録後に測定する。
+正例・負例を交互に送り、並列数1、ウォームアップ20件、測定200件、固定文字数、assembled形式を使う。
+モデル・offload・context長を系列へ保存し、条件が変われば別条件として扱う。
+HTTP送信直前から本文受信直後までを測り、JSON解析は除く。nearest-rankの百分位を使い、
+p95が600ms以内、失敗0件、正例のFact非空応答が1件以上、記憶数充足、
+`preparation.status == "complete"`でPASSとする。Anchor・原文区間・contextだけが
+返る応答ではFact非空を満たさない。sampleは`fact_nonempty`と`response_nonempty`を
+別々に保存し、系列もFact非空件数と全体非空件数を正例・全体それぞれに記録する。
+記録行・総合判定・公開表の再計算は同じ系列判定を使う。
+p50 150ms・p95 300msの目標達成は別に記録する。
+常駐取得、取り込み待ち、CharacterStateの完了待ちは想起系列へ混ぜない。
+CharacterStateの別測定は新しい合成TurnのHTTP送信からキュー完了までであり、待ち時間も含む。
+生成処理は`llamacpp:n_decode_total`の前後差分で観測する。これはllama_decode()の
+実行回数であり、HTTP要求の呼び出し回数ではない。固定digest
+`sha256:69019445c94c970496c8f6d6447214b837508162dfe1152768942c51237e3ab7`の
+`/app/libllama-server-impl.so`内で名前を確認した。実HTTP応答と数値表記はIT2未実行のため未確認。
+半角数字の整数だけを読み、指数・小数表記、欠落、取得失敗、カウンタ減少は
+`not_measured`として扱い、0差分に置き換えない。差分0は測定中にdecode処理が増えず、
+正の差分は処理が増えたことを示す。要求ごとの回数や処理との一対一対応は保証しない。
+この差分は記録のみで合否に使わない。Lunaの外部生成はローカル指標では未測定。
+指標の意味は[llama.cppのmetrics一覧](https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md#available-metrics)を参照する。
+traceの数値duration項目はパスとともに記録し、取得できなければ未取得として扱う。
 本人が両モデルの結果を見て採用し、そのモデルで受け入れを判定する。
 両モデルとも不合格なら採用決定だけで PASS にしない。
 
