@@ -1,0 +1,1042 @@
+[
+  {
+    "id": "abstention-tuning-positive-01",
+    "acceptance_id": "AC-R4",
+    "split": "tuning",
+    "positive": true,
+    "scoring_unit": "query",
+    "input": {
+      "sessions": [
+        {
+          "session_id": "abstention-tuning-positive-01-s1",
+          "mentions": [
+            {
+              "id": "abstention-tuning-positive-01-m1",
+              "text": "星見資料館1号室の棚番号は101番だ。"
+            }
+          ]
+        }
+      ],
+      "query": "星見資料館1号室の棚番号を教えて。"
+    },
+    "expected": {
+      "empty": false,
+      "facts": [
+        "星見資料館1号室の棚番号は101番だ。"
+      ]
+    }
+  },
+  {
+    "id": "abstention-tuning-positive-02",
+    "acceptance_id": "AC-R4",
+    "split": "tuning",
+    "positive": true,
+    "scoring_unit": "query",
+    "input": {
+      "sessions": [
+        {
+          "session_id": "abstention-tuning-positive-02-s1",
+          "mentions": [
+            {
+              "id": "abstention-tuning-positive-02-m1",
+              "text": "星見資料館2号室の棚番号は102番だ。"
+            }
+          ]
+        }
+      ],
+      "query": "星見資料館2号室の棚番号を教えて。"
+    },
+    "expected": {
+      "empty": false,
+      "facts": [
+        "星見資料館2号室の棚番号は102番だ。"
+      ]
+    }
+  },
+  {
+    "id": "abstention-tuning-positive-03",
+    "acceptance_id": "AC-R4",
+    "split": "tuning",
+    "positive": true,
+    "scoring_unit": "query",
+    "input": {
+      "sessions": [
+        {
+          "session_id": "abstention-tuning-positive-03-s1",
+          "mentions": [
+            {
+              "id": "abstention-tuning-positive-03-m1",
+              "text": "星見資料館3号室の棚番号は103番だ。"
+            }
+          ]
+        }
+      ],
+      "query": "星見資料館3号室の棚番号を教えて。"
+    },
+    "expected": {
+      "empty": false,
+      "facts": [
+        "星見資料館3号室の棚番号は103番だ。"
+      ]
+    }
+  },
+  {
+    "id": "abstention-tuning-positive-04",
+    "acceptance_id": "AC-R4",
+    "split": "tuning",
+    "positive": true,
+    "scoring_unit": "query",
+    "input": {
+      "sessions": [
+        {
+          "session_id": "abstention-tuning-positive-04-s1",
+          "mentions": [
+            {
+              "id": "abstention-tuning-positive-04-m1",
+              "text": "星見資料館4号室の棚番号は104番だ。"
+            }
+          ]
+        }
+      ],
+      "query": "星見資料館4号室の棚番号を教えて。"
+    },
+    "expected": {
+      "empty": false,
+      "facts": [
+        "星見資料館4号室の棚番号は104番だ。"
+      ]
+    }
+  },
+  {
+    "id": "abstention-tuning-positive-05",
+    "acceptance_id": "AC-R4",
+    "split": "tuning",
+    "positive": true,
+    "scoring_unit": "query",
+    "input": {
+      "sessions": [
+        {
+          "session_id": "abstention-tuning-positive-05-s1",
+          "mentions": [
+            {
+              "id": "abstention-tuning-positive-05-m1",
+              "text": "星見資料館5号室の棚番号は105番だ。"
+            }
+          ]
+        }
+      ],
+      "query": "星見資料館5号室の棚番号を教えて。"
+    },
+    "expected": {
+      "empty": false,
+      "facts": [
+        "星見資料館5号室の棚番号は105番だ。"
+      ]
+    }
+  },
+  {
+    "id": "abstention-tuning-positive-06",
+    "acceptance_id": "AC-R4",
+    "split": "tuning",
+    "positive": true,
+    "scoring_unit": "query",
+    "input": {
+      "sessions": [
+        {
+          "session_id": "abstention-tuning-positive-06-s1",
+          "mentions": [
+            {
+              "id": "abstention-tuning-positive-06-m1",
+              "text": "星見資料館6号室の棚番号は106番だ。"
+            }
+          ]
+        }
+      ],
+      "query": "星見資料館6号室の棚番号を教えて。"
+    },
+    "expected": {
+      "empty": false,
+      "facts": [
+        "星見資料館6号室の棚番号は106番だ。"
+      ]
+    }
+  },
+  {
+    "id": "abstention-tuning-positive-07",
+    "acceptance_id": "AC-R4",
+    "split": "tuning",
+    "positive": true,
+    "scoring_unit": "query",
+    "input": {
+      "sessions": [
+        {
+          "session_id": "abstention-tuning-positive-07-s1",
+          "mentions": [
+            {
+              "id": "abstention-tuning-positive-07-m1",
+              "text": "星見資料館7号室の棚番号は107番だ。"
+            }
+          ]
+        }
+      ],
+      "query": "星見資料館7号室の棚番号を教えて。"
+    },
+    "expected": {
+      "empty": false,
+      "facts": [
+        "星見資料館7号室の棚番号は107番だ。"
+      ]
+    }
+  },
+  {
+    "id": "abstention-tuning-positive-08",
+    "acceptance_id": "AC-R4",
+    "split": "tuning",
+    "positive": true,
+    "scoring_unit": "query",
+    "input": {
+      "sessions": [
+        {
+          "session_id": "abstention-tuning-positive-08-s1",
+          "mentions": [
+            {
+              "id": "abstention-tuning-positive-08-m1",
+              "text": "星見資料館8号室の棚番号は108番だ。"
+            }
+          ]
+        }
+      ],
+      "query": "星見資料館8号室の棚番号を教えて。"
+    },
+    "expected": {
+      "empty": false,
+      "facts": [
+        "星見資料館8号室の棚番号は108番だ。"
+      ]
+    }
+  },
+  {
+    "id": "abstention-tuning-positive-09",
+    "acceptance_id": "AC-R4",
+    "split": "tuning",
+    "positive": true,
+    "scoring_unit": "query",
+    "input": {
+      "sessions": [
+        {
+          "session_id": "abstention-tuning-positive-09-s1",
+          "mentions": [
+            {
+              "id": "abstention-tuning-positive-09-m1",
+              "text": "星見資料館9号室の棚番号は109番だ。"
+            }
+          ]
+        }
+      ],
+      "query": "星見資料館9号室の棚番号を教えて。"
+    },
+    "expected": {
+      "empty": false,
+      "facts": [
+        "星見資料館9号室の棚番号は109番だ。"
+      ]
+    }
+  },
+  {
+    "id": "abstention-tuning-positive-10",
+    "acceptance_id": "AC-R4",
+    "split": "tuning",
+    "positive": true,
+    "scoring_unit": "query",
+    "input": {
+      "sessions": [
+        {
+          "session_id": "abstention-tuning-positive-10-s1",
+          "mentions": [
+            {
+              "id": "abstention-tuning-positive-10-m1",
+              "text": "星見資料館10号室の棚番号は110番だ。"
+            }
+          ]
+        }
+      ],
+      "query": "星見資料館10号室の棚番号を教えて。"
+    },
+    "expected": {
+      "empty": false,
+      "facts": [
+        "星見資料館10号室の棚番号は110番だ。"
+      ]
+    }
+  },
+  {
+    "id": "abstention-tuning-negative-01",
+    "acceptance_id": "AC-R4",
+    "split": "tuning",
+    "positive": false,
+    "scoring_unit": "query",
+    "input": {
+      "sessions": [
+        {
+          "session_id": "abstention-tuning-negative-01-s1",
+          "mentions": [
+            {
+              "id": "abstention-tuning-negative-01-m1",
+              "text": "星見資料館1号室の棚番号は101番だ。"
+            }
+          ]
+        }
+      ],
+      "query": "朝焼け植物園1号館の閉園時刻は？"
+    },
+    "expected": {
+      "empty": true,
+      "facts": []
+    }
+  },
+  {
+    "id": "abstention-tuning-negative-02",
+    "acceptance_id": "AC-R4",
+    "split": "tuning",
+    "positive": false,
+    "scoring_unit": "query",
+    "input": {
+      "sessions": [
+        {
+          "session_id": "abstention-tuning-negative-02-s1",
+          "mentions": [
+            {
+              "id": "abstention-tuning-negative-02-m1",
+              "text": "星見資料館2号室の棚番号は102番だ。"
+            }
+          ]
+        }
+      ],
+      "query": "朝焼け植物園2号館の閉園時刻は？"
+    },
+    "expected": {
+      "empty": true,
+      "facts": []
+    }
+  },
+  {
+    "id": "abstention-tuning-negative-03",
+    "acceptance_id": "AC-R4",
+    "split": "tuning",
+    "positive": false,
+    "scoring_unit": "query",
+    "input": {
+      "sessions": [
+        {
+          "session_id": "abstention-tuning-negative-03-s1",
+          "mentions": [
+            {
+              "id": "abstention-tuning-negative-03-m1",
+              "text": "星見資料館3号室の棚番号は103番だ。"
+            }
+          ]
+        }
+      ],
+      "query": "朝焼け植物園3号館の閉園時刻は？"
+    },
+    "expected": {
+      "empty": true,
+      "facts": []
+    }
+  },
+  {
+    "id": "abstention-tuning-negative-04",
+    "acceptance_id": "AC-R4",
+    "split": "tuning",
+    "positive": false,
+    "scoring_unit": "query",
+    "input": {
+      "sessions": [
+        {
+          "session_id": "abstention-tuning-negative-04-s1",
+          "mentions": [
+            {
+              "id": "abstention-tuning-negative-04-m1",
+              "text": "星見資料館4号室の棚番号は104番だ。"
+            }
+          ]
+        }
+      ],
+      "query": "朝焼け植物園4号館の閉園時刻は？"
+    },
+    "expected": {
+      "empty": true,
+      "facts": []
+    }
+  },
+  {
+    "id": "abstention-tuning-negative-05",
+    "acceptance_id": "AC-R4",
+    "split": "tuning",
+    "positive": false,
+    "scoring_unit": "query",
+    "input": {
+      "sessions": [
+        {
+          "session_id": "abstention-tuning-negative-05-s1",
+          "mentions": [
+            {
+              "id": "abstention-tuning-negative-05-m1",
+              "text": "星見資料館5号室の棚番号は105番だ。"
+            }
+          ]
+        }
+      ],
+      "query": "朝焼け植物園5号館の閉園時刻は？"
+    },
+    "expected": {
+      "empty": true,
+      "facts": []
+    }
+  },
+  {
+    "id": "abstention-tuning-negative-06",
+    "acceptance_id": "AC-R4",
+    "split": "tuning",
+    "positive": false,
+    "scoring_unit": "query",
+    "input": {
+      "sessions": [
+        {
+          "session_id": "abstention-tuning-negative-06-s1",
+          "mentions": [
+            {
+              "id": "abstention-tuning-negative-06-m1",
+              "text": "星見資料館6号室の棚番号は106番だ。"
+            }
+          ]
+        }
+      ],
+      "query": "朝焼け植物園6号館の閉園時刻は？"
+    },
+    "expected": {
+      "empty": true,
+      "facts": []
+    }
+  },
+  {
+    "id": "abstention-tuning-negative-07",
+    "acceptance_id": "AC-R4",
+    "split": "tuning",
+    "positive": false,
+    "scoring_unit": "query",
+    "input": {
+      "sessions": [
+        {
+          "session_id": "abstention-tuning-negative-07-s1",
+          "mentions": [
+            {
+              "id": "abstention-tuning-negative-07-m1",
+              "text": "星見資料館7号室の棚番号は107番だ。"
+            }
+          ]
+        }
+      ],
+      "query": "朝焼け植物園7号館の閉園時刻は？"
+    },
+    "expected": {
+      "empty": true,
+      "facts": []
+    }
+  },
+  {
+    "id": "abstention-tuning-negative-08",
+    "acceptance_id": "AC-R4",
+    "split": "tuning",
+    "positive": false,
+    "scoring_unit": "query",
+    "input": {
+      "sessions": [
+        {
+          "session_id": "abstention-tuning-negative-08-s1",
+          "mentions": [
+            {
+              "id": "abstention-tuning-negative-08-m1",
+              "text": "星見資料館8号室の棚番号は108番だ。"
+            }
+          ]
+        }
+      ],
+      "query": "朝焼け植物園8号館の閉園時刻は？"
+    },
+    "expected": {
+      "empty": true,
+      "facts": []
+    }
+  },
+  {
+    "id": "abstention-tuning-negative-09",
+    "acceptance_id": "AC-R4",
+    "split": "tuning",
+    "positive": false,
+    "scoring_unit": "query",
+    "input": {
+      "sessions": [
+        {
+          "session_id": "abstention-tuning-negative-09-s1",
+          "mentions": [
+            {
+              "id": "abstention-tuning-negative-09-m1",
+              "text": "星見資料館9号室の棚番号は109番だ。"
+            }
+          ]
+        }
+      ],
+      "query": "朝焼け植物園9号館の閉園時刻は？"
+    },
+    "expected": {
+      "empty": true,
+      "facts": []
+    }
+  },
+  {
+    "id": "abstention-tuning-negative-10",
+    "acceptance_id": "AC-R4",
+    "split": "tuning",
+    "positive": false,
+    "scoring_unit": "query",
+    "input": {
+      "sessions": [
+        {
+          "session_id": "abstention-tuning-negative-10-s1",
+          "mentions": [
+            {
+              "id": "abstention-tuning-negative-10-m1",
+              "text": "星見資料館10号室の棚番号は110番だ。"
+            }
+          ]
+        }
+      ],
+      "query": "朝焼け植物園10号館の閉園時刻は？"
+    },
+    "expected": {
+      "empty": true,
+      "facts": []
+    }
+  },
+  {
+    "id": "abstention-final-positive-01",
+    "acceptance_id": "AC-R4",
+    "split": "final",
+    "positive": true,
+    "scoring_unit": "query",
+    "input": {
+      "sessions": [
+        {
+          "session_id": "abstention-final-positive-01-s1",
+          "mentions": [
+            {
+              "id": "abstention-final-positive-01-m1",
+              "text": "月影資料館1号室の棚番号は101番だ。"
+            }
+          ]
+        }
+      ],
+      "query": "月影資料館1号室の棚番号を教えて。"
+    },
+    "expected": {
+      "empty": false,
+      "facts": [
+        "月影資料館1号室の棚番号は101番だ。"
+      ]
+    }
+  },
+  {
+    "id": "abstention-final-positive-02",
+    "acceptance_id": "AC-R4",
+    "split": "final",
+    "positive": true,
+    "scoring_unit": "query",
+    "input": {
+      "sessions": [
+        {
+          "session_id": "abstention-final-positive-02-s1",
+          "mentions": [
+            {
+              "id": "abstention-final-positive-02-m1",
+              "text": "月影資料館2号室の棚番号は102番だ。"
+            }
+          ]
+        }
+      ],
+      "query": "月影資料館2号室の棚番号を教えて。"
+    },
+    "expected": {
+      "empty": false,
+      "facts": [
+        "月影資料館2号室の棚番号は102番だ。"
+      ]
+    }
+  },
+  {
+    "id": "abstention-final-positive-03",
+    "acceptance_id": "AC-R4",
+    "split": "final",
+    "positive": true,
+    "scoring_unit": "query",
+    "input": {
+      "sessions": [
+        {
+          "session_id": "abstention-final-positive-03-s1",
+          "mentions": [
+            {
+              "id": "abstention-final-positive-03-m1",
+              "text": "月影資料館3号室の棚番号は103番だ。"
+            }
+          ]
+        }
+      ],
+      "query": "月影資料館3号室の棚番号を教えて。"
+    },
+    "expected": {
+      "empty": false,
+      "facts": [
+        "月影資料館3号室の棚番号は103番だ。"
+      ]
+    }
+  },
+  {
+    "id": "abstention-final-positive-04",
+    "acceptance_id": "AC-R4",
+    "split": "final",
+    "positive": true,
+    "scoring_unit": "query",
+    "input": {
+      "sessions": [
+        {
+          "session_id": "abstention-final-positive-04-s1",
+          "mentions": [
+            {
+              "id": "abstention-final-positive-04-m1",
+              "text": "月影資料館4号室の棚番号は104番だ。"
+            }
+          ]
+        }
+      ],
+      "query": "月影資料館4号室の棚番号を教えて。"
+    },
+    "expected": {
+      "empty": false,
+      "facts": [
+        "月影資料館4号室の棚番号は104番だ。"
+      ]
+    }
+  },
+  {
+    "id": "abstention-final-positive-05",
+    "acceptance_id": "AC-R4",
+    "split": "final",
+    "positive": true,
+    "scoring_unit": "query",
+    "input": {
+      "sessions": [
+        {
+          "session_id": "abstention-final-positive-05-s1",
+          "mentions": [
+            {
+              "id": "abstention-final-positive-05-m1",
+              "text": "月影資料館5号室の棚番号は105番だ。"
+            }
+          ]
+        }
+      ],
+      "query": "月影資料館5号室の棚番号を教えて。"
+    },
+    "expected": {
+      "empty": false,
+      "facts": [
+        "月影資料館5号室の棚番号は105番だ。"
+      ]
+    }
+  },
+  {
+    "id": "abstention-final-positive-06",
+    "acceptance_id": "AC-R4",
+    "split": "final",
+    "positive": true,
+    "scoring_unit": "query",
+    "input": {
+      "sessions": [
+        {
+          "session_id": "abstention-final-positive-06-s1",
+          "mentions": [
+            {
+              "id": "abstention-final-positive-06-m1",
+              "text": "月影資料館6号室の棚番号は106番だ。"
+            }
+          ]
+        }
+      ],
+      "query": "月影資料館6号室の棚番号を教えて。"
+    },
+    "expected": {
+      "empty": false,
+      "facts": [
+        "月影資料館6号室の棚番号は106番だ。"
+      ]
+    }
+  },
+  {
+    "id": "abstention-final-positive-07",
+    "acceptance_id": "AC-R4",
+    "split": "final",
+    "positive": true,
+    "scoring_unit": "query",
+    "input": {
+      "sessions": [
+        {
+          "session_id": "abstention-final-positive-07-s1",
+          "mentions": [
+            {
+              "id": "abstention-final-positive-07-m1",
+              "text": "月影資料館7号室の棚番号は107番だ。"
+            }
+          ]
+        }
+      ],
+      "query": "月影資料館7号室の棚番号を教えて。"
+    },
+    "expected": {
+      "empty": false,
+      "facts": [
+        "月影資料館7号室の棚番号は107番だ。"
+      ]
+    }
+  },
+  {
+    "id": "abstention-final-positive-08",
+    "acceptance_id": "AC-R4",
+    "split": "final",
+    "positive": true,
+    "scoring_unit": "query",
+    "input": {
+      "sessions": [
+        {
+          "session_id": "abstention-final-positive-08-s1",
+          "mentions": [
+            {
+              "id": "abstention-final-positive-08-m1",
+              "text": "月影資料館8号室の棚番号は108番だ。"
+            }
+          ]
+        }
+      ],
+      "query": "月影資料館8号室の棚番号を教えて。"
+    },
+    "expected": {
+      "empty": false,
+      "facts": [
+        "月影資料館8号室の棚番号は108番だ。"
+      ]
+    }
+  },
+  {
+    "id": "abstention-final-positive-09",
+    "acceptance_id": "AC-R4",
+    "split": "final",
+    "positive": true,
+    "scoring_unit": "query",
+    "input": {
+      "sessions": [
+        {
+          "session_id": "abstention-final-positive-09-s1",
+          "mentions": [
+            {
+              "id": "abstention-final-positive-09-m1",
+              "text": "月影資料館9号室の棚番号は109番だ。"
+            }
+          ]
+        }
+      ],
+      "query": "月影資料館9号室の棚番号を教えて。"
+    },
+    "expected": {
+      "empty": false,
+      "facts": [
+        "月影資料館9号室の棚番号は109番だ。"
+      ]
+    }
+  },
+  {
+    "id": "abstention-final-positive-10",
+    "acceptance_id": "AC-R4",
+    "split": "final",
+    "positive": true,
+    "scoring_unit": "query",
+    "input": {
+      "sessions": [
+        {
+          "session_id": "abstention-final-positive-10-s1",
+          "mentions": [
+            {
+              "id": "abstention-final-positive-10-m1",
+              "text": "月影資料館10号室の棚番号は110番だ。"
+            }
+          ]
+        }
+      ],
+      "query": "月影資料館10号室の棚番号を教えて。"
+    },
+    "expected": {
+      "empty": false,
+      "facts": [
+        "月影資料館10号室の棚番号は110番だ。"
+      ]
+    }
+  },
+  {
+    "id": "abstention-final-negative-01",
+    "acceptance_id": "AC-R4",
+    "split": "final",
+    "positive": false,
+    "scoring_unit": "query",
+    "input": {
+      "sessions": [
+        {
+          "session_id": "abstention-final-negative-01-s1",
+          "mentions": [
+            {
+              "id": "abstention-final-negative-01-m1",
+              "text": "月影資料館1号室の棚番号は101番だ。"
+            }
+          ]
+        }
+      ],
+      "query": "夕焼け植物園1号館の閉園時刻は？"
+    },
+    "expected": {
+      "empty": true,
+      "facts": []
+    }
+  },
+  {
+    "id": "abstention-final-negative-02",
+    "acceptance_id": "AC-R4",
+    "split": "final",
+    "positive": false,
+    "scoring_unit": "query",
+    "input": {
+      "sessions": [
+        {
+          "session_id": "abstention-final-negative-02-s1",
+          "mentions": [
+            {
+              "id": "abstention-final-negative-02-m1",
+              "text": "月影資料館2号室の棚番号は102番だ。"
+            }
+          ]
+        }
+      ],
+      "query": "夕焼け植物園2号館の閉園時刻は？"
+    },
+    "expected": {
+      "empty": true,
+      "facts": []
+    }
+  },
+  {
+    "id": "abstention-final-negative-03",
+    "acceptance_id": "AC-R4",
+    "split": "final",
+    "positive": false,
+    "scoring_unit": "query",
+    "input": {
+      "sessions": [
+        {
+          "session_id": "abstention-final-negative-03-s1",
+          "mentions": [
+            {
+              "id": "abstention-final-negative-03-m1",
+              "text": "月影資料館3号室の棚番号は103番だ。"
+            }
+          ]
+        }
+      ],
+      "query": "夕焼け植物園3号館の閉園時刻は？"
+    },
+    "expected": {
+      "empty": true,
+      "facts": []
+    }
+  },
+  {
+    "id": "abstention-final-negative-04",
+    "acceptance_id": "AC-R4",
+    "split": "final",
+    "positive": false,
+    "scoring_unit": "query",
+    "input": {
+      "sessions": [
+        {
+          "session_id": "abstention-final-negative-04-s1",
+          "mentions": [
+            {
+              "id": "abstention-final-negative-04-m1",
+              "text": "月影資料館4号室の棚番号は104番だ。"
+            }
+          ]
+        }
+      ],
+      "query": "夕焼け植物園4号館の閉園時刻は？"
+    },
+    "expected": {
+      "empty": true,
+      "facts": []
+    }
+  },
+  {
+    "id": "abstention-final-negative-05",
+    "acceptance_id": "AC-R4",
+    "split": "final",
+    "positive": false,
+    "scoring_unit": "query",
+    "input": {
+      "sessions": [
+        {
+          "session_id": "abstention-final-negative-05-s1",
+          "mentions": [
+            {
+              "id": "abstention-final-negative-05-m1",
+              "text": "月影資料館5号室の棚番号は105番だ。"
+            }
+          ]
+        }
+      ],
+      "query": "夕焼け植物園5号館の閉園時刻は？"
+    },
+    "expected": {
+      "empty": true,
+      "facts": []
+    }
+  },
+  {
+    "id": "abstention-final-negative-06",
+    "acceptance_id": "AC-R4",
+    "split": "final",
+    "positive": false,
+    "scoring_unit": "query",
+    "input": {
+      "sessions": [
+        {
+          "session_id": "abstention-final-negative-06-s1",
+          "mentions": [
+            {
+              "id": "abstention-final-negative-06-m1",
+              "text": "月影資料館6号室の棚番号は106番だ。"
+            }
+          ]
+        }
+      ],
+      "query": "夕焼け植物園6号館の閉園時刻は？"
+    },
+    "expected": {
+      "empty": true,
+      "facts": []
+    }
+  },
+  {
+    "id": "abstention-final-negative-07",
+    "acceptance_id": "AC-R4",
+    "split": "final",
+    "positive": false,
+    "scoring_unit": "query",
+    "input": {
+      "sessions": [
+        {
+          "session_id": "abstention-final-negative-07-s1",
+          "mentions": [
+            {
+              "id": "abstention-final-negative-07-m1",
+              "text": "月影資料館7号室の棚番号は107番だ。"
+            }
+          ]
+        }
+      ],
+      "query": "夕焼け植物園7号館の閉園時刻は？"
+    },
+    "expected": {
+      "empty": true,
+      "facts": []
+    }
+  },
+  {
+    "id": "abstention-final-negative-08",
+    "acceptance_id": "AC-R4",
+    "split": "final",
+    "positive": false,
+    "scoring_unit": "query",
+    "input": {
+      "sessions": [
+        {
+          "session_id": "abstention-final-negative-08-s1",
+          "mentions": [
+            {
+              "id": "abstention-final-negative-08-m1",
+              "text": "月影資料館8号室の棚番号は108番だ。"
+            }
+          ]
+        }
+      ],
+      "query": "夕焼け植物園8号館の閉園時刻は？"
+    },
+    "expected": {
+      "empty": true,
+      "facts": []
+    }
+  },
+  {
+    "id": "abstention-final-negative-09",
+    "acceptance_id": "AC-R4",
+    "split": "final",
+    "positive": false,
+    "scoring_unit": "query",
+    "input": {
+      "sessions": [
+        {
+          "session_id": "abstention-final-negative-09-s1",
+          "mentions": [
+            {
+              "id": "abstention-final-negative-09-m1",
+              "text": "月影資料館9号室の棚番号は109番だ。"
+            }
+          ]
+        }
+      ],
+      "query": "夕焼け植物園9号館の閉園時刻は？"
+    },
+    "expected": {
+      "empty": true,
+      "facts": []
+    }
+  },
+  {
+    "id": "abstention-final-negative-10",
+    "acceptance_id": "AC-R4",
+    "split": "final",
+    "positive": false,
+    "scoring_unit": "query",
+    "input": {
+      "sessions": [
+        {
+          "session_id": "abstention-final-negative-10-s1",
+          "mentions": [
+            {
+              "id": "abstention-final-negative-10-m1",
+              "text": "月影資料館10号室の棚番号は110番だ。"
+            }
+          ]
+        }
+      ],
+      "query": "夕焼け植物園10号館の閉園時刻は？"
+    },
+    "expected": {
+      "empty": true,
+      "facts": []
+    }
+  }
+]

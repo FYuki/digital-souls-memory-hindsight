@@ -67,6 +67,12 @@ UT は pytest-socket でネットワーク socket を禁止します。
 必須 suite は `tests/conftest.py` により skip / xfail / xpass / 0 件を非 0 終了にします。
 marker で全件除外した場合も失敗です。FAIL・SKIP・NOT RUN は PASS ではありません。
 不足する検証は明示し、fixture の成功を実モデルの成功にしません。
+IT2 は VRAM が空いていること、合成データだけを使うことを条件に許可済みです（U9）。
+TAKT worker は実モデルを実行せず、監督が `bash scripts/run-it2.sh` で実行します。
+ST の許可は別途確認し、Core からの ST は Memory クライアントができるまで NOT RUN です。
+代替 E2E（IT2）は想定する Core の呼び出し順を確認するもので、Core の検証ではありません。
+必須ケースは実行前に固定し、異なる bank で固定 3 回・全回合格を必要とします。
+指標は記録用と合否条件を区別し、[採点契約](docs/it2-scoring-contract.md) に従います。
 IT2 / ST は実行許可・対象環境・revision・日時・秘密を除いた入力と結果・費用や制約を記録します。
 
 ## IT1の実行

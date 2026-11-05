@@ -1,0 +1,146 @@
+[
+  {
+    "id": "japanese-proper_name-extracted_fact",
+    "acceptance_id": "AC-R3",
+    "feature": "proper_name",
+    "scoring_unit": "extracted_fact",
+    "input": {
+      "sessions": [
+        {
+          "session_id": "ja-proper_name-s1",
+          "mentions": [
+            {
+              "id": "ja-proper_name-m1",
+              "text": "澪の勤務先は星見町の天文台だ。"
+            }
+          ]
+        }
+      ]
+    },
+    "expected": {
+      "preserve": [
+        "星見町"
+      ]
+    }
+  },
+  {
+    "id": "japanese-proper_name-returned_source",
+    "acceptance_id": "AC-R3",
+    "feature": "proper_name",
+    "scoring_unit": "returned_source",
+    "input": {
+      "sessions": [
+        {
+          "session_id": "ja-proper_name-s1",
+          "mentions": [
+            {
+              "id": "ja-proper_name-m1",
+              "text": "澪の勤務先は星見町の天文台だ。"
+            }
+          ]
+        }
+      ]
+    },
+    "expected": {
+      "preserve": [
+        "星見町"
+      ]
+    }
+  },
+  {
+    "id": "japanese-date-extracted_fact",
+    "acceptance_id": "AC-R3",
+    "feature": "date",
+    "scoring_unit": "extracted_fact",
+    "input": {
+      "sessions": [
+        {
+          "session_id": "ja-date-s1",
+          "mentions": [
+            {
+              "id": "ja-date-m1",
+              "text": "凪との約束は二〇二六年十一月五日だ。"
+            }
+          ]
+        }
+      ]
+    },
+    "expected": {
+      "preserve": [
+        "二〇二六年十一月五日"
+      ]
+    }
+  },
+  {
+    "id": "japanese-date-returned_source",
+    "acceptance_id": "AC-R3",
+    "feature": "date",
+    "scoring_unit": "returned_source",
+    "input": {
+      "sessions": [
+        {
+          "session_id": "ja-date-s1",
+          "mentions": [
+            {
+              "id": "ja-date-m1",
+              "text": "凪との約束は二〇二六年十一月五日だ。"
+            }
+          ]
+        }
+      ]
+    },
+    "expected": {
+      "preserve": [
+        "二〇二六年十一月五日"
+      ]
+    }
+  },
+  {
+    "id": "japanese-verbatim-extracted_fact",
+    "acceptance_id": "AC-R3",
+    "feature": "verbatim",
+    "scoring_unit": "extracted_fact",
+    "input": {
+      "sessions": [
+        {
+          "session_id": "ja-verbatim-s1",
+          "mentions": [
+            {
+              "id": "ja-verbatim-m1",
+              "text": "澪は「星が見えなくても、空を見上げよう」と約束した。"
+            }
+          ]
+        }
+      ]
+    },
+    "expected": {
+      "preserve": [
+        "星が見えなくても、空を見上げよう"
+      ]
+    }
+  },
+  {
+    "id": "japanese-verbatim-returned_source",
+    "acceptance_id": "AC-R3",
+    "feature": "verbatim",
+    "scoring_unit": "returned_source",
+    "input": {
+      "sessions": [
+        {
+          "session_id": "ja-verbatim-s1",
+          "mentions": [
+            {
+              "id": "ja-verbatim-m1",
+              "text": "澪は「星が見えなくても、空を見上げよう」と約束した。"
+            }
+          ]
+        }
+      ]
+    },
+    "expected": {
+      "preserve": [
+        "星が見えなくても、空を見上げよう"
+      ]
+    }
+  }
+]

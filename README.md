@@ -10,6 +10,7 @@ Hindsight はフォークせず、別プロセスのサーバーと公式クラ�
 
 - [受け入れ条件（草案）](docs/acceptance-criteria.md)：前提・受け入れ条件・既知の問題・未決事項
 - [開発規約](CONTRIBUTING.md)
+- [IT2 のケース・採点契約](docs/it2-scoring-contract.md)
 
 ## セットアップ
 
@@ -228,3 +229,59 @@ pytestの既定socket禁止を保ち、IT1だけ `--allow-hosts=postgres,hindsig
 
    作り直した後、通常のビルド（`cmp` あり）が通ることを確かめる。
 3. 上がるパッケージと版を確認し、lockfile の差分とあわせて 1 つの PR にまとめ、差分の版を PR 本文に書く。
+
+## IT2（監督による実モデル試験）
+
+IT2 は VRAM に空きがあり、合成データだけを使うことを条件に許可済みです。
+TAKT worker は GPU・実モデルを使いません。ST の許可は別途確認し、Core からの ST は
+Memory クライアントができるまで NOT RUN とします。代替 E2E（IT2）は想定する Core の
+呼び出し順の確認であり、Core 自体の検証ではありません。
+
+監督は固定 sha256 の 3 モデルを同じディレクトリに用意し、次の入口を使います。
+
+```sh
+export IT2_MODEL_DIR=/path/to/models
+export IT2_GENERATION_MODEL=gemma4-12b
+bash scripts/run-it2.sh
+```
+
+3 モデルのファイル名と照合する sha256 の正本は [scripts/run-it2.sh](scripts/run-it2.sh) の
+`verify_model` 呼び出しです。embedding と reranker は次の取得元と revision を使います。
+
+| モデル | 取得元 | revision |
+|---|---|---|
+| `bge-m3-q8_0.gguf` | `ggml-org/bge-m3-Q8_0-GGUF` | `9eba04c5d75ba5a1595e45de734d36bef4e5cb98` |
+| `bge-reranker-v2-m3-Q8_0.gguf` | `gpustack/bge-reranker-v2-m3-GGUF` | `3093af03b1a635e67b084b1d8c03c5f5e020fd05` |
+
+gemma4-12b は取得元と revision の固定がなく、上記スクリプトの sha256 で照合します。
+モデルは読み取り専用で mount し、生成・embedding・
+reranker の 3 サービスを固定 digest の llama.cpp で動かします。ホストへポートを公開しません。
+`IT2_MODEL_UID`／`IT2_MODEL_GID` の既定は 1000 で、モデルを読める権限が必要です。
+
+Hindsight の抽出・統合だけを gpt-6-luna に切り替える場合は `IT2_GENERATION_MODEL=gpt-6-luna` と
+`IT2_CODEX_HOME` を指定します。認証先は auth.json を持つ専用の永続ディレクトリで、
+Hindsight の UID 1000 が読み書きでき、リポジトリ・成果物・一時領域の外に置いてください。
+他のコンテナから同時に使わず、実際の場所や認証内容をレポートに書きません。
+このモードだけ上書き Compose を加え、Hindsight だけに書き込み可能な認証 mount と外部網を与えます。
+部品用の gemma4-12b サービスは両モードで残します。LLMGateway・Reviewer・ContextGateway の
+実装は Issue 5-2 が担当します。
+
+runner は共通 flock で実行を直列化し、3 モデルの hash を検査してから専用 project の残骸を片付け、
+単一 GPU の最大空きが既定 11000 MiB 以上かを確認します。
+`IT2_REQUIRED_VRAM_MIB` で必要量を指定でき、選んだ GPU を 3 サービスで使います。
+11000 MiB は計画上の既定値であり、初回の実測で足りることは未確認です。
+不足・取得失敗では起動せず、起動後の GPU 使用量を `.it2-artifacts/` に記録します。
+llama サービスの異常終了（OOM を含む）は FAIL。成功・失敗・通常の中断時に固定 project
+`dsm-hindsight-it2` だけを片付けます。SIGKILL・ホスト停止時は trap が動きません。
+Compose の直接起動はこれらの事前確認とロックを通らないため、実行には runner を使います。
+
+設定の検証はモデルを起動せず実行できます。
+
+```sh
+docker compose -f compose.it2.yml config
+docker compose -f compose.it2.yml -f compose.it2.gpt-6-luna.yml config
+```
+
+Issue 5-1 は基盤と固定ケースだけを用意します。実モデルの試験本体は Issue 5-3〜5-6 で追加し、
+それまでは it2 marker の試験が 0 件なので runner は FAIL になります。
+公開結果は [レポート生成手順](docs/reports/it2/README.md) に従い、採用決定は Issue 5-7 に残します。
