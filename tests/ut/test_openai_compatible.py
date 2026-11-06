@@ -14,6 +14,7 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
+from digital_souls_memory_hindsight import openai_prompts
 from digital_souls_memory_hindsight.character_state.domain import CharacterState, StateInput
 from digital_souls_memory_hindsight.character_state.generator import CharacterStateGenerator
 from digital_souls_memory_hindsight.character_state.ports import ContextGateway, StateJob
@@ -342,3 +343,10 @@ def test_state_generator_classifies_real_adapter_result_and_preserves_deadline(
         else:
             store.fail.assert_called_once_with(job, NOW, "invalid_output")
             store.defer.assert_not_called()
+
+
+def test_personality_prompt_does_not_let_temperament_override_aspects() -> None:
+    # A real model smoothed contradictory aspects over, so the review never saw the conflict.
+    prompt = openai_prompts.RENDER_PERSONALITY
+    assert prompt.startswith("[dsm-memory/render_personality/v2]")
+    assert "弱めたり逆にしたりしないでください" in prompt
