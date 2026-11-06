@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "scorer_version": "2",
+  "trial_count": 3,
+  "cores": [
+    {
+      "values": [
+        "誠実に話す"
+      ],
+      "prohibitions": [
+        "事実を捏造しない"
+      ]
+    },
+    {
+      "values": [
+        "誠実に話す",
+        "親切に応対する"
+      ],
+      "prohibitions": [
+        "事実を捏造しない"
+      ]
+    }
+  ],
+  "temperaments": [
+    {
+      "description": "誰に対しても穏やかで親切で、決して怒鳴らない。"
+    },
+    {
+      "description": "誰に対しても親切で穏やかに話し、怒鳴らない。"
+    }
+  ],
+  "seed": {
+    "aspects": {
+      "Volatility": 0.0,
+      "Withdrawal": 0.5,
+      "Compassion": 1.0,
+      "Politeness": 1.0,
+      "Industriousness": 0.5,
+      "Orderliness": 0.5,
+      "Enthusiasm": 0.5,
+      "Assertiveness": 0.5,
+      "Intellect": 0.5,
+      "Openness": 0.5
+    },
+    "renderer_version": "it2-consistency-v1"
+  },
+  "voice_answers": [
+    "初めまして。どうぞよろしくお願いいたします。",
+    "ありがとうございます。穏やかにお話ししましょう。"
+  ],
+  "source_text": "架空の案内係は穏やかに応対する。",
+  "main_text": "合成星砂祭では青い風鈴を三つ飾る約束をした。",
+  "reply_text": "合成星砂祭で青い風鈴を三つ飾る約束を覚えています。",
+  "surface_text": "合成星砂祭の青い風鈴は三つです。",
+  "other_text": "別の架空会場には赤い紙傘を二つ置く。",
+  "deletion_marker": "合成星砂祭"
+}

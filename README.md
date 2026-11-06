@@ -373,3 +373,20 @@ bash scripts/run-it2.sh tests/it2/test_consistency.py
 seed矛盾ケースは生成内容にも左右されるため、固定文章による評価と合わせて監督が確認します。
 詳細と公開記録は[整合チェックの手順](docs/reports/it2/README.md#登録時の整合チェックac-i5)を参照してください。
 workerによる実モデルの結果はIT2 NOT RUNです。
+
+代替E2E（AC-I4）は、想定する Core の呼び出し順で、Core の検証ではない試験です。
+監督がモデルとVRAMの事前条件を確認して実行します。
+
+```sh
+bash scripts/run-it2.sh tests/it2/test_e2e.py
+```
+
+人格・代表発話・CharacterProfileの登録から、Session・Turn・受領、常駐提供、
+同じSession内の人格・設定変更、完了後の想起、CharacterStateの更新と分離、作者の削除までを
+HTTPで連続して確認します。新しいbankで固定3回実行し、全回の全7手順の合格だけをPASSとします。
+`IT2_ARTIFACT_DIR`以下に`e2e-<IT2_GENERATION_MODEL>.json`と`.progress.jsonl`を保存し、
+FAILと中断の記録を保持します。既存の結果・進捗は上書きしません。
+serviceと試験にはcomposeから同じ合成の作者認可情報を渡します。
+状態生成は統合完了後に受領で起こし、製品の30秒上限を変更しません。
+詳細は[代替E2Eの採点契約](docs/it2-scoring-contract.md#代替e2eac-i4)を参照してください。
+workerのIT2とCoreからのSTはNOT RUNです。Issue #67は監督の実モデル結果の記録まで開いたままとします。
