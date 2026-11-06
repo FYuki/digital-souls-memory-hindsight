@@ -23,6 +23,7 @@ from .evidence.ports import EvidenceUnavailable
 from .evidence.projection import bank_id, document_content, document_id
 from .outbox import RetainOperation
 from .postgres_evidence import PostgresEvidenceStore
+from .postgres_read_scope import read_connection
 
 
 class PostgresDeletionStore:
@@ -135,14 +136,17 @@ class PostgresDeletionStore:
         return updated
 
     def blocked_sessions(self, character_id: str) -> frozenset[str]:
-        with self._connection() as connection:
-            rows = connection.execute(
-                "SELECT DISTINCT b.session_id FROM deletion_blocks b "
-                "JOIN deletion_requests d USING (request_id) "
-                "WHERE d.status <> 'completed' AND b.character_id = %s",
-                (character_id,),
-            ).fetchall()
-            return frozenset(str(row[0]) for row in rows)
+        try:
+            with read_connection(self._url) as connection:
+                rows = connection.execute(
+                    "SELECT DISTINCT b.session_id FROM deletion_blocks b "
+                    "JOIN deletion_requests d USING (request_id) "
+                    "WHERE d.status <> 'completed' AND b.character_id = %s",
+                    (character_id,),
+                ).fetchall()
+                return frozenset(str(row[0]) for row in rows)
+        except psycopg.Error as error:
+            raise EvidenceUnavailable() from error
 
     def claim(self, now: datetime, lease_for: timedelta) -> DeletionItem | None:
         if lease_for <= timedelta(0):

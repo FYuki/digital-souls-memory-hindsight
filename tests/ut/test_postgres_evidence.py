@@ -111,6 +111,9 @@ def test_failed_commit_does_not_return_success(monkeypatch: pytest.MonkeyPatch) 
         "session-lock",
         "projection-turns",
         "projection-sessions",
+        "turns-batch",
+        "scopes-batch",
+        "projection-turns-batch",
         "state-advance",
         "state-clear",
         "state-turns",
@@ -140,6 +143,12 @@ def test_delivery_storage_failures_preserve_error_translation(
             store.list_projection_turns("s-1", "bank")
         elif operation == "projection-sessions":
             store.list_projection_sessions("bank")
+        elif operation == "turns-batch":
+            store.get_turns(frozenset({"t-1"}))
+        elif operation == "scopes-batch":
+            store.get_delivery_scopes(frozenset({"t-1"}))
+        elif operation == "projection-turns-batch":
+            store.list_projection_turns_for_sessions(frozenset({"s-1"}), "bank")
         elif operation == "state-advance":
             store.advance_character_states(frozenset({StateKey("char-a", "s-1", "Web")}), now)
         elif operation == "state-clear":
