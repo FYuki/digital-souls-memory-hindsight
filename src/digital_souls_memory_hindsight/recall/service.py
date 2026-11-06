@@ -217,30 +217,35 @@ class RecallService:
         resident_provision_id: str | None,
     ) -> RecallProvision:
         try:
-            search, session = await asyncio.to_thread(
-                self._query, character_id, session_id, query, turn_id
-            )
-            if self._memory is None:
-                raise RecallUnavailable()
-            facts = await self._memory.recall(bank_id(character_id), search)
-            blocked = await asyncio.to_thread(self._deletions.blocked_sessions, character_id)
-            blocked_documents = frozenset(document_id(session) for session in blocked)
-            facts = tuple(fact for fact in facts if fact.document_id not in blocked_documents)
-            documents = frozenset(fact.document_id for fact in facts)
-            candidates = (
-                await asyncio.to_thread(self._evidence.projection_sources, character_id, documents)
-                if documents
-                else {}
-            )
-            provision = _assemble(facts, candidates)
-            anchors = await asyncio.to_thread(
-                self._anchors.for_recall,
-                character_id,
-                search,
-                frozenset(turn for memory in provision.memories for turn in memory.source_turn_ids),
-            )
-            anchors = await asyncio.to_thread(self._unblocked_anchors, anchors, blocked)
-            provision = await asyncio.to_thread(self._with_anchors, provision, anchors, format)
+            async with self._evidence.read_scope():
+                search, session = await asyncio.to_thread(
+                    self._query, character_id, session_id, query, turn_id
+                )
+                if self._memory is None:
+                    raise RecallUnavailable()
+                facts = await self._memory.recall(bank_id(character_id), search)
+                blocked = await asyncio.to_thread(self._deletions.blocked_sessions, character_id)
+                blocked_documents = frozenset(document_id(session) for session in blocked)
+                facts = tuple(fact for fact in facts if fact.document_id not in blocked_documents)
+                documents = frozenset(fact.document_id for fact in facts)
+                candidates = (
+                    await asyncio.to_thread(
+                        self._evidence.projection_sources, character_id, documents
+                    )
+                    if documents
+                    else {}
+                )
+                provision = _assemble(facts, candidates)
+                anchors = await asyncio.to_thread(
+                    self._anchors.for_recall,
+                    character_id,
+                    search,
+                    frozenset(
+                        turn for memory in provision.memories for turn in memory.source_turn_ids
+                    ),
+                )
+                anchors = self._unblocked_anchors(anchors, blocked)
+                provision = self._with_anchors(provision, anchors, format)
             record = provision_record(
                 provision,
                 character_id=character_id,
@@ -262,11 +267,7 @@ class RecallService:
     def _unblocked_anchors(
         self, anchors: tuple[AnchorItem, ...], blocked: frozenset[str]
     ) -> tuple[AnchorItem, ...]:
-        return tuple(
-            anchor
-            for anchor in anchors
-            if self._evidence.get_turn(anchor.turn_id).session_id not in blocked
-        )
+        return tuple(anchor for anchor in anchors if anchor.turn.session_id not in blocked)
 
     def _with_anchors(
         self,
@@ -276,8 +277,8 @@ class RecallService:
     ) -> RecallProvision:
         spans = {span.turn_id: span for span in provision.source_spans}
         for anchor in anchors:
-            if anchor.turn_id not in spans:
-                turn = self._evidence.get_turn(anchor.turn_id)
+            if anchor.turn.turn_id not in spans:
+                turn = anchor.turn
                 text = anchor.text
                 spans[turn.turn_id] = SourceSpan(
                     turn.turn_id,
@@ -294,7 +295,7 @@ class RecallService:
         return replace(
             provision,
             verbatim_anchors=tuple(
-                RecalledAnchor(anchor.anchor_id, anchor.turn_id, anchor.text, EVIDENCE)
+                RecalledAnchor(anchor.anchor_id, anchor.turn.turn_id, anchor.text, EVIDENCE)
                 for anchor in anchors
             ),
             source_spans=tuple(spans.values()),

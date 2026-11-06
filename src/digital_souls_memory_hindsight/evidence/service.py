@@ -1,6 +1,7 @@
 """Evidence registration and queries through the persistence port."""
 
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping
+from contextlib import AbstractAsyncContextManager
 from datetime import UTC, datetime, timedelta
 
 from ..evidence.domain import state_keys
@@ -46,6 +47,37 @@ class EvidenceService:
         if delivery_timeout_seconds <= 0:
             raise ValueError("Delivery timeout must be positive")
         self._delivery_timeout = timedelta(seconds=delivery_timeout_seconds)
+
+    def read_scope(self) -> AbstractAsyncContextManager[None]:
+        return self._store.read_scope()
+
+    def projections(
+        self, turn_ids: frozenset[str], character_id: str
+    ) -> dict[str, tuple[Turn, str | None]]:
+        if not turn_ids:
+            return {}
+        turns = self._store.get_turns(turn_ids)
+        if turn_ids - turns.keys():
+            raise EvidenceNotFound()
+        return self._project_turns(turns, character_id)
+
+    def _project_turns(
+        self, turns: Mapping[str, Turn], character_id: str
+    ) -> dict[str, tuple[Turn, str | None]]:
+        needs_scope = frozenset(
+            turn.turn_id
+            for turn in turns.values()
+            if character_id in turn.perceived_by
+            and character_id != turn.actor
+            and turn.kind != "thought"
+        )
+        scopes = self._store.get_delivery_scopes(needs_scope) if needs_scope else {}
+        if needs_scope - scopes.keys():
+            raise EvidenceUnavailable("Delivery scope is missing")
+        return {
+            identifier: (turn, projection_text(turn, character_id, scopes.get(identifier)))
+            for identifier, turn in turns.items()
+        }
 
     def add_session(self, value: Session) -> Session:
         return self._store.add_session(value)
@@ -175,18 +207,23 @@ class EvidenceService:
         self, character_id: str, document_ids: frozenset[str]
     ) -> dict[str, tuple[ProjectionSource, ...]]:
         bank = bank_id(character_id)
-        sources: dict[str, tuple[ProjectionSource, ...]] = {}
-        for session in self._store.list_projection_sessions(bank):
-            document = document_id(session)
-            if document not in document_ids:
-                continue
-            candidates: list[ProjectionSource] = []
-            for turn in self._store.list_projection_turns(session, bank):
-                text = self.get_projection_text(turn.turn_id, character_id)
-                if text:
-                    candidates.append((turn, text))
-            sources[document] = tuple(candidates)
-        return sources
+        sessions = tuple(
+            session
+            for session in self._store.list_projection_sessions(bank)
+            if document_id(session) in document_ids
+        )
+        if not sessions:
+            return {}
+        turns = self._store.list_projection_turns_for_sessions(frozenset(sessions), bank)
+        projections = self._project_turns({turn.turn_id: turn for turn in turns}, character_id)
+        sources: dict[str, list[ProjectionSource]] = {
+            document_id(session): [] for session in sessions
+        }
+        for turn in turns:
+            _, text = projections[turn.turn_id]
+            if text:
+                sources[document_id(turn.session_id)].append((turn, text))
+        return {document: tuple(candidates) for document, candidates in sources.items()}
 
     def confirm_expired_deliveries(self) -> tuple[str, ...]:
         now = self._clock()
