@@ -67,7 +67,7 @@ CharacterState生成には別に既存の30秒の上限があり、設定値に�
 状態生成の通信失敗は`gateway_unavailable`、不正出力は`invalid_output`へ分類します。
 
 プロンプトの正本は`src/digital_souls_memory_hindsight/openai_prompts.py`の定数です。
-systemメッセージ先頭の`[dsm-memory/<操作名>/v1]`で版を識別できます。
+systemメッセージ先頭の`[dsm-memory/<操作名>/v<版>]`で版を識別できます。
 人格を生成するときだけaspectsを渡し、審査には記述文だけを渡します。審査応答は
 `consistent`・`reason`の2項目に限定し、プロンプトでも性格の数値の記載を禁止します。
 ただし理由は自由文なので数値が書かれないことをコードで完全には保証できません。

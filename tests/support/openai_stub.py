@@ -200,7 +200,7 @@ def _memory_port_output(messages: list[dict[str, object]]) -> dict[str, object] 
     if not isinstance(prompt, str):
         return None
     header = prompt.split("\n", 1)[0]
-    if header == "[dsm-memory/render_personality/v1]":
+    if header == "[dsm-memory/render_personality/v2]":
         return {"description": "架空の人物は穏やかに相手を気遣います。"}
     if header == "[dsm-memory/respond_in_voice/v1]":
         return {"response": "架空の場面でも、ゆっくりお話ししましょう。"}
