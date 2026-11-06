@@ -11,7 +11,7 @@ from .character_state.domain import DEFAULT_INPUT_MAX_CHARS, DEFAULT_TTL_SECONDS
 from .evidence.delivery import DEFAULT_DELIVERY_TIMEOUT_SECONDS
 
 # 仮の既定値。epic 5 の IT2 で実モデルを使って決める。
-DEFAULT_RECALL_MIN_RERANKER_SCORE = 0.5
+DEFAULT_RECALL_MIN_RERANKER_SCORE = 0.05
 
 
 @dataclass(frozen=True)

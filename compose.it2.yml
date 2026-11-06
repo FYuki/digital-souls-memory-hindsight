@@ -113,7 +113,7 @@ services:
       DATABASE_URL: postgresql://it1@postgres:5432/ledger
       EVIDENCE_CHARACTER_IDS: '["it2-same-fact-t1", "it2-same-fact-t2", "it2-same-fact-t3", "it2-difference-fact-t1", "it2-difference-fact-t2", "it2-difference-fact-t3", "it2-japanese-t1", "it2-japanese-t2", "it2-japanese-t3", "it2-abstention-t1", "it2-abstention-t2", "it2-abstention-t3", "it2-performance", "it2-e2e-t1", "it2-e2e-t2", "it2-e2e-t3"]'
       HINDSIGHT_URL: http://hindsight:8888
-      RECALL_MIN_RERANKER_SCORE: "${RECALL_MIN_RERANKER_SCORE:-0.5}"
+      RECALL_MIN_RERANKER_SCORE: "${RECALL_MIN_RERANKER_SCORE:-0.05}"
       MEMORY_LLM_BASE_URL: http://llama-generation:8080/v1
       MEMORY_LLM_MODEL: gemma4-12b
       MEMORY_LLM_API_KEY: local-unused
@@ -143,7 +143,7 @@ services:
       MEMORY_LLM_TIMEOUT_SECONDS: "${MEMORY_LLM_TIMEOUT_SECONDS:-120}"
       MEMORY_AUTHOR_ID: synthetic-author
       MEMORY_AUTHOR_TOKEN: synthetic-e2e-author-only
-      RECALL_MIN_RERANKER_SCORE: "${RECALL_MIN_RERANKER_SCORE:-0.5}"
+      RECALL_MIN_RERANKER_SCORE: "${RECALL_MIN_RERANKER_SCORE:-0.05}"
       DATABASE_URL: postgresql://it1@postgres:5432/ledger
       HINDSIGHT_DATABASE_URL: postgresql://it1@postgres:5432/hindsight
       SERVICE_URL: http://service:8000

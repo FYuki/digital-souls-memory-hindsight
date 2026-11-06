@@ -170,8 +170,10 @@ Hindsight の failed／cancelled は outbox の failed に残し、自動で成�
 `POST /characters/{character_id}/recall` は、Hindsightの候補自身の `scores.reranker` が
 `RECALL_MIN_RERANKER_SCORE` 未満なら、原文への対応付け前に除外します。
 world・experience・observationに同じ判定を使い、スコアがない候補も除外します。
-閾値はサービス起動時に読み込み、未設定なら仮の既定値0.5を使います。
-実際の値はepic 5のIT2で実モデルを使って決めます。
+閾値はサービス起動時に読み込み、未設定なら既定値0.05を使います。
+0.05はgemma4-12bの実モデルIT2で選びました（[記録](docs/reports/it2/2026-11-05-5-4-gemma4-12b-recall.md)）。
+候補0.05〜0.95は再現率・棄権率が同点で、同点時は低い値を選ぶ規則によるものです。
+合成データでは正例と負例のスコアが大きく離れており、実データでの適切な値を示すものではありません。
 llama.cppのrerankは生のlogitを返します。Hindsightは1回の処理の全スコアが[0,1]なら
 そのまま使い、1つでも範囲外なら全スコアへsigmoidを適用します（監督の合成1問の実測に
 基づく仕様）。同じlogitでも同時に処理する候補によって比較値が変わり得るため、IT2は

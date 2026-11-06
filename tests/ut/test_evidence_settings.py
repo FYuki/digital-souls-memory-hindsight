@@ -120,8 +120,8 @@ def test_recall_threshold_default_and_override(
     )
     value = module.load_settings().recall_min_reranker_score
     if raw is None:
-        # The numerical default remains provisional until IT2 calibration.
-        assert 0 < value <= 1
+        # Selected by the real-model IT2; see docs/reports/it2/.
+        assert value == 0.05
     else:
         assert value == float(raw)
 
