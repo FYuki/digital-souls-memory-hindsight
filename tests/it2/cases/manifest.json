@@ -21,6 +21,9 @@
     "it2-abstention-t1",
     "it2-abstention-t2",
     "it2-abstention-t3",
-    "it2-performance"
+    "it2-performance",
+    "it2-e2e-t1",
+    "it2-e2e-t2",
+    "it2-e2e-t3"
   ]
 }

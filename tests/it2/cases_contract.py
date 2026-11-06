@@ -63,11 +63,15 @@ def load_cases(directory: Path) -> list[Case]:
     manifest = _MANIFEST.validate_python(
         json.loads((directory / "manifest.json").read_text(encoding="utf-8")), strict=True
     )
-    expected_characters = {
-        f"it2-{Path(filename).stem.replace('_', '-')}-t{trial}"
-        for filename in CASE_FILES
-        for trial in range(1, 4)
-    } | {"it2-performance"}
+    expected_characters = (
+        {
+            f"it2-{Path(filename).stem.replace('_', '-')}-t{trial}"
+            for filename in CASE_FILES
+            for trial in range(1, 4)
+        }
+        | {"it2-performance"}
+        | {f"it2-e2e-t{trial}" for trial in (1, 2, 3)}
+    )
     if (
         manifest["trial_count"] != 3
         or manifest["schema_version"] != 1

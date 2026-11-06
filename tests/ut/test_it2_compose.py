@@ -202,6 +202,23 @@ def test_performance_character_is_allowed(tmp_path: Path) -> None:
     assert "it2-performance" in characters
 
 
+@pytest.mark.parametrize("luna", [False, True])
+def test_e2e_characters_and_synthetic_author_are_shared_with_service(
+    tmp_path: Path, luna: bool
+) -> None:
+    files = ("compose.it2.yml", "compose.it2.gpt-6-luna.yml") if luna else ("compose.it2.yml",)
+    config = _config(tmp_path, *files)
+    service = config["services"]["service"]["environment"]
+    tests = config["services"]["tests"]["environment"]
+    manifest = json.loads((ROOT / "tests/it2/cases/manifest.json").read_text())
+    characters = json.loads(service["EVIDENCE_CHARACTER_IDS"])
+    assert characters == manifest["character_ids"]
+    assert {f"it2-e2e-t{trial}" for trial in (1, 2, 3)} <= set(characters)
+    assert service["MEMORY_AUTHOR_ID"] == tests["MEMORY_AUTHOR_ID"] == "synthetic-author"
+    assert service["MEMORY_AUTHOR_TOKEN"] == tests["MEMORY_AUTHOR_TOKEN"]
+    assert service["MEMORY_AUTHOR_TOKEN"].startswith("synthetic-")
+
+
 def test_generation_exposes_metrics(tmp_path: Path) -> None:
     config = _config(tmp_path, "compose.it2.yml")
     generation = config["services"]["llama-generation"]

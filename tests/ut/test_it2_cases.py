@@ -164,6 +164,42 @@ def test_manifest_cannot_change_fixed_trial_count(contract: ModuleType, tmp_path
         contract.load_cases(tmp_path)
 
 
+def test_manifest_accepts_three_e2e_characters_without_changing_quality_cases(
+    contract: ModuleType, tmp_path: Path
+) -> None:
+    import json
+
+    original = contract.load_cases(CASES)
+    for path in CASES.glob("*.json"):
+        shutil.copyfile(path, tmp_path / path.name)
+    path = tmp_path / "manifest.json"
+    manifest = json.loads(path.read_text())
+    manifest["character_ids"] = list(
+        dict.fromkeys([*manifest["character_ids"], *(f"it2-e2e-t{n}" for n in (1, 2, 3))])
+    )
+    path.write_text(json.dumps(manifest))
+    assert contract.load_cases(tmp_path) == original
+
+
+def test_manifest_rejects_missing_e2e_trial_character(contract: ModuleType, tmp_path: Path) -> None:
+    import json
+
+    for path in CASES.glob("*.json"):
+        shutil.copyfile(path, tmp_path / path.name)
+    path = tmp_path / "manifest.json"
+    manifest = json.loads(path.read_text())
+    manifest["character_ids"] = [
+        identifier
+        for identifier in dict.fromkeys(
+            [*manifest["character_ids"], *(f"it2-e2e-t{n}" for n in (1, 2, 3))]
+        )
+        if identifier != "it2-e2e-t2"
+    ]
+    path.write_text(json.dumps(manifest))
+    with pytest.raises(ValueError):
+        contract.load_cases(tmp_path)
+
+
 @pytest.mark.parametrize("feature", ["proper_name", "date", "verbatim"])
 @pytest.mark.parametrize("unit", ["extracted_fact", "returned_source"])
 def test_each_japanese_feature_requires_both_evaluation_units(
