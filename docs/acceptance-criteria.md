@@ -27,7 +27,7 @@
 | A11 | PostgreSQLは台帳とHindsightで同じインスタンスを使い、データベースを分ける。イメージはpgvectorとPGroongaを入れたものをこのリポジトリでビルドし、版とdigestを固定する。Hindsightの全文検索は `HINDSIGHT_API_TEXT_SEARCH_EXTENSION=pgroonga` とする | 決定（2026-10-27、本人） |
 | A12 | 台帳からHindsightへの投影・削除などの非同期処理は、PostgreSQLのoutboxテーブルと、同じサービス内のworkerで行う | 決定（2026-10-27、本人） |
 | A13 | 他キャラへのappendは配達範囲の確定順になり、occurred_atの順序とずれることを許容する。retainにはoccurred_atを時刻（timestamp）として渡し、時間の順序をappendの順に頼らない | 決定（2026-10-27、本人。U7の解決） |
-| A14 | 抽出・統合の生成モデル候補は gemma4-12b（llama.cpp の OpenAI 互換 API、Hindsight の provider 値は `openai`）と gpt-6-luna（Hindsight の `openai-codex` provider）。embedding は bge-m3、reranker は bge-reranker-v2-m3（llama.cpp の Cohere 互換 API）を使う。LLMGateway・Reviewer・ContextGateway は OpenAI 互換の 1 種類で実装し、IT2 では常に gemma4-12b を使う。gpt-6-luna との比較は Hindsight の抽出・統合だけとし、既存 digital-souls-memory との比較は Epic 5 に含めない。生成モデルの採用は U8 の未決事項として残す | 決定（2026-11-04〜05、本人。採用は Issue 5-7） |
+| A14 | 抽出・統合の生成モデルは **gemma4-12b**（llama.cpp の OpenAI 互換 API、Hindsight の provider 値は `openai`）を採用する。比較した候補は gpt-6-luna（Hindsight の `openai-codex` provider）。embedding は bge-m3、reranker は bge-reranker-v2-m3（llama.cpp の Cohere 互換 API）を使う。LLMGateway・Reviewer・ContextGateway は OpenAI 互換の 1 種類で実装し、IT2 では gemma4-12b を使う。既存 digital-souls-memory との比較は Epic 5 に含めない。生成モデルは設定だけで置き換え、コードを変えない：Hindsight は `HINDSIGHT_API_LLM_PROVIDER`・`HINDSIGHT_API_LLM_BASE_URL`・`HINDSIGHT_API_LLM_MODEL`・`HINDSIGHT_API_LLM_API_KEY`、部品は `MEMORY_LLM_BASE_URL`・`MEMORY_LLM_MODEL`・`MEMORY_LLM_API_KEY`・`MEMORY_LLM_TIMEOUT_SECONDS` を変える。`src` にモデル名を書かないことを UT で確かめる。置き換えたときは IT2 の抽出品質（AC-M1・M2・R3）、閾値と性能（AC-R4・R5）、整合チェック（AC-I5）、代替 E2E を新しいモデルで実行し直し、閾値の選び直しが要るかを確かめる | 決定（2026-11-04〜05、本人。採用は 2026-11-05、本人。U8 の解決） |
 | A15 | 投影後に他キャラ向けの配達範囲が変わった場合は、影響を受けるキャラのbankで、そのSessionのdocumentを台帳から作り直す（replace）。範囲が変わらないReceiptでは作り直さない | 決定（2026-10-28、本人） |
 
 ## 3. 受け入れ条件
@@ -139,8 +139,7 @@ Epic 5 の必須合成ケースは実行前に固定し、試行ごとに新し�
 
 ## 6. 未決事項（質疑中）
 
-- 解決済み：U1（利用形態 → A1）、U2（案A → A3）、U3（投影の単位 → A8）、U4（統合の実行 → A6）、台帳の位置づけ（→ A2）、AC-P4の扱い（案Aでは対象外）、U5・U6（実モデル → A14）、U7（appendの順序 → A13）
-- U8：**未決**。抽出・統合の生成モデル候補は gemma4-12b（llama.cpp）と gpt-6-luna（Hindsight の `openai-codex` provider）。比較結果を並べて本人が採用を決め、Issue 5-7 で A14 に記録する。
+- 解決済み：U1（利用形態 → A1）、U2（案A → A3）、U3（投影の単位 → A8）、U4（統合の実行 → A6）、台帳の位置づけ（→ A2）、AC-P4の扱い（案Aでは対象外）、U5・U6（実モデル → A14）、U7（appendの順序 → A13）、U8（生成モデル → A14、gemma4-12b）
 - U9：IT2 は条件付きで許可済み（2026-11-04〜05、本人）。VRAM が空いていること、合成データだけを使うことが条件。TAKT worker は実モデルを実行せず監督が行う。ST の実行は別途確認し、Core からの ST は Memory クライアントができるまで NOT RUN とする（A7）。
 
 ## 7. 引継ぎメモ
