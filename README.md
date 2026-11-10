@@ -178,6 +178,14 @@ llama.cppのrerankは生のlogitを返します。Hindsightは1回の処理の�
 そのまま使い、1つでも範囲外なら全スコアへsigmoidを適用します（監督の合成1問の実測に
 基づく仕様）。同じlogitでも同時に処理する候補によって比較値が変わり得るため、IT2は
 SDKが返した `scores.reranker` の実値を保存し、その値で閾値候補を評価します。
+
+IT2のHindsightは `HINDSIGHT_API_RERANKER_MAX_CANDIDATES` を100にします（既定は300）。
+上限を超えた候補は、Hindsightが融合の順位で後ろから捨て、rerankしません。
+1,000件の記憶ではrerankが想起の大半を占め、300件では必達のp95 600msを超えたためです
+（[記録](docs/reports/it2/2026-11-10-5-8-gemma4-12b-performance.md)）。
+rerankerを単独で測ると、候補100件で約140ms、300件で約530msでした。
+上限より順位の低い候補は想起されません。棄権の試験（AC-R4）の記憶は上限より少なく、
+上限の影響を確かめられません。
 Hindsightの処理は変更しません。
 有限な0〜1の数値だけを受け付け、空・非数値・非有限・範囲外は起動時に拒否します。
 

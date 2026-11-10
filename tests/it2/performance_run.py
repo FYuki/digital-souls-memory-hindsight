@@ -168,6 +168,9 @@ def read_generation_counter(client: httpx.Client) -> int | None:
         return None
 
 
+_PHASE_NAME = re.compile(r"[a-z][a-z0-9_]{0,63}")
+
+
 def trace_durations(trace: object, path: str = "trace") -> dict[str, float]:
     result: dict[str, float] = {}
     if isinstance(trace, dict):
@@ -184,7 +187,14 @@ def trace_durations(trace: object, path: str = "trace") -> dict[str, float]:
                 result.update(trace_durations(value, child))
     elif isinstance(trace, list):
         for index, value in enumerate(trace):
-            result.update(trace_durations(value, f"{path}[{index}]"))
+            name = value.get("phase_name") if isinstance(value, dict) else None
+            # Only short identifier-like phase names enter the public path.
+            label = (
+                f"{index}:{name}"
+                if isinstance(name, str) and _PHASE_NAME.fullmatch(name)
+                else str(index)
+            )
+            result.update(trace_durations(value, f"{path}[{label}]"))
     return result
 
 
