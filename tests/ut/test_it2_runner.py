@@ -174,26 +174,40 @@ def test_insufficient_or_unreadable_vram_prevents_startup(
     assert not any("up" in call or "run" in call or "build" in call for call in calls)
 
 
-@pytest.mark.parametrize("location", ["missing", "repo", "artifacts", "temporary"])
+@pytest.mark.parametrize(
+    ("location", "message"),
+    [
+        ("missing", "Persistent credentials directory is required"),
+        ("repo", "Credentials directory must be outside the repository"),
+        ("artifacts", "Credentials directory must be outside the artifacts"),
+        ("temporary", "Credentials directory must be persistent"),
+    ],
+)
 def test_luna_rejects_unsafe_auth_location_before_docker(
-    runner: dict[str, str], location: str
+    runner: dict[str, str], location: str, message: str
 ) -> None:
+    from tempfile import TemporaryDirectory
+
     _accept_model_hashes(runner)
     root = Path(runner["HOME"])
-    directories = {
-        "missing": root / "missing",
-        "repo": root / "project" / "auth",
-        "artifacts": Path(runner["IT2_ARTIFACT_DIR"]) / "auth",
-        "temporary": root / "auth",
-    }
-    auth = directories[location]
-    if location != "missing":
-        auth.mkdir(parents=True)
-        (auth / "auth.json").write_text('{"synthetic": true}')
-    result, calls = _run(
-        runner | {"IT2_GENERATION_MODEL": "gpt-6-luna", "IT2_CODEX_HOME": str(auth)}
-    )
+    # Each rule has its own message, so a case passes only through its own rule. The
+    # temporary case is placed under /tmp itself so it does not depend on TMPDIR.
+    with TemporaryDirectory(prefix="it2-auth-test-", dir="/tmp") as temporary:
+        directories = {
+            "missing": root / "missing",
+            "repo": root / "project" / "auth",
+            "artifacts": Path(runner["IT2_ARTIFACT_DIR"]) / "auth",
+            "temporary": Path(temporary) / "auth",
+        }
+        auth = directories[location]
+        if location != "missing":
+            auth.mkdir(parents=True)
+            (auth / "auth.json").write_text('{"synthetic": true}', encoding="utf-8")
+        result, calls = _run(
+            runner | {"IT2_GENERATION_MODEL": "gpt-6-luna", "IT2_CODEX_HOME": str(auth)}
+        )
     assert result.returncode != 0
+    assert result.stderr.strip().splitlines()[-1] == message
     assert calls == []
 
 

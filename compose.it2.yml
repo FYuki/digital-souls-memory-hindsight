@@ -5,6 +5,7 @@ x-llama: &llama
   user: "${IT2_MODEL_UID:-1000}:${IT2_MODEL_GID:-1000}"
   gpus: all
   environment:
+    CUDA_DEVICE_ORDER: PCI_BUS_ID
     CUDA_VISIBLE_DEVICES: "${IT2_GPU_DEVICE:-0}"
   read_only: true
   cap_drop: [ALL]

@@ -42,7 +42,7 @@ def _payload() -> dict[str, object]:
 
 def _generate(tmp_path: Path, payload: dict[str, object]) -> subprocess.CompletedProcess[str]:
     source = tmp_path / "input.json"
-    source.write_text(json.dumps(payload, ensure_ascii=False))
+    source.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
     return subprocess.run(
         [
             sys.executable,
@@ -66,7 +66,9 @@ def test_report_cli_creates_named_report_and_preserves_allowed_values(tmp_path: 
     payload = _payload()
     result = _generate(tmp_path, payload)
     assert result.returncode == 0, result.stderr
-    assert json.loads((tmp_path / "reports" / f"{RUN_ID}.json").read_text()) == payload
+    assert (
+        json.loads((tmp_path / "reports" / f"{RUN_ID}.json").read_text(encoding="utf-8")) == payload
+    )
 
 
 def test_report_accepts_digest_and_git_revision_without_secret_false_positive(
@@ -75,7 +77,7 @@ def test_report_accepts_digest_and_git_revision_without_secret_false_positive(
     payload = _payload()
     result = _generate(tmp_path, payload)
     assert result.returncode == 0, result.stderr
-    saved = json.loads((tmp_path / "reports" / f"{RUN_ID}.json").read_text())
+    saved = json.loads((tmp_path / "reports" / f"{RUN_ID}.json").read_text(encoding="utf-8"))
     assert saved["images"] == payload["images"]
     assert saved["revision"] == payload["revision"]
 
@@ -94,10 +96,10 @@ def test_report_rejects_unsafe_identifier_without_creating_files(
 def test_report_refuses_to_overwrite_existing_run(tmp_path: Path) -> None:
     output = tmp_path / "reports" / f"{RUN_ID}.json"
     output.parent.mkdir()
-    output.write_text('{"original": true}')
+    output.write_text('{"original": true}', encoding="utf-8")
     result = _generate(tmp_path, _payload())
     assert result.returncode != 0
-    assert output.read_text() == '{"original": true}'
+    assert output.read_text(encoding="utf-8") == '{"original": true}'
 
 
 @pytest.mark.parametrize("key", ["docker_inspect", "environment_variables", "raw_logs", "auth"])
