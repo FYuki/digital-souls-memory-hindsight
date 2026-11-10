@@ -120,7 +120,7 @@ def test_comparison_shows_both_models_each_trial_and_failure_breakdown(
     ]
     output = tmp_path / "comparison.md"
     comparison.generate_comparison(paths, output)
-    text = output.read_text()
+    text = output.read_text(encoding="utf-8")
     rows = _table_rows(text)
     assert any("gemma4-12b" in row and "PASS" in row for row in rows)
     assert any("gpt-6-luna" in row and "FAIL" in row for row in rows)
@@ -139,7 +139,7 @@ def test_missing_model_is_not_run(comparison: ModuleType, tmp_path: Path) -> Non
     path = generate_report(_payload("gemma4-12b"), tmp_path / "reports")
     output = tmp_path / "comparison.md"
     comparison.generate_comparison([path], output)
-    rows = [row for row in _table_rows(output.read_text()) if "gpt-6-luna" in row]
+    rows = [row for row in _table_rows(output.read_text(encoding="utf-8")) if "gpt-6-luna" in row]
     assert rows
     assert all("NOT RUN" in row and "PASS" not in row for row in rows)
 
@@ -153,7 +153,10 @@ def test_reported_pass_is_recomputed_from_all_trials(
     path = generate_report(payload, tmp_path / "reports")
     output = tmp_path / "comparison.md"
     comparison.generate_comparison([path], output)
-    assert any("gemma4-12b" in row and "FAIL" in row for row in _table_rows(output.read_text()))
+    assert any(
+        "gemma4-12b" in row and "FAIL" in row
+        for row in _table_rows(output.read_text(encoding="utf-8"))
+    )
 
 
 @pytest.mark.parametrize(
@@ -210,7 +213,7 @@ def test_invalid_comparison_is_rejected_without_output(
     paths = []
     for index, payload in enumerate((first, second)):
         path = tmp_path / f"input-{index}.json"
-        path.write_text(json.dumps(payload))
+        path.write_text(json.dumps(payload), encoding="utf-8")
         paths.append(path)
     output = tmp_path / "comparison.md"
     with pytest.raises(ValueError):
@@ -226,8 +229,11 @@ def test_unfinished_trial_has_unmeasured_metrics(comparison: ModuleType, tmp_pat
     path = generate_report(payload, tmp_path / "reports")
     output = tmp_path / "comparison.md"
     comparison.generate_comparison([path], output)
-    assert "未測定" in output.read_text()
-    assert any("gemma4-12b" in row and "FAIL" in row for row in _table_rows(output.read_text()))
+    assert "未測定" in output.read_text(encoding="utf-8")
+    assert any(
+        "gemma4-12b" in row and "FAIL" in row
+        for row in _table_rows(output.read_text(encoding="utf-8"))
+    )
 
 
 def test_comparison_cli_creates_output_and_refuses_overwrite(
@@ -255,7 +261,7 @@ def test_comparison_cli_creates_output_and_refuses_overwrite(
         timeout=15,
     )
     assert first.returncode == 0, first.stderr
-    original = output.read_text()
+    original = output.read_text(encoding="utf-8")
     second = subprocess.run(
         args,
         cwd=ROOT,
@@ -266,7 +272,7 @@ def test_comparison_cli_creates_output_and_refuses_overwrite(
         timeout=15,
     )
     assert second.returncode != 0
-    assert output.read_text() == original
+    assert output.read_text(encoding="utf-8") == original
 
 
 @pytest.mark.parametrize("count", [1, 3])
@@ -275,7 +281,8 @@ def test_progress_records_cannot_be_used_as_comparison_reports(
 ) -> None:
     progress = tmp_path / "extraction-quality-gemma4-12b.progress.jsonl"
     progress.write_text(
-        "".join(json.dumps(row) + "\n" for row in _rows(_payload("gemma4-12b"))[:count])
+        "".join(json.dumps(row) + "\n" for row in _rows(_payload("gemma4-12b"))[:count]),
+        encoding="utf-8",
     )
     output = tmp_path / "comparison.md"
     with pytest.raises(ValueError):
