@@ -97,6 +97,8 @@ def test_it2_retains_it1_pins_and_hardens_three_llama_services(tmp_path: Path) -
         service = config["services"][name]
         assert service["image"] == LLAMA_IMAGE
         assert service["environment"]["CUDA_VISIBLE_DEVICES"] == "1"
+        # nvidia-smi orders GPUs by PCI bus; the CUDA runtime must use the same order.
+        assert service["environment"]["CUDA_DEVICE_ORDER"] == "PCI_BUS_ID"
         assert service["read_only"] is True
         assert "ALL" in service["cap_drop"]
         assert any(

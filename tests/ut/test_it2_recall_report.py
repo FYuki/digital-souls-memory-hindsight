@@ -23,7 +23,7 @@ def recall_report() -> ModuleType:
 def test_missing_runs_are_reported_as_not_run(recall_report: ModuleType, tmp_path: Path) -> None:
     output = tmp_path / "recall.md"
     recall_report.generate_recall_report([], output)
-    text = output.read_text()
+    text = output.read_text(encoding="utf-8")
     assert "NOT RUN" in text
     assert "gemma4-12b" in text
     assert "gpt-6-luna" in text
@@ -95,11 +95,12 @@ def test_report_recomputes_confirmation_from_all_three_trials(
                 "threshold": 0.65,
                 "trials": trials,
             }
-        )
+        ),
+        encoding="utf-8",
     )
     output = tmp_path / "recall.md"
     recall_report.generate_recall_report([source], output)
-    text = output.read_text()
+    text = output.read_text(encoding="utf-8")
     assert "FAIL" in text
     assert failed_id in text
     assert "未定義" in text
@@ -110,10 +111,10 @@ def test_existing_public_report_is_never_overwritten(
     recall_report: ModuleType, tmp_path: Path
 ) -> None:
     output = tmp_path / "recall.md"
-    output.write_text("original synthetic report\n")
+    output.write_text("original synthetic report\n", encoding="utf-8")
     with pytest.raises(FileExistsError):
         recall_report.generate_recall_report([], output)
-    assert output.read_text() == "original synthetic report\n"
+    assert output.read_text(encoding="utf-8") == "original synthetic report\n"
 
 
 @pytest.mark.parametrize("unsafe", ["Bearer synthetic-credential", "/home/synthetic/private"])
@@ -130,7 +131,8 @@ def test_unsafe_evidence_is_rejected_before_public_output(
                 "threshold": None,
                 "trials": [],
             }
-        )
+        ),
+        encoding="utf-8",
     )
     output = tmp_path / "recall.md"
     with pytest.raises(ValueError):
@@ -194,11 +196,12 @@ def test_selection_table_is_rebuilt_from_candidate_scores(
                 "threshold": 0.99,
                 "verdict": "FAIL",
             }
-        )
+        ),
+        encoding="utf-8",
     )
     output = tmp_path / "selection.md"
     recall_report.generate_recall_report([source], output)
-    text = output.read_text()
+    text = output.read_text(encoding="utf-8")
     assert "選択値: 0.45" in text
     assert "| 0.45 | 1.0 | 1.0 | True |" in text
     assert "| gemma4-12b | threshold-selection | PASS |" in text
@@ -261,11 +264,12 @@ def test_performance_table_recomputes_failure_from_samples(
                 "verdict": "PASS",
                 "series": series,
             }
-        )
+        ),
+        encoding="utf-8",
     )
     output = tmp_path / "performance.md"
     recall_report.generate_recall_report([source], output)
-    text = output.read_text()
+    text = output.read_text(encoding="utf-8")
     expected = "PASS" if failure == "none" else "FAIL"
     assert f"| gemma4-12b | performance | {expected} |" in text
     assert f"| 1000 | {expected} |" in text
@@ -307,6 +311,6 @@ def test_report_cli_preserves_existing_output(
     output = tmp_path / "report.md"
     monkeypatch.setattr("sys.argv", ["recall_report", "--output", str(output)])
     assert recall_report.main() == 0
-    original = output.read_text()
+    original = output.read_text(encoding="utf-8")
     assert recall_report.main() == 1
-    assert output.read_text() == original
+    assert output.read_text(encoding="utf-8") == original

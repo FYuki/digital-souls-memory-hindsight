@@ -40,8 +40,9 @@ if [[ $generation_model == gpt-6-luna ]]; then
     IT2_CODEX_HOME=$(realpath -- "$IT2_CODEX_HOME")
     [[ -w $IT2_CODEX_HOME && -r $IT2_CODEX_HOME/auth.json ]] || fail 'Credentials directory must be writable and contain auth.json'
     case "$IT2_CODEX_HOME/" in
-        "$project_root/"*|"$artifact_dir/"*|/tmp/*|/dev/shm/*|/run/*)
-            fail 'Credentials directory must be persistent and outside repository and artifacts' ;;
+        "$project_root/"*) fail 'Credentials directory must be outside the repository' ;;
+        "$artifact_dir/"*) fail 'Credentials directory must be outside the artifacts' ;;
+        /tmp/*|/dev/shm/*|/run/*) fail 'Credentials directory must be persistent' ;;
     esac
     export IT2_CODEX_HOME
     compose+=(-f "$project_root/compose.it2.gpt-6-luna.yml")
