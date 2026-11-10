@@ -200,7 +200,9 @@ async def read_completion_snapshot(
     listed = {row["operation_id"] for row in operations}
     for row in outbox:
         identifier = row["operation_id"]
-        if row["update_mode"] == "delete" or identifier in listed:
+        # A target is submitted only after its outbox row completes; until then the
+        # outbox row itself keeps the snapshot waiting.
+        if row["update_mode"] == "delete" or row["status"] != "completed" or identifier in listed:
             continue
         status = await client.operations.get_operation_status(
             bank_id=bank_id, operation_id=identifier, _request_timeout=10.0
@@ -208,7 +210,8 @@ async def read_completion_snapshot(
         operations.append(
             {
                 "operation_id": identifier,
-                "status": status.status,
+                # Not yet visible to Hindsight: keep waiting rather than fail.
+                "status": "pending" if status.status == "not_found" else status.status,
                 "type": _operation_type(status.operation_type or status.task_type),
             }
         )

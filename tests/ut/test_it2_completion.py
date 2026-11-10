@@ -331,6 +331,34 @@ def test_snapshot_looks_up_outbox_operations_that_paging_skipped(completion: Mod
     assert lookup.kwargs["bank_id"] == "bank" and lookup.kwargs["operation_id"] == "retain-1"
 
 
+@pytest.mark.parametrize("outbox_status", ["pending", "completed"])
+def test_snapshot_waits_while_a_skipped_operation_is_not_yet_known(
+    completion: ModuleType, outbox_status: str
+) -> None:
+    client = MagicMock(spec=Hindsight)
+    client.operations.list_operations = AsyncMock(
+        return_value=OperationsListResponse(
+            bank_id="bank",
+            operations=[_operation("consolidate-1", "consolidation")],
+            total=1,
+            limit=100,
+            offset=0,
+        )
+    )
+    client.operations.get_operation_status = AsyncMock(
+        return_value=OperationStatusResponse(operation_id="retain-1", status="not_found")
+    )
+    client.banks.get_agent_stats = AsyncMock(return_value=_stats())
+    with patch("tests.it2.completion.psycopg.connect") as connect:
+        connection = connect.return_value.__enter__.return_value
+        connection.execute.return_value.fetchall.return_value = [
+            ("retain-1", outbox_status, "append")
+        ]
+        snapshot = asyncio.run(completion.read_completion_snapshot(client, "synthetic-db", "bank"))
+    assert completion.evaluate_completion(**snapshot).status == "waiting"
+    assert client.operations.get_operation_status.await_count == (outbox_status == "completed")
+
+
 def test_snapshot_does_not_look_up_operations_already_listed(completion: ModuleType) -> None:
     client = MagicMock(spec=Hindsight)
     client.operations.list_operations = AsyncMock(
