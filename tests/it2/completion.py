@@ -89,6 +89,27 @@ def evaluate_completion(
     return CompletionResult("complete", "retain, consolidation and outbox completed")
 
 
+def _completed(rows: Sequence[OutboxStatus] | Sequence[OperationStatus]) -> str:
+    done = sum(row["status"] == "completed" for row in rows)
+    return f"{done}/{len(rows)}"
+
+
+def _summarize(snapshot: CompletionSnapshot) -> str:
+    """Counts only, so the reason stays safe to publish in reports."""
+    operations = snapshot["operations"]
+    by_type = {
+        kind: _completed([row for row in operations if row["type"] == kind])
+        for kind in ("retain", "consolidation")
+    }
+    return (
+        f"outbox completed {_completed(snapshot['outbox'])}; "
+        f"retain completed {by_type['retain']}; "
+        f"consolidation completed {by_type['consolidation']}; "
+        f"pending_consolidation {snapshot['pending_consolidation']}; "
+        f"pending_operations {snapshot.get('pending_operations', 0)}"
+    )
+
+
 def wait_for_completion(
     *,
     snapshot: Callable[[], CompletionSnapshot],
@@ -97,15 +118,23 @@ def wait_for_completion(
 ) -> CompletionResult:
     deadline = clock() + COMPLETION_WAIT_LIMIT_SECONDS
     while True:
-        result = evaluate_completion(**snapshot())
+        current = snapshot()
+        result = evaluate_completion(**current)
         if result.status == "failed":
             return result
         remaining = deadline - clock()
         if remaining < 0 or (remaining == 0 and result.status == "waiting"):
-            return CompletionResult("timeout", "completion wait limit exceeded")
+            return CompletionResult(
+                "timeout",
+                f"completion wait limit exceeded: {result.reason} ({_summarize(current)})",
+            )
         if result.status != "waiting":
             return result
         sleep(min(COMPLETION_POLL_SECONDS, remaining))
+
+
+def _operation_type(kind: str | None) -> str:
+    return "retain" if kind == "batch_retain" else (kind or "")
 
 
 def _read_outbox(database_url: str, bank_id: str) -> list[OutboxStatus]:
@@ -151,9 +180,10 @@ async def read_completion_snapshot(
             {
                 "operation_id": item.id,
                 "status": item.status,
-                "type": "retain" if item.task_type == "batch_retain" else item.task_type,
+                "type": _operation_type(item.task_type),
             }
             for item in page.operations
+            if all(row["operation_id"] != item.id for row in operations)
         )
         offset += len(page.operations)
         if offset >= page.total:
@@ -163,8 +193,31 @@ async def read_completion_snapshot(
     stats = await client.banks.get_agent_stats(bank_id=bank_id, refresh=True, _request_timeout=10.0)
     if stats.pending_consolidation is None or stats.failed_consolidation is None:
         raise RuntimeError("Consolidation statistics are unavailable")
+    outbox = await asyncio.to_thread(_read_outbox, database_url, bank_id)
+    # Hindsight 1.1.0 orders the listing by created_at only, and a batch parent shares
+    # created_at with its child, so offset pages can skip the parent (#89). Look up the
+    # outbox targets the listing missed instead of trusting the enumeration.
+    listed = {row["operation_id"] for row in operations}
+    for row in outbox:
+        identifier = row["operation_id"]
+        # A target is submitted only after its outbox row completes; until then the
+        # outbox row itself keeps the snapshot waiting.
+        if row["update_mode"] == "delete" or row["status"] != "completed" or identifier in listed:
+            continue
+        status = await client.operations.get_operation_status(
+            bank_id=bank_id, operation_id=identifier, _request_timeout=10.0
+        )
+        operations.append(
+            {
+                "operation_id": identifier,
+                # Not yet visible to Hindsight: keep waiting rather than fail.
+                "status": "pending" if status.status == "not_found" else status.status,
+                "type": _operation_type(status.operation_type or status.task_type),
+            }
+        )
+        listed.add(identifier)
     return {
-        "outbox": await asyncio.to_thread(_read_outbox, database_url, bank_id),
+        "outbox": outbox,
         "operations": operations,
         "pending_consolidation": stats.pending_consolidation,
         "failed_consolidation": stats.failed_consolidation,

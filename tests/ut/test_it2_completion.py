@@ -10,6 +10,7 @@ from hindsight_client import Hindsight
 from hindsight_client_api.exceptions import NotFoundException
 from hindsight_client_api.models.bank_stats_response import BankStatsResponse
 from hindsight_client_api.models.operation_response import OperationResponse
+from hindsight_client_api.models.operation_status_response import OperationStatusResponse
 from hindsight_client_api.models.operations_list_response import OperationsListResponse
 
 pytestmark = pytest.mark.ut
@@ -159,6 +160,42 @@ def test_wait_times_out_with_injected_clock(completion: ModuleType) -> None:
     assert reads[0] > 1
 
 
+@pytest.mark.parametrize(
+    ("change", "expected"),
+    [
+        (
+            {"pending_consolidation": 3, "pending_operations": 0},
+            "completion wait limit exceeded: source memories await consolidation "
+            "(outbox completed 1/1; retain completed 1/1; consolidation completed 1/1; "
+            "pending_consolidation 3; pending_operations 0)",
+        ),
+        (
+            {
+                "outbox": [
+                    {"operation_id": "retain-1", "status": "completed", "update_mode": "append"},
+                    {"operation_id": "retain-2", "status": "pending", "update_mode": "append"},
+                ]
+            },
+            "completion wait limit exceeded: outbox or operations are not complete "
+            "(outbox completed 1/2; retain completed 1/1; consolidation completed 1/1; "
+            "pending_consolidation 0; pending_operations 0)",
+        ),
+    ],
+)
+def test_timeout_reason_names_the_last_unmet_condition_with_fresh_counts(
+    completion: ModuleType, change: dict[str, object], expected: str
+) -> None:
+    elapsed = [0.0]
+
+    def sleep(seconds: float) -> None:
+        elapsed[0] += seconds
+
+    result = completion.wait_for_completion(
+        snapshot=lambda: _snapshot() | change, clock=lambda: elapsed[0], sleep=sleep
+    )
+    assert result == completion.CompletionResult("timeout", expected)
+
+
 def test_wait_returns_failure_immediately_without_retry(completion: ModuleType) -> None:
     reads = [0]
 
@@ -228,6 +265,120 @@ def test_snapshot_reads_all_sdk_pages_and_only_target_bank_outbox(completion: Mo
     assert all(call.kwargs["bank_id"] == "bank" and call.kwargs["limit"] == 100 for call in calls)
     assert connection.execute.call_args.args[1] == ("bank",)
     assert client.banks.get_agent_stats.await_args.kwargs["refresh"] is True
+
+
+def _stats() -> BankStatsResponse:
+    return BankStatsResponse(
+        bank_id="bank",
+        total_nodes=1,
+        total_links=0,
+        total_documents=1,
+        nodes_by_fact_type={},
+        links_by_link_type={},
+        links_by_fact_type={},
+        links_breakdown={},
+        pending_operations=0,
+        failed_operations=0,
+        pending_consolidation=0,
+        failed_consolidation=0,
+    )
+
+
+def _operation(identifier: str, kind: str) -> OperationResponse:
+    return OperationResponse(
+        id=identifier,
+        task_type=kind,
+        items_count=1,
+        created_at="2026-11-05T00:00:00Z",
+        status="completed",
+        error_message=None,
+    )
+
+
+def test_snapshot_looks_up_outbox_operations_that_paging_skipped(completion: ModuleType) -> None:
+    # Hindsight 1.1.0 orders the listing by created_at only. A batch parent and its child
+    # share created_at, so offset pages can repeat the child and skip the parent (#89).
+    client = MagicMock(spec=Hindsight)
+    pages = [[_operation("child-1", "retain")], [_operation("child-1", "retain")]]
+    pages.append([_operation("consolidate-1", "consolidation")])
+    client.operations.list_operations = AsyncMock(
+        side_effect=[
+            OperationsListResponse(bank_id="bank", operations=page, total=3, limit=1, offset=index)
+            for index, page in enumerate(pages)
+        ]
+    )
+    client.operations.get_operation_status = AsyncMock(
+        return_value=OperationStatusResponse(
+            operation_id="retain-1", status="completed", operation_type="batch_retain"
+        )
+    )
+    client.banks.get_agent_stats = AsyncMock(return_value=_stats())
+    with patch("tests.it2.completion.psycopg.connect") as connect:
+        connection = connect.return_value.__enter__.return_value
+        connection.execute.return_value.fetchall.return_value = [
+            ("retain-1", "completed", "append"),
+            ("delete-1", "completed", "delete"),
+        ]
+        snapshot = asyncio.run(completion.read_completion_snapshot(client, "synthetic-db", "bank"))
+    assert completion.evaluate_completion(**snapshot).status == "complete"
+    assert [row["operation_id"] for row in snapshot["operations"]] == [
+        "child-1",
+        "consolidate-1",
+        "retain-1",
+    ]
+    lookup = client.operations.get_operation_status.await_args
+    assert client.operations.get_operation_status.await_count == 1
+    assert lookup.kwargs["bank_id"] == "bank" and lookup.kwargs["operation_id"] == "retain-1"
+
+
+@pytest.mark.parametrize("outbox_status", ["pending", "completed"])
+def test_snapshot_waits_while_a_skipped_operation_is_not_yet_known(
+    completion: ModuleType, outbox_status: str
+) -> None:
+    client = MagicMock(spec=Hindsight)
+    client.operations.list_operations = AsyncMock(
+        return_value=OperationsListResponse(
+            bank_id="bank",
+            operations=[_operation("consolidate-1", "consolidation")],
+            total=1,
+            limit=100,
+            offset=0,
+        )
+    )
+    client.operations.get_operation_status = AsyncMock(
+        return_value=OperationStatusResponse(operation_id="retain-1", status="not_found")
+    )
+    client.banks.get_agent_stats = AsyncMock(return_value=_stats())
+    with patch("tests.it2.completion.psycopg.connect") as connect:
+        connection = connect.return_value.__enter__.return_value
+        connection.execute.return_value.fetchall.return_value = [
+            ("retain-1", outbox_status, "append")
+        ]
+        snapshot = asyncio.run(completion.read_completion_snapshot(client, "synthetic-db", "bank"))
+    assert completion.evaluate_completion(**snapshot).status == "waiting"
+    assert client.operations.get_operation_status.await_count == (outbox_status == "completed")
+
+
+def test_snapshot_does_not_look_up_operations_already_listed(completion: ModuleType) -> None:
+    client = MagicMock(spec=Hindsight)
+    client.operations.list_operations = AsyncMock(
+        return_value=OperationsListResponse(
+            bank_id="bank",
+            operations=[_operation("retain-1", "batch_retain")],
+            total=1,
+            limit=100,
+            offset=0,
+        )
+    )
+    client.operations.get_operation_status = AsyncMock()
+    client.banks.get_agent_stats = AsyncMock(return_value=_stats())
+    with patch("tests.it2.completion.psycopg.connect") as connect:
+        connection = connect.return_value.__enter__.return_value
+        connection.execute.return_value.fetchall.return_value = [
+            ("retain-1", "completed", "append")
+        ]
+        asyncio.run(completion.read_completion_snapshot(client, "synthetic-db", "bank"))
+    client.operations.get_operation_status.assert_not_awaited()
 
 
 def test_snapshot_rejects_nonadvancing_sdk_page(completion: ModuleType) -> None:
