@@ -1,0 +1,3839 @@
+{
+  "model": "gemma4-12b",
+  "scorer_version": "2",
+  "threshold": 0.05,
+  "verdict": "PASS",
+  "series": [
+    {
+      "verdict": "PASS",
+      "target_memories": 100,
+      "counts": {
+        "sessions": 50,
+        "input_facts": 50,
+        "extracted_facts": 50,
+        "consolidated_facts": 50
+      },
+      "conditions": {
+        "request_count": 200,
+        "warmup_count": 20,
+        "concurrency": 1,
+        "query_length": 19,
+        "models": [
+          "gemma4-12b",
+          "bge-m3",
+          "bge-reranker-v2-m3"
+        ],
+        "hindsight_generation_model": "gemma4-12b",
+        "model_gpu_layers": {
+          "gemma4-12b": 999,
+          "bge-m3": 999,
+          "bge-reranker-v2-m3": 999
+        },
+        "model_context_lengths": {
+          "gemma4-12b": 32768,
+          "bge-m3": 8192,
+          "bge-reranker-v2-m3": 8192
+        },
+        "offload": "requested GPU layers",
+        "context_length": 32768,
+        "format": "assembled"
+      },
+      "samples": [
+        {
+          "elapsed_ms": 487.16126100043766,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": true
+        },
+        {
+          "elapsed_ms": 259.3676390024484,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": true
+        },
+        {
+          "elapsed_ms": 302.82925500068814,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": true
+        },
+        {
+          "elapsed_ms": 252.76241800020216,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": true
+        },
+        {
+          "elapsed_ms": 250.87486300253659,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": true
+        },
+        {
+          "elapsed_ms": 264.6072639981867,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": true
+        },
+        {
+          "elapsed_ms": 260.2070150023792,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": true
+        },
+        {
+          "elapsed_ms": 255.21167899933062,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": true
+        },
+        {
+          "elapsed_ms": 263.8404729987087,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": true
+        },
+        {
+          "elapsed_ms": 253.25145699753193,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": true
+        },
+        {
+          "elapsed_ms": 278.7655529973563,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": true
+        },
+        {
+          "elapsed_ms": 242.35231300190208,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": true
+        },
+        {
+          "elapsed_ms": 261.9443420007883,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": true
+        },
+        {
+          "elapsed_ms": 256.70740499845124,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": true
+        },
+        {
+          "elapsed_ms": 250.94940999770188,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": true
+        },
+        {
+          "elapsed_ms": 252.99469099991256,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": true
+        },
+        {
+          "elapsed_ms": 260.82407800276997,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": true
+        },
+        {
+          "elapsed_ms": 254.100105001271,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": true
+        },
+        {
+          "elapsed_ms": 247.10826999944402,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": true
+        },
+        {
+          "elapsed_ms": 273.1154899993271,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": true
+        },
+        {
+          "elapsed_ms": 257.5143889989704,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 245.5308429998695,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 258.40809799774433,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 247.12091499895905,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 248.06464300127118,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 252.72324999968987,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 247.44815699887113,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 262.2642719979922,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 252.92210600309772,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 236.79561700191698,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 259.2249539993645,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 255.71391500125173,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 250.63854600011837,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 259.34360300016124,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 254.22803000037675,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 250.18884599921876,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 255.0214849979966,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 251.8812460002664,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 252.265618997626,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 248.91265900077997,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 264.92413300002227,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 249.49591100084945,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 260.8091440015414,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 259.32100099817035,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 260.0032580012339,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 262.0083990004787,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 241.45240600046236,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 239.30159199881018,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 258.88554799894337,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 249.70264700095868,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 250.6026250011928,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 232.04720599824213,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 247.83659300010186,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 252.61175900232047,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 252.05408999681822,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 250.78281400055857,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 245.36281999826315,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 281.6527420000057,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 271.8134419992566,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 252.88591500066104,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 253.83856099870172,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 241.74429899721872,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 261.40085099905264,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 252.81720400016638,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 237.75398200086784,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 251.56106500071473,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 252.37109100271482,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 247.31553099991288,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 245.88882500029285,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 253.0148250007187,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 258.63440799730597,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 260.7694150028692,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 254.56174699866096,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 256.1797119997209,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 247.0399730009376,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 265.02126999912434,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 247.69404600010603,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 252.54206099998555,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 243.56536499908543,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 254.42893500076025,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 251.1005769993062,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 253.58853199941223,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 250.27382600092096,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 248.82912199973362,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 255.99588600016432,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 245.8928010019008,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 245.93165499754832,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 252.29907700122567,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 247.1622960001696,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 243.5876300005475,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 243.49764799990226,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 245.21929299953626,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 260.18463000218617,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 265.2799679999589,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 249.72851699931198,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 249.7973200006527,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 245.18424200141453,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 233.64897900319193,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 261.09213900053874,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 242.9751320014475,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 266.72246199814253,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 230.126777998521,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 249.19790299827582,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 260.9217940007511,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 248.14614699789672,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 253.70622999980696,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 245.09418600064237,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 247.00295900038327,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 249.47964700186276,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 251.47413499871618,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 246.1789189983392,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 238.35121900265221,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 257.00639199931175,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 252.60939600048005,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 237.98506500315852,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 248.57741500090924,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 252.5300730012532,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 261.37946100061527,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 246.13585000042804,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 253.00766000145813,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 258.6148949994822,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 251.55943400022807,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 248.50382400109083,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 247.21201099964674,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 257.43115399745875,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 249.58535699988715,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 253.09235299937427,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 257.03100099781295,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 256.3926970033208,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 252.4406779994024,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 260.4777600026864,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 245.40879499909352,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 247.49626500124577,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 251.27630499991938,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 248.83165799838025,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 246.52071300079115,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 251.5220799978124,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 252.9111660005583,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 260.11377300164895,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 247.73221800205647,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 244.84336499881465,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 246.025821998046,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 262.18788999904064,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 262.16522000322584,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 256.971553000767,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 249.13699600074324,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 239.09343299965258,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 252.45849299972178,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 259.1492159990594,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 241.7186650018266,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 250.30284699823824,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 249.8441889983951,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 257.22359100109315,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 249.34086600114824,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 241.48614300065674,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 258.84301800033427,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 257.09802100027446,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 248.49129799986258,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 258.35670699962066,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 258.3313420000195,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 269.52397400236805,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 240.1331070032029,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 251.08026299858466,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 247.61041500096326,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 244.31807300061337,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 253.05660199956037,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 250.02746600148384,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 257.0450120001624,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 248.83650699848658,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 260.78172999768867,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 247.3562769991986,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 240.95129199849907,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 256.8014030002814,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 246.8377760014846,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 243.01015700257267,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 248.08521699742414,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 243.6910819997138,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 270.49724500102457,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 247.33663900042302,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 247.76191899945843,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 262.87868399958825,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 251.00191599995014,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 247.95501900007366,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 244.2988590009918,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 245.2146210016508,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 257.5801450002473,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 244.6517969983688,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 259.8781950000557,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 249.38868199751596,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 256.00988700171,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 246.5903639968019,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 249.50462199922185,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 288.81953900054214,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 286.74215400315006,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 250.3453030003584,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 249.14336400252068,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 242.025283001567,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 240.5582270002924,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 260.27016599982744,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 243.4660300023097,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 261.05385399932857,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 236.10740799995256,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 255.39916300112964,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 260.77849400098785,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 251.83188899973175,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 250.18023299708148,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 255.9875290025957,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 247.66708099923562,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 264.62494500083267,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 257.5968050005031,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 248.74484999963897,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 237.29401099990355,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 261.6745699997409,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 253.20274099794915,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 237.98484899816685,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 256.680715996481,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 253.8248279997788,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 263.39038600053755,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 253.77825300165568,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 259.73545399756404,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        }
+      ],
+      "preparation": {
+        "status": "complete",
+        "waits": [
+          {
+            "ingestion_seconds": 260.6628493419994,
+            "character_state_wait_seconds": 0.028577705998031888
+          },
+          {
+            "ingestion_seconds": 284.7684450579982,
+            "character_state_wait_seconds": 0.026476389000890777
+          }
+        ]
+      },
+      "request_count": 200,
+      "failure_rate": 0.0,
+      "positive_nonempty_responses": 100,
+      "nonempty_responses": 200,
+      "positive_fact_responses": 100,
+      "fact_responses": 200,
+      "p50_ms": 251.1005769993062,
+      "p95_ms": 264.62494500083267,
+      "target_p50_met": false,
+      "target_p95_met": true,
+      "separate_measurements": {
+        "trace_status": "measured",
+        "resident_ms": [
+          67.65856699712458,
+          65.15018600111944,
+          64.34867099960684,
+          65.08982699961052,
+          63.63479100036784,
+          64.85988799977349,
+          64.11157600086881,
+          61.808675000065705,
+          62.88237999979174,
+          67.15259499833337,
+          64.49182899814332,
+          63.40051499864785,
+          63.07658299920149,
+          63.96122299702256,
+          62.628240000776714,
+          62.474108999595046,
+          64.5915490022162,
+          65.83624699851498,
+          65.85173200073768,
+          67.5428880022082
+        ],
+        "character_state_seconds": 3.146386757001892,
+        "character_state_scope": "Turn HTTP send through queue completion",
+        "character_state_status": "complete"
+      },
+      "generation": {
+        "status": "measured",
+        "counter": "llamacpp:n_decode_total",
+        "counter_delta": 0,
+        "local_counter_delta": 0
+      },
+      "trace_durations": {
+        "trace.retrieval_results[0].duration_seconds": 0.0,
+        "trace.retrieval_results[1].duration_seconds": 0.0,
+        "trace.retrieval_results[2].duration_seconds": 0.0,
+        "trace.retrieval_results[3].duration_seconds": 0.0,
+        "trace.retrieval_results[4].duration_seconds": 0.0,
+        "trace.retrieval_results[5].duration_seconds": 0.0,
+        "trace.retrieval_results[6].duration_seconds": 0.0,
+        "trace.retrieval_results[7].duration_seconds": 0.0,
+        "trace.retrieval_results[8].duration_seconds": 0.0,
+        "trace.summary.total_duration_seconds": 0.2029084169989801,
+        "trace.summary.phase_metrics[0:backend_acquisition].duration_seconds": 1.0250005288980901e-06,
+        "trace.summary.phase_metrics[1:generate_query_embedding].duration_seconds": 0.010631449997163145,
+        "trace.summary.phase_metrics[2:store_recall].duration_seconds": 0.008491803000651998,
+        "trace.summary.phase_metrics[3:parallel_retrieval].duration_seconds": 0.00886581099985051,
+        "trace.summary.phase_metrics[4:retrieval_temporal_extraction].duration_seconds": 1.1000156519003212e-07,
+        "trace.summary.phase_metrics[5:retrieval_store_recall].duration_seconds": 0.008491803000651998,
+        "trace.summary.phase_metrics[6:rrf_merge].duration_seconds": 0.00029437700140988454,
+        "trace.summary.phase_metrics[7:hydrate_results].duration_seconds": 5.022000550525263e-06,
+        "trace.summary.phase_metrics[8:reranking].duration_seconds": 0.1758656300007715,
+        "trace.summary.phase_metrics[9:combined_scoring].duration_seconds": 0.0005791410003439523,
+        "trace.summary.phase_metrics[10:chunk_fetch].duration_seconds": 0.0023285320021386724,
+        "trace.summary.phase_metrics[11:token_filtering].duration_seconds": 0.00010359200314269401,
+        "trace.summary.phase_metrics[12:result_serialization].duration_seconds": 0.0006984450010349974,
+        "trace.summary.phase_metrics[13:source_fact_fetch].duration_seconds": 0.0018159419996663928,
+        "trace.summary.phase_metrics[14:entity_build].duration_seconds": 0.0005137019979883917,
+        "trace.summary.phase_metrics[15:semaphore_wait].duration_seconds": 2.429998858133331e-06,
+        "trace.summary.phase_metrics[16:trace_finalize].duration_seconds": 0.000935054002184188
+      }
+    },
+    {
+      "verdict": "PASS",
+      "target_memories": 1000,
+      "counts": {
+        "sessions": 500,
+        "input_facts": 501,
+        "extracted_facts": 501,
+        "consolidated_facts": 501
+      },
+      "conditions": {
+        "request_count": 200,
+        "warmup_count": 20,
+        "concurrency": 1,
+        "query_length": 19,
+        "models": [
+          "gemma4-12b",
+          "bge-m3",
+          "bge-reranker-v2-m3"
+        ],
+        "hindsight_generation_model": "gemma4-12b",
+        "model_gpu_layers": {
+          "gemma4-12b": 999,
+          "bge-m3": 999,
+          "bge-reranker-v2-m3": 999
+        },
+        "model_context_lengths": {
+          "gemma4-12b": 32768,
+          "bge-m3": 8192,
+          "bge-reranker-v2-m3": 8192
+        },
+        "offload": "requested GPU layers",
+        "context_length": 32768,
+        "format": "assembled"
+      },
+      "samples": [
+        {
+          "elapsed_ms": 279.38871000151266,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": true
+        },
+        {
+          "elapsed_ms": 269.8910840008466,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": true
+        },
+        {
+          "elapsed_ms": 282.25291399940033,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": true
+        },
+        {
+          "elapsed_ms": 266.2382410017017,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": true
+        },
+        {
+          "elapsed_ms": 272.0324379988597,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": true
+        },
+        {
+          "elapsed_ms": 292.3463100014487,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": true
+        },
+        {
+          "elapsed_ms": 322.3470599987195,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": true
+        },
+        {
+          "elapsed_ms": 276.8071800019243,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": true
+        },
+        {
+          "elapsed_ms": 288.14839299957384,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": true
+        },
+        {
+          "elapsed_ms": 295.22635999819613,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": true
+        },
+        {
+          "elapsed_ms": 278.6345339991385,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": true
+        },
+        {
+          "elapsed_ms": 275.08933499848354,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": true
+        },
+        {
+          "elapsed_ms": 292.3578699992504,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": true
+        },
+        {
+          "elapsed_ms": 286.43499099780456,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": true
+        },
+        {
+          "elapsed_ms": 278.2377080002334,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": true
+        },
+        {
+          "elapsed_ms": 300.03051700259675,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": true
+        },
+        {
+          "elapsed_ms": 277.8772109995771,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": true
+        },
+        {
+          "elapsed_ms": 311.95628400018904,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": true
+        },
+        {
+          "elapsed_ms": 304.0563110007497,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": true
+        },
+        {
+          "elapsed_ms": 302.57291800080566,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": true
+        },
+        {
+          "elapsed_ms": 279.04698100246605,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 271.9234120013425,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 302.703097997437,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 283.19012700012536,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 299.04699899998377,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 282.3812389979139,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 315.49043700215407,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 290.37391600286355,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 282.96717099874513,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 287.2269170002255,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 313.41583899848047,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 293.8025399998878,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 283.2512169989059,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 272.221551000257,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 268.361228001595,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 312.8956789987569,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 328.53409699964686,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 273.0855789995985,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 345.39932400002726,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 284.6595080009138,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 296.89088799932506,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 315.75066699952004,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 285.8248349984933,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 272.0516930021404,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 303.53833099798067,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 344.6204619976925,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 294.1829219998908,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 276.2908590011648,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 279.87427200059756,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 280.1719310009503,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 280.6007210019743,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 304.4113969990576,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 289.219359998242,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 305.8644529992307,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 325.2008509989537,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 311.26371700156596,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 292.30565699981526,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 276.1915949995455,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 283.2841620002,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 277.0557110015943,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 302.9337059997488,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 285.2651649991458,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 293.1825160012522,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 270.97240700095426,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 307.12232400037465,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 285.5595950022689,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 281.8039459998545,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 289.0858319988183,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 295.85823900197283,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 295.39341800045804,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 292.51274000125704,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 324.3083109991858,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 308.185884001432,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 313.5784670012072,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 300.87882299994817,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 293.51475200019195,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 297.29861700252513,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 296.5923420015315,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 301.3704859986319,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 286.41381100169383,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 295.05061199961347,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 286.1819849968015,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 303.32250900028157,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 328.967328001454,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 313.09639800019795,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 300.1907969992317,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 332.7372870007821,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 302.02970200116397,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 313.4988060010073,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 316.568742000527,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 305.9882039997319,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 300.50315799962846,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 310.6340399972396,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 305.42480499934754,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 301.25286000111373,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 308.90760400143336,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 322.8032719998737,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 309.058147999167,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 327.9674529985641,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 325.65660100226523,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 272.31954200033215,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 335.0011260008614,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 286.6336719998799,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 274.496973001078,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 267.31538999956683,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 267.3850280007173,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 275.1404230002663,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 277.44186900235945,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 272.38602500074194,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 295.0101349997567,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 307.1681939982227,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 287.59240999715985,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 263.1119379984739,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 305.6662900016818,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 288.5861290014873,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 260.4988079983741,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 267.9929890000494,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 265.14159599901177,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 289.8548869998194,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 266.23842300250544,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 290.5405419987801,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 261.0187919999589,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 282.82488500190084,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 272.3051649991248,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 276.6228179971222,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 278.0473589991743,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 277.9478880001989,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 267.01405300264014,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 270.95491599902743,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 283.34196000287193,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 275.06775799702154,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 278.5738989987294,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 273.75328600101057,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 273.0091869998432,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 264.96154599954025,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 281.09084099924075,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 279.3437510008516,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 273.0724159991951,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 272.8935220002313,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 299.350608001987,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 277.2588560001168,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 274.300762997882,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 271.47349400183884,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 310.1545539975632,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 280.034176998015,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 270.81695800006855,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 269.11333899988676,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 280.6374549982138,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 275.2737810005783,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 273.7102200007939,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 277.1560020009929,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 281.0225489993172,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 272.3134929983644,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 282.03091799878166,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 281.12960399812437,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 293.9926170001854,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 286.1394100000325,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 280.5921609979123,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 266.4077199988242,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 272.8573360000155,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 287.50889000002644,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 265.0878599997668,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 281.1133949981013,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 265.0237300003937,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 282.34108200194896,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 280.0674390018685,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 268.4130550005648,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 294.6858780014736,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 287.5321300016367,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 273.99020200027735,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 283.23385499970755,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 282.6900520012714,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 283.21340199909173,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 265.2260009999736,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 281.6986599973461,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 275.8173939982953,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 290.57140100121615,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 279.36854399740696,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 273.26306699978886,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 272.4021129979519,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 277.8181039975607,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 275.19155900154146,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 277.84725300080026,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 277.31975099959527,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 290.0014459992235,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 288.7593930026924,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 281.73660499669495,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 281.3599319997593,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 273.8746209979581,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 277.5516500005324,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 283.8941469999554,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 305.94529200243414,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 272.0055549980316,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 286.8516849994194,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 290.6224899998051,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 300.9424259980733,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 288.86481700101285,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 272.19181500186096,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 298.2730830008222,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 305.2458820020547,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 268.8627970019297,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 274.46835699811345,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 283.95866800201475,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 273.88417399924947,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 278.86961699914536,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 277.1151220003958,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 282.8350340023462,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 284.9650290008867,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 273.49791600136086,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 262.6945859992702,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 286.26176999750896,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 285.87202500057174,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 272.23685100034345,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 287.0124430010037,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 291.32770399883157,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 274.8586420020729,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 269.71172399862553,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 267.8493940002227,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 279.8635609979101,
+          "success": true,
+          "positive": true,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        },
+        {
+          "elapsed_ms": 269.48723700115806,
+          "success": true,
+          "positive": false,
+          "fact_nonempty": true,
+          "response_nonempty": true,
+          "warmup": false
+        }
+      ],
+      "preparation": {
+        "status": "complete",
+        "waits": [
+          {
+            "ingestion_seconds": 289.11451571400175,
+            "character_state_wait_seconds": 0.027385621000576066
+          },
+          {
+            "ingestion_seconds": 289.062006827,
+            "character_state_wait_seconds": 0.027806645000964636
+          },
+          {
+            "ingestion_seconds": 292.73404921100155,
+            "character_state_wait_seconds": 0.027843530999234645
+          },
+          {
+            "ingestion_seconds": 292.6823565480008,
+            "character_state_wait_seconds": 0.026653507000446552
+          },
+          {
+            "ingestion_seconds": 287.30440991799696,
+            "character_state_wait_seconds": 0.026297272997908294
+          },
+          {
+            "ingestion_seconds": 287.2968318130006,
+            "character_state_wait_seconds": 0.027995690998068312
+          },
+          {
+            "ingestion_seconds": 287.46572560300046,
+            "character_state_wait_seconds": 0.02687566700114985
+          },
+          {
+            "ingestion_seconds": 284.1828194869995,
+            "character_state_wait_seconds": 0.026976744000421604
+          },
+          {
+            "ingestion_seconds": 283.9938363939982,
+            "character_state_wait_seconds": 0.02684244000192848
+          },
+          {
+            "ingestion_seconds": 283.02442638499997,
+            "character_state_wait_seconds": 0.0278110219987866
+          },
+          {
+            "ingestion_seconds": 281.2074626629983,
+            "character_state_wait_seconds": 0.026160056000662735
+          },
+          {
+            "ingestion_seconds": 282.1749690329998,
+            "character_state_wait_seconds": 0.027287695000268286
+          },
+          {
+            "ingestion_seconds": 280.85740385999816,
+            "character_state_wait_seconds": 0.028789572999812663
+          },
+          {
+            "ingestion_seconds": 281.11224254899935,
+            "character_state_wait_seconds": 0.02773416999843903
+          },
+          {
+            "ingestion_seconds": 284.62996157499947,
+            "character_state_wait_seconds": 0.028326497002126416
+          },
+          {
+            "ingestion_seconds": 290.97794501500175,
+            "character_state_wait_seconds": 0.02779644600013853
+          },
+          {
+            "ingestion_seconds": 293.21026550499664,
+            "character_state_wait_seconds": 0.027304766001179814
+          },
+          {
+            "ingestion_seconds": 291.9332109579991,
+            "character_state_wait_seconds": 0.02838986200004001
+          }
+        ]
+      },
+      "request_count": 200,
+      "failure_rate": 0.0,
+      "positive_nonempty_responses": 100,
+      "nonempty_responses": 200,
+      "positive_fact_responses": 100,
+      "fact_responses": 200,
+      "p50_ms": 282.96717099874513,
+      "p95_ms": 322.8032719998737,
+      "target_p50_met": false,
+      "target_p95_met": false,
+      "separate_measurements": {
+        "trace_status": "measured",
+        "resident_ms": [
+          68.93884899909608,
+          67.30037899978925,
+          65.05370199738536,
+          70.9187149986974,
+          65.55235099949641,
+          63.468852000369225,
+          64.20051499662804,
+          63.82758000108879,
+          65.81131699931575,
+          64.51948800167884,
+          63.80981199981761,
+          62.93551300041145,
+          63.37689800056978,
+          63.02245299957576,
+          64.24259699997492,
+          63.84964699827833,
+          64.79746699915268,
+          63.780475000385195,
+          63.52684400189901,
+          69.19958099751966
+        ],
+        "character_state_seconds": 3.1514506740022625,
+        "character_state_scope": "Turn HTTP send through queue completion",
+        "character_state_status": "complete"
+      },
+      "generation": {
+        "status": "measured",
+        "counter": "llamacpp:n_decode_total",
+        "counter_delta": 0,
+        "local_counter_delta": 0
+      },
+      "trace_durations": {
+        "trace.retrieval_results[0].duration_seconds": 0.0,
+        "trace.retrieval_results[1].duration_seconds": 0.0,
+        "trace.retrieval_results[2].duration_seconds": 0.0,
+        "trace.retrieval_results[3].duration_seconds": 0.0,
+        "trace.retrieval_results[4].duration_seconds": 0.0,
+        "trace.retrieval_results[5].duration_seconds": 0.0,
+        "trace.retrieval_results[6].duration_seconds": 0.0,
+        "trace.retrieval_results[7].duration_seconds": 0.0,
+        "trace.retrieval_results[8].duration_seconds": 0.0,
+        "trace.summary.total_duration_seconds": 0.22064104799937923,
+        "trace.summary.phase_metrics[0:backend_acquisition].duration_seconds": 1.3940007193014026e-06,
+        "trace.summary.phase_metrics[1:generate_query_embedding].duration_seconds": 0.010953198998322478,
+        "trace.summary.phase_metrics[2:store_recall].duration_seconds": 0.020389637000334915,
+        "trace.summary.phase_metrics[3:parallel_retrieval].duration_seconds": 0.02081318300042767,
+        "trace.summary.phase_metrics[4:retrieval_temporal_extraction].duration_seconds": 1.2799864634871483e-07,
+        "trace.summary.phase_metrics[5:retrieval_store_recall].duration_seconds": 0.020389637000334915,
+        "trace.summary.phase_metrics[6:rrf_merge].duration_seconds": 0.001047421003022464,
+        "trace.summary.phase_metrics[7:rerank_prefilter].duration_seconds": 0.0,
+        "trace.summary.phase_metrics[8:hydrate_results].duration_seconds": 5.640999006573111e-06,
+        "trace.summary.phase_metrics[9:reranking].duration_seconds": 0.17536640600155806,
+        "trace.summary.phase_metrics[10:combined_scoring].duration_seconds": 0.0007500069987145253,
+        "trace.summary.phase_metrics[11:chunk_fetch].duration_seconds": 0.0025485730002401397,
+        "trace.summary.phase_metrics[12:token_filtering].duration_seconds": 9.596699965186417e-05,
+        "trace.summary.phase_metrics[13:result_serialization].duration_seconds": 0.000665135001327144,
+        "trace.summary.phase_metrics[14:source_fact_fetch].duration_seconds": 0.0020882469980278984,
+        "trace.summary.phase_metrics[15:entity_build].duration_seconds": 0.0004705780011136085,
+        "trace.summary.phase_metrics[16:semaphore_wait].duration_seconds": 3.894001565640792e-06,
+        "trace.summary.phase_metrics[17:trace_finalize].duration_seconds": 0.002254236998851411
+      }
+    }
+  ]
+}
