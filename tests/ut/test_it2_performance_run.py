@@ -404,6 +404,25 @@ def test_trace_durations_keep_paths_and_ignore_non_numeric_values(
     assert result == {"trace.keyword.duration_ms": 4.0, "trace.paths[0].duration": 2.0}
 
 
+def test_trace_durations_name_phases_by_safe_phase_name(
+    performance_run: ModuleType,
+) -> None:
+    result = performance_run.trace_durations(
+        {
+            "phase_metrics": [
+                {"phase_name": "rerank", "duration_seconds": 0.5},
+                {"phase_name": "bad name/x", "duration_seconds": 0.1},
+                {"duration_seconds": 0.2},
+            ]
+        }
+    )
+    assert result == {
+        "trace.phase_metrics[0:rerank].duration_seconds": 0.5,
+        "trace.phase_metrics[1].duration_seconds": 0.1,
+        "trace.phase_metrics[2].duration_seconds": 0.2,
+    }
+
+
 def test_runner_stops_before_recalls_when_state_queue_times_out(
     performance_run: ModuleType,
 ) -> None:
