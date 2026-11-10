@@ -159,6 +159,42 @@ def test_wait_times_out_with_injected_clock(completion: ModuleType) -> None:
     assert reads[0] > 1
 
 
+@pytest.mark.parametrize(
+    ("change", "expected"),
+    [
+        (
+            {"pending_consolidation": 3, "pending_operations": 0},
+            "completion wait limit exceeded: source memories await consolidation "
+            "(outbox completed 1/1; retain completed 1/1; consolidation completed 1/1; "
+            "pending_consolidation 3; pending_operations 0)",
+        ),
+        (
+            {
+                "outbox": [
+                    {"operation_id": "retain-1", "status": "completed", "update_mode": "append"},
+                    {"operation_id": "retain-2", "status": "pending", "update_mode": "append"},
+                ]
+            },
+            "completion wait limit exceeded: outbox or operations are not complete "
+            "(outbox completed 1/2; retain completed 1/1; consolidation completed 1/1; "
+            "pending_consolidation 0; pending_operations 0)",
+        ),
+    ],
+)
+def test_timeout_reason_names_the_last_unmet_condition_with_fresh_counts(
+    completion: ModuleType, change: dict[str, object], expected: str
+) -> None:
+    elapsed = [0.0]
+
+    def sleep(seconds: float) -> None:
+        elapsed[0] += seconds
+
+    result = completion.wait_for_completion(
+        snapshot=lambda: _snapshot() | change, clock=lambda: elapsed[0], sleep=sleep
+    )
+    assert result == completion.CompletionResult("timeout", expected)
+
+
 def test_wait_returns_failure_immediately_without_retry(completion: ModuleType) -> None:
     reads = [0]
 

@@ -89,6 +89,27 @@ def evaluate_completion(
     return CompletionResult("complete", "retain, consolidation and outbox completed")
 
 
+def _completed(rows: Sequence[OutboxStatus] | Sequence[OperationStatus]) -> str:
+    done = sum(row["status"] == "completed" for row in rows)
+    return f"{done}/{len(rows)}"
+
+
+def _summarize(snapshot: CompletionSnapshot) -> str:
+    """Counts only, so the reason stays safe to publish in reports."""
+    operations = snapshot["operations"]
+    by_type = {
+        kind: _completed([row for row in operations if row["type"] == kind])
+        for kind in ("retain", "consolidation")
+    }
+    return (
+        f"outbox completed {_completed(snapshot['outbox'])}; "
+        f"retain completed {by_type['retain']}; "
+        f"consolidation completed {by_type['consolidation']}; "
+        f"pending_consolidation {snapshot['pending_consolidation']}; "
+        f"pending_operations {snapshot.get('pending_operations', 0)}"
+    )
+
+
 def wait_for_completion(
     *,
     snapshot: Callable[[], CompletionSnapshot],
@@ -97,12 +118,16 @@ def wait_for_completion(
 ) -> CompletionResult:
     deadline = clock() + COMPLETION_WAIT_LIMIT_SECONDS
     while True:
-        result = evaluate_completion(**snapshot())
+        current = snapshot()
+        result = evaluate_completion(**current)
         if result.status == "failed":
             return result
         remaining = deadline - clock()
         if remaining < 0 or (remaining == 0 and result.status == "waiting"):
-            return CompletionResult("timeout", "completion wait limit exceeded")
+            return CompletionResult(
+                "timeout",
+                f"completion wait limit exceeded: {result.reason} ({_summarize(current)})",
+            )
         if result.status != "waiting":
             return result
         sleep(min(COMPLETION_POLL_SECONDS, remaining))
