@@ -195,7 +195,13 @@ def test_threshold_is_identical_for_service_and_supervisor_tests(
         environment={} if value is None else {"RECALL_MIN_RERANKER_SCORE": value},
     )
     environments = [config["services"][name]["environment"] for name in ("service", "tests")]
-    assert [env["RECALL_MIN_RERANKER_SCORE"] for env in environments] == [value or "0.5"] * 2
+    assert [env["RECALL_MIN_RERANKER_SCORE"] for env in environments] == [value or "0.05"] * 2
+
+
+def test_hindsight_reranker_candidates_are_capped(tmp_path: Path) -> None:
+    config = _config(tmp_path, "compose.it2.yml")
+    environment = config["services"]["hindsight"]["environment"]
+    assert environment["HINDSIGHT_API_RERANKER_MAX_CANDIDATES"] == "100"
 
 
 def test_performance_character_is_allowed(tmp_path: Path) -> None:

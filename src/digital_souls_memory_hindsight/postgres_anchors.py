@@ -1,9 +1,13 @@
 """Anchor metadata storage and PGroonga matching on projected ledger text."""
 
+from datetime import datetime
+from typing import cast
+
 import psycopg
 
 from .anchors.ports import AnchorConflict, VerbatimAnchor
 from .evidence.ports import EvidenceUnavailable
+from .postgres_read_scope import read_connection
 
 _COLUMNS = "character_id, anchor_id, turn_id, kind, reason, approved_by, registered_at"
 
@@ -69,19 +73,22 @@ class PostgresAnchorStore:
 
     def list(self, character_id: str) -> tuple[VerbatimAnchor, ...]:
         try:
-            with psycopg.connect(self._url, connect_timeout=5) as connection:
+            with read_connection(self._url) as connection:
                 rows = connection.execute(
                     f"SELECT {_COLUMNS} FROM verbatim_anchors "
                     "WHERE character_id = %s ORDER BY registered_at, anchor_id",
                     (character_id,),
                 ).fetchall()
-                return tuple(VerbatimAnchor(*row) for row in rows)
+                return tuple(
+                    VerbatimAnchor(*cast(tuple[str, str, str, str, str, str, datetime], row))
+                    for row in rows
+                )
         except psycopg.Error as error:
             raise EvidenceUnavailable() from error
 
     def match(self, candidates: tuple[tuple[str, str], ...], query: str) -> frozenset[str]:
         try:
-            with psycopg.connect(self._url, connect_timeout=5) as connection:
+            with read_connection(self._url) as connection:
                 rows = connection.execute(
                     _MATCH,
                     (
@@ -90,6 +97,6 @@ class PostgresAnchorStore:
                         query,
                     ),
                 ).fetchall()
-                return frozenset(row[0] for row in rows)
+                return frozenset(cast(str, row[0]) for row in rows)
         except psycopg.Error as error:
             raise EvidenceUnavailable() from error

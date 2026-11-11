@@ -67,7 +67,7 @@ CharacterState生成には別に既存の30秒の上限があり、設定値に�
 状態生成の通信失敗は`gateway_unavailable`、不正出力は`invalid_output`へ分類します。
 
 プロンプトの正本は`src/digital_souls_memory_hindsight/openai_prompts.py`の定数です。
-systemメッセージ先頭の`[dsm-memory/<操作名>/v1]`で版を識別できます。
+systemメッセージ先頭の`[dsm-memory/<操作名>/v<版>]`で版を識別できます。
 人格を生成するときだけaspectsを渡し、審査には記述文だけを渡します。審査応答は
 `consistent`・`reason`の2項目に限定し、プロンプトでも性格の数値の記載を禁止します。
 ただし理由は自由文なので数値が書かれないことをコードで完全には保証できません。
@@ -170,12 +170,22 @@ Hindsight の failed／cancelled は outbox の failed に残し、自動で成�
 `POST /characters/{character_id}/recall` は、Hindsightの候補自身の `scores.reranker` が
 `RECALL_MIN_RERANKER_SCORE` 未満なら、原文への対応付け前に除外します。
 world・experience・observationに同じ判定を使い、スコアがない候補も除外します。
-閾値はサービス起動時に読み込み、未設定なら仮の既定値0.5を使います。
-実際の値はepic 5のIT2で実モデルを使って決めます。
+閾値はサービス起動時に読み込み、未設定なら既定値0.05を使います。
+0.05はgemma4-12bの実モデルIT2で選びました（[記録](docs/reports/it2/2026-11-05-5-4-gemma4-12b-recall.md)）。
+候補0.05〜0.95は再現率・棄権率が同点で、同点時は低い値を選ぶ規則によるものです。
+合成データでは正例と負例のスコアが大きく離れており、実データでの適切な値を示すものではありません。
 llama.cppのrerankは生のlogitを返します。Hindsightは1回の処理の全スコアが[0,1]なら
 そのまま使い、1つでも範囲外なら全スコアへsigmoidを適用します（監督の合成1問の実測に
 基づく仕様）。同じlogitでも同時に処理する候補によって比較値が変わり得るため、IT2は
 SDKが返した `scores.reranker` の実値を保存し、その値で閾値候補を評価します。
+
+IT2のHindsightは `HINDSIGHT_API_RERANKER_MAX_CANDIDATES` を100にします（既定は300）。
+上限を超えた候補は、Hindsightが融合の順位で後ろから捨て、rerankしません。
+1,000件の記憶ではrerankが想起の大半を占め、300件では必達のp95 600msを超えたためです
+（[記録](docs/reports/it2/2026-11-10-5-8-gemma4-12b-performance.md)）。
+rerankerを単独で測ると、候補100件で約140ms、300件で約530msでした。
+上限より順位の低い候補は想起されません。棄権の試験（AC-R4）の記憶は上限より少なく、
+上限の影響を確かめられません。
 Hindsightの処理は変更しません。
 有限な0〜1の数値だけを受け付け、空・非数値・非有限・範囲外は起動時に拒否します。
 

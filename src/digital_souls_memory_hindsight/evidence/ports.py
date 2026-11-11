@@ -1,6 +1,7 @@
 """Persistence contract for the append-only evidence ledger."""
 
-from contextlib import AbstractContextManager
+from collections.abc import Mapping
+from contextlib import AbstractAsyncContextManager, AbstractContextManager
 from datetime import datetime
 from typing import Protocol
 
@@ -23,6 +24,12 @@ class EvidenceUnavailable(Exception):
 
 
 class EvidenceStore(Protocol):
+    def read_scope(self) -> AbstractAsyncContextManager[None]: ...
+    def get_turns(self, turn_ids: frozenset[str]) -> Mapping[str, Turn]: ...
+    def get_delivery_scopes(self, turn_ids: frozenset[str]) -> Mapping[str, DeliveryScope]: ...
+    def list_projection_turns_for_sessions(
+        self, session_ids: frozenset[str], bank_id: str
+    ) -> tuple[Turn, ...]: ...
     def advance_character_states(self, keys: frozenset[StateKey], now: datetime) -> None: ...
     def clear_character_states(self, session_id: str) -> None: ...
     def list_state_turns(

@@ -4,6 +4,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
+from ..evidence.domain import Turn
 from ..evidence.ports import EvidenceNotFound
 from ..evidence.service import EvidenceService
 from .ports import AnchorNotFound, AnchorStore, VerbatimAnchor
@@ -14,7 +15,7 @@ AnchorProjection = tuple[VerbatimAnchor, str]
 @dataclass(frozen=True)
 class AnchorItem:
     anchor_id: str
-    turn_id: str
+    turn: Turn
     text: str
 
 
@@ -64,25 +65,32 @@ class AnchorService:
         return anchor, text
 
     def list(self, character_id: str) -> tuple[AnchorProjection, ...]:
+        return tuple((anchor, text) for anchor, _, text in self._projected(character_id))
+
+    def _projected(self, character_id: str) -> tuple[tuple[VerbatimAnchor, Turn, str], ...]:
         self._evidence.require_character(character_id)
+        anchors = self._store.list(character_id)
+        projections = self._evidence.projections(
+            frozenset(anchor.turn_id for anchor in anchors), character_id
+        )
         projected = []
-        for anchor in self._store.list(character_id):
-            text = self._evidence.get_projection_text(anchor.turn_id, character_id)
+        for anchor in anchors:
+            turn, text = projections[anchor.turn_id]
             if text:
-                projected.append((anchor, text))
+                projected.append((anchor, turn, text))
         return tuple(projected)
 
     def for_recall(
         self, character_id: str, search: str, source_turn_ids: frozenset[str]
     ) -> tuple[AnchorItem, ...]:
-        projected = self.list(character_id)
+        projected = self._projected(character_id)
         if not projected:
             return ()
         matches = self._store.match(
-            tuple((anchor.anchor_id, text) for anchor, text in projected), search
+            tuple((anchor.anchor_id, text) for anchor, _, text in projected), search
         )
         return tuple(
-            AnchorItem(anchor.anchor_id, anchor.turn_id, text)
-            for anchor, text in projected
+            AnchorItem(anchor.anchor_id, turn, text)
+            for anchor, turn, text in projected
             if anchor.turn_id in source_turn_ids or anchor.anchor_id in matches
         )

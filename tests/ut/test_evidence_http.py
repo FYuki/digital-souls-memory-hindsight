@@ -9,7 +9,7 @@ from __future__ import annotations
 import importlib
 import json
 from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -88,6 +88,27 @@ class MemoryStore:
         self.tombstones: set[str] = set()
         self.state_generations: dict[StateKey, int] = {}
         self.state_pending: dict[StateKey, datetime] = {}
+
+    def read_scope(self) -> nullcontext[None]:
+        return nullcontext()
+
+    def get_turns(self, turn_ids: frozenset[str]) -> dict[str, Turn]:
+        return {key: value for key, value in self.turns.items() if key in turn_ids}
+
+    def get_delivery_scopes(self, turn_ids: frozenset[str]) -> dict[str, DeliveryScope]:
+        return {value.turn_id: value for value in self.delivery_scopes if value.turn_id in turn_ids}
+
+    def list_projection_turns_for_sessions(
+        self, session_ids: frozenset[str], bank_id: str
+    ) -> tuple[Turn, ...]:
+        return tuple(
+            self.turns[value.turn_id]
+            for value in self.outbox.values()
+            if value.bank_id == bank_id
+            and value.update_mode == "append"
+            and value.turn_id in self.turns
+            and self.turns[value.turn_id].session_id in session_ids
+        )
 
     def advance_character_states(self, keys: frozenset[StateKey], now: datetime) -> None:
         for key in keys:

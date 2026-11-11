@@ -1,7 +1,7 @@
 """PostgreSQL adapter; each operation commits before its result reaches HTTP."""
 
 from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import AbstractAsyncContextManager, contextmanager
 from dataclasses import replace
 from datetime import datetime
 from typing import cast
@@ -22,6 +22,7 @@ from .evidence.domain import (
 )
 from .evidence.ports import EvidenceConflict, EvidenceStore, EvidenceUnavailable
 from .outbox import RetainOperation
+from .postgres_read_scope import read_connection, read_scope
 
 
 class PostgresEvidenceStore:
@@ -30,6 +31,57 @@ class PostgresEvidenceStore:
     ) -> None:
         self._url = database_url
         self._bound = connection
+
+    def read_scope(self) -> AbstractAsyncContextManager[None]:
+        return read_scope(self._url)
+
+    @contextmanager
+    def _read_connection(self) -> Iterator[psycopg.Connection[tuple[object, ...]]]:
+        try:
+            if self._bound is not None:
+                yield self._bound
+            else:
+                with read_connection(self._url) as connection:
+                    yield connection
+        except psycopg.IntegrityError as error:
+            raise EvidenceValidationError("Invalid stored evidence") from error
+        except psycopg.Error as error:
+            raise EvidenceUnavailable() from error
+
+    def get_turns(self, turn_ids: frozenset[str]) -> dict[str, Turn]:
+        with (
+            self._read_connection() as connection,
+            connection.cursor(row_factory=class_row(Turn)) as cursor,
+        ):
+            cursor.execute("SELECT * FROM turns WHERE turn_id = ANY(%s)", (sorted(turn_ids),))
+            return {turn.turn_id: turn for turn in cursor.fetchall()}
+
+    def get_delivery_scopes(self, turn_ids: frozenset[str]) -> dict[str, DeliveryScope]:
+        with (
+            self._read_connection() as connection,
+            connection.cursor(row_factory=class_row(DeliveryScope)) as cursor,
+        ):
+            cursor.execute(
+                "SELECT DISTINCT ON (turn_id) turn_id, status, spoken_until, decided_at, scope_id "
+                "FROM delivery_scopes WHERE turn_id = ANY(%s) ORDER BY turn_id, scope_id DESC",
+                (sorted(turn_ids),),
+            )
+            return {scope.turn_id: scope for scope in cursor.fetchall()}
+
+    def list_projection_turns_for_sessions(
+        self, session_ids: frozenset[str], bank_id: str
+    ) -> tuple[Turn, ...]:
+        with (
+            self._read_connection() as connection,
+            connection.cursor(row_factory=class_row(Turn)) as cursor,
+        ):
+            cursor.execute(
+                "SELECT t.* FROM turns t JOIN outbox o ON o.turn_id = t.turn_id "
+                "WHERE t.session_id = ANY(%s) AND o.bank_id = %s AND o.update_mode = 'append' "
+                "ORDER BY o.sequence_id",
+                (sorted(session_ids), bank_id),
+            )
+            return tuple(cursor.fetchall())
 
     def advance_character_states(self, keys: frozenset[StateKey], now: datetime) -> None:
         with self._connection() as connection:
@@ -129,7 +181,7 @@ class PostgresEvidenceStore:
             )
 
     def list_projection_sessions(self, bank_id: str) -> tuple[str, ...]:
-        with self._connection() as connection:
+        with self._read_connection() as connection:
             rows = connection.execute(
                 "SELECT DISTINCT t.session_id FROM turns t JOIN outbox o ON o.turn_id = t.turn_id "
                 "WHERE o.bank_id = %s AND o.update_mode = 'append' ORDER BY t.session_id",
@@ -212,7 +264,7 @@ class PostgresEvidenceStore:
 
     def get_session(self, session_id: str) -> Session | None:
         with (
-            self._connection() as connection,
+            self._read_connection() as connection,
             connection.cursor(row_factory=class_row(Session)) as cursor,
         ):
             cursor.execute(
@@ -263,7 +315,7 @@ class PostgresEvidenceStore:
 
     def get_turn(self, turn_id: str) -> Turn | None:
         with (
-            self._connection() as connection,
+            self._read_connection() as connection,
             connection.cursor(row_factory=class_row(Turn)) as cursor,
         ):
             cursor.execute("SELECT * FROM turns WHERE turn_id = %s", (turn_id,))
@@ -290,7 +342,7 @@ class PostgresEvidenceStore:
 
     def get_delivery_scope(self, turn_id: str) -> DeliveryScope | None:
         with (
-            self._connection() as connection,
+            self._read_connection() as connection,
             connection.cursor(row_factory=class_row(DeliveryScope)) as cursor,
         ):
             cursor.execute(
