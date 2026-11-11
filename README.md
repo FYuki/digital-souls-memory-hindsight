@@ -10,6 +10,7 @@ Hindsight はフォークせず、別プロセスのサーバーと公式クラ�
 
 - [受け入れ条件（草案）](docs/acceptance-criteria.md)：前提・受け入れ条件・既知の問題・未決事項
 - [開発規約](CONTRIBUTING.md)
+- [IT2 のケース・採点契約](docs/it2-scoring-contract.md)
 
 ## セットアップ
 
@@ -42,6 +43,51 @@ healthはプロセスの応答確認であり、DB接続の確認はIT1で行い
 キャラ判定には `EVIDENCE_CHARACTER_IDS` のJSON配列を使います。入力本文からは推測しません。
 未設定・不正設定ではTurn登録を503にし、明示的な空配列 `[]` とは区別します。
 この設定はmigrationとhealthの利用条件ではありません。設定変更はサービス再起動時に読み込みます。
+
+## OpenAI互換の生成・審査設定
+
+LLMGateway・Reviewer・ContextGatewayは、同じOpenAI互換chat completionsの実装を使います。
+接続先はサービス起動時に次の環境変数から読み込みます。
+
+| 変数 | 内容 |
+|---|---|
+| `MEMORY_LLM_BASE_URL` | `/v1`などを含むHTTP(S)のAPI基点。`/chat/completions`を追加して送信する |
+| `MEMORY_LLM_MODEL` | モデル名 |
+| `MEMORY_LLM_API_KEY` | Bearer認証キー。reprやログへ出力しない |
+| `MEMORY_LLM_TIMEOUT_SECONDS` | 正の有限数。httpxの接続・読み取りなど各操作のタイムアウト秒数 |
+
+4項目すべて未設定なら人格のauthor-seedと代表発話の初回登録は従来どおり503となり、
+状態生成は動きません。一部だけの設定、空白だけの値、不正なURL・タイムアウトは起動時に
+エラーになります。migrationも同じ設定ローダーを使うため、不正な設定では失敗します。
+`create_app()`にポートを明示注入した場合は、そのポートを優先し、未注入分だけを環境設定で補います。
+
+同期の生成・審査では上記タイムアウトは処理全体の総時間の上限ではありません。
+CharacterState生成には別に既存の30秒の上限があり、設定値によって延長されません。
+不正なJSON・欠損・空文字を既定文や自動承認で補いません。生成・審査の失敗は503となり、
+状態生成の通信失敗は`gateway_unavailable`、不正出力は`invalid_output`へ分類します。
+
+プロンプトの正本は`src/digital_souls_memory_hindsight/openai_prompts.py`の定数です。
+systemメッセージ先頭の`[dsm-memory/<操作名>/v1]`で版を識別できます。
+人格を生成するときだけaspectsを渡し、審査には記述文だけを渡します。審査応答は
+`consistent`・`reason`の2項目に限定し、プロンプトでも性格の数値の記載を禁止します。
+ただし理由は自由文なので数値が書かれないことをコードで完全には保証できません。
+実モデルでの確認・品質評価はIssue 5-5・5-6で行います。
+`renderer_version`は従来どおり作者指定のラベルで、プロンプトの版とは別です。
+
+## Identity API
+
+| 操作 | 経路 | 成功時 |
+|---|---|---|
+| 気質登録 | `POST /characters/{character_id}/temperaments` | 201。既存項目に`review`を追加 |
+| 人格の作者シード登録 | `POST /characters/{character_id}/personality-profiles/author-seed` | 201。既存項目に`review`を追加 |
+| 現在の人格取得 | `GET /characters/{character_id}/identity/current` | 200。既存の応答を維持 |
+| 気質・人格の版取得 | `GET /characters/{character_id}/temperaments/{version}`、`GET /characters/{character_id}/personality-profiles/{version}` | 200。既存の応答を維持 |
+
+author-seedと、PersonalityProfileがある場合の気質登録は、審査を通ってcommitした後に
+`"review": {"consistent": true, "reason": "審査理由"}`を返します。
+profileのない気質登録は審査せず、`"review": null`を返します。
+審査結果は保存せず、GET・currentにも追加しません。aspectsは応答へ出しません。
+矛盾時は従来どおり422で`detail`・`consistency_review`を返し、登録しません。
 
 ## Evidence API
 
@@ -126,6 +172,11 @@ Hindsight の failed／cancelled は outbox の failed に残し、自動で成�
 world・experience・observationに同じ判定を使い、スコアがない候補も除外します。
 閾値はサービス起動時に読み込み、未設定なら仮の既定値0.5を使います。
 実際の値はepic 5のIT2で実モデルを使って決めます。
+llama.cppのrerankは生のlogitを返します。Hindsightは1回の処理の全スコアが[0,1]なら
+そのまま使い、1つでも範囲外なら全スコアへsigmoidを適用します（監督の合成1問の実測に
+基づく仕様）。同じlogitでも同時に処理する候補によって比較値が変わり得るため、IT2は
+SDKが返した `scores.reranker` の実値を保存し、その値で閾値候補を評価します。
+Hindsightの処理は変更しません。
 有限な0〜1の数値だけを受け付け、空・非数値・非有限・範囲外は起動時に拒否します。
 
 全候補を除外してもHTTPは200で、`memories` は空配列です。問い合わせに一致するAnchorがあれば、
@@ -188,7 +239,7 @@ Cohere互換エンドポイントへ向けます。自動統合は有効のま�
 
 試験はhealth、Alembic upgrade、日本語のretain・recall、自動統合の要求記録、外部TCP接続の
 失敗を確認します。スタブの成功は実モデルの精度・性能の証拠ではありません。実モデルは呼びません。
-pytestの既定socket禁止を保ち、IT1だけ `--allow-hosts=postgres,hindsight,service` を指定します。
+pytestの既定socket禁止を保ち、IT1だけ `--allow-hosts=postgres,hindsight,service,stub` を指定します。
 
 実行ごとに専用のComposeプロジェクトを作り、成功・失敗・通常の中断時にはログ取得後に
 コンテナ・ネットワーク・volumeを削除します。ログは `.it1-artifacts/<実行名>/` に残ります。
@@ -228,3 +279,112 @@ pytestの既定socket禁止を保ち、IT1だけ `--allow-hosts=postgres,hindsig
 
    作り直した後、通常のビルド（`cmp` あり）が通ることを確かめる。
 3. 上がるパッケージと版を確認し、lockfile の差分とあわせて 1 つの PR にまとめ、差分の版を PR 本文に書く。
+
+## IT2（監督による実モデル試験）
+
+AC-R4・R5の選択・確認・性能測定と表生成は
+[公開レポートの手順](docs/reports/it2/README.md#想起の閾値と性能)を参照してください。
+
+IT2 は VRAM に空きがあり、合成データだけを使うことを条件に許可済みです。
+TAKT worker は GPU・実モデルを使いません。ST の許可は別途確認し、Core からの ST は
+Memory クライアントができるまで NOT RUN とします。代替 E2E（IT2）は想定する Core の
+呼び出し順の確認であり、Core 自体の検証ではありません。
+
+監督は固定 sha256 の 3 モデルを同じディレクトリに用意し、次の入口を使います。
+
+```sh
+export IT2_MODEL_DIR=/path/to/models
+export IT2_GENERATION_MODEL=gemma4-12b
+bash scripts/run-it2.sh
+```
+
+3 モデルのファイル名と照合する sha256 の正本は [scripts/run-it2.sh](scripts/run-it2.sh) の
+`verify_model` 呼び出しです。embedding と reranker は次の取得元と revision を使います。
+
+| モデル | 取得元 | revision |
+|---|---|---|
+| `bge-m3-q8_0.gguf` | `ggml-org/bge-m3-Q8_0-GGUF` | `9eba04c5d75ba5a1595e45de734d36bef4e5cb98` |
+| `bge-reranker-v2-m3-Q8_0.gguf` | `gpustack/bge-reranker-v2-m3-GGUF` | `3093af03b1a635e67b084b1d8c03c5f5e020fd05` |
+
+gemma4-12b は取得元と revision の固定がなく、上記スクリプトの sha256 で照合します。
+モデルは読み取り専用で mount し、生成・embedding・
+reranker の 3 サービスを固定 digest の llama.cpp で動かします。ホストへポートを公開しません。
+`IT2_MODEL_UID`／`IT2_MODEL_GID` の既定は 1000 で、モデルを読める権限が必要です。
+
+Hindsight の抽出・統合だけを gpt-6-luna に切り替える場合は `IT2_GENERATION_MODEL=gpt-6-luna` と
+`IT2_CODEX_HOME` を指定します。認証先は auth.json を持つ専用の永続ディレクトリで、
+Hindsight の UID 1000 が読み書きでき、リポジトリ・成果物・一時領域の外に置いてください。
+他のコンテナから同時に使わず、実際の場所や認証内容をレポートに書きません。
+このモードだけ上書き Compose を加え、Hindsight だけに書き込み可能な認証 mount と外部網を与えます。
+LLMGateway・Reviewer・ContextGatewayは両モードとも`llama-generation`のgemma4-12bを使います。
+`service`と`tests`に上記4変数を渡し、`MEMORY_LLM_TIMEOUT_SECONDS`のCompose既定は仮の120秒です。
+実モデルで十分かは未確認であり、CharacterState生成の上限は30秒のままです。
+
+runner は共通 flock で実行を直列化し、3 モデルの hash を検査してから専用 project の残骸を片付け、
+単一 GPU の最大空きが既定 11000 MiB 以上かを確認します。
+`IT2_REQUIRED_VRAM_MIB` で必要量を指定でき、選んだ GPU を 3 サービスで使います。
+11000 MiB は計画上の既定値であり、初回の実測で足りることは未確認です。
+不足・取得失敗では起動せず、起動後の GPU 使用量を `.it2-artifacts/` に記録します。
+llama サービスの異常終了（OOM を含む）は FAIL。成功・失敗・通常の中断時に固定 project
+`dsm-hindsight-it2` だけを片付けます。SIGKILL・ホスト停止時は trap が動きません。
+Compose の直接起動はこれらの事前確認とロックを通らないため、実行には runner を使います。
+
+設定の検証はモデルを起動せず実行できます。
+
+```sh
+docker compose -f compose.it2.yml config
+docker compose -f compose.it2.yml -f compose.it2.gpt-6-luna.yml config
+```
+
+抽出・統合の品質（AC-M1・M2・R3）は、次の試験で確認します。
+
+```sh
+bash scripts/run-it2.sh tests/it2/test_extraction_quality.py
+```
+
+service の HTTP API から固定ケースを投入し、自動統合の完了を待って採点します。
+モデルごとに3 suiteを各3試行、新しいbankで実行し、全試行の全必須ケースが合格した場合だけPASSです。
+失敗した試行も保存し、成功するまでの再試行はしません。
+`IT2_ARTIFACT_DIR`を指定すると、そこへ`extraction-quality-<model>.json`を保存します。
+未指定時は`.it2-artifacts/<実行名>/`です。試験コンテナから書き込み可能な権限が必要です。
+既存の同名結果は上書きしません。FAILの結果も保存してから試験を失敗にします。
+同じ保存先の`extraction-quality-<model>.progress.jsonl`には、確定した試行ごとに1行を追記します。
+最終JSONがなく途中の記録だけがある実行は中断であり、PASSでも比較表の入力でもありません。
+最後の行が書き込み途中で切れている場合、その行は完了した行として扱いません。
+途中の記録も上書きせず、同じ保存先への再実行は拒否します。
+新しい保存先で再実行する場合は、中断した実行の失敗行と中断の事実を公開レポートの
+`costs_and_constraints`に記録し、後の成功で隠さないでください。
+誤統合率・統合漏れ率は記録用で、採用モデルと棄権閾値の決定は別Issueです。
+公開結果は [レポート生成手順](docs/reports/it2/README.md) に従い、採用決定は Issue 5-7 に残します。
+
+登録時の整合チェック（AC-I5）は、監督が次を実行します。
+
+```sh
+bash scripts/run-it2.sh tests/it2/test_consistency.py
+```
+
+固定文章をReviewerへ直接渡す評価と、実生成→実審査→HTTP応答・保存を通す評価を分けます。
+全15ケースを新しいキャラで固定3回実行し、全回の全ケースが合格した場合だけPASSです。
+口調の削除後・後続・再起動後の登録は同じキャラで連続して確認します。
+再起動は同じDBを使うアプリの再生成で、コンテナの実再起動ではありません。
+生成の失敗・審査の失敗を別々に記録し、FAILも全試行とともに保存します。
+seed矛盾ケースは生成内容にも左右されるため、固定文章による評価と合わせて監督が確認します。
+詳細と公開記録は[整合チェックの手順](docs/reports/it2/README.md#登録時の整合チェックac-i5)を参照してください。
+workerによる実モデルの結果はIT2 NOT RUNです。
+
+代替E2E（AC-I4）は、想定する Core の呼び出し順で、Core の検証ではない試験です。
+監督がモデルとVRAMの事前条件を確認して実行します。
+
+```sh
+bash scripts/run-it2.sh tests/it2/test_e2e.py
+```
+
+人格・代表発話・CharacterProfileの登録から、Session・Turn・受領、常駐提供、
+同じSession内の人格・設定変更、完了後の想起、CharacterStateの更新と分離、作者の削除までを
+HTTPで連続して確認します。新しいbankで固定3回実行し、全回の全7手順の合格だけをPASSとします。
+`IT2_ARTIFACT_DIR`以下に`e2e-<IT2_GENERATION_MODEL>.json`と`.progress.jsonl`を保存し、
+FAILと中断の記録を保持します。既存の結果・進捗は上書きしません。
+serviceと試験にはcomposeから同じ合成の作者認可情報を渡します。
+状態生成は統合完了後に受領で起こし、製品の30秒上限を変更しません。
+詳細は[代替E2Eの採点契約](docs/it2-scoring-contract.md#代替e2eac-i4)を参照してください。
+workerのIT2とCoreからのSTはNOT RUNです。Issue #67は監督の実モデル結果の記録まで開いたままとします。

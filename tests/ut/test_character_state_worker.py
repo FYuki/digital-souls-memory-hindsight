@@ -72,6 +72,9 @@ def test_transient_failure_defers_then_stops_after_three_attempts(
     [
         {},
         {"mood": 1},
+        {"mood": "", "relationship_temperature": "温かい", "current_topic": "お茶"},
+        {"mood": "穏やか", "relationship_temperature": " \t ", "current_topic": "お茶"},
+        {"mood": "穏やか", "relationship_temperature": "温かい", "current_topic": ""},
         {
             "mood": "x" * 201,
             "relationship_temperature": "温かい",

@@ -20,14 +20,14 @@
 | A4 | Turn単位の厳密な出典（source_turn_idsの精度）は求めない。会話を削除したら、関連する記憶をさかのぼって消せればよい。作り直し方式でかまわない | 本人が明示 |
 | A5 | 再強化（スコアの加算・last_reinforced_at）は求めない。同じFactへの複数言及が、非同期の統合によって1つの事実として扱えればよい | 本人が明示 |
 | A6 | Hindsightの統合（consolidation）は、標準の自動実行（取り込みのたびに非同期で実行）をそのまま使う。内省と記憶整理（Phase 2）はHindsightの外側で別途行う | 決定（2026-10-26、本人） |
-| A7 | 試験は合成データで行う。実モデルを使う試験（IT2・ST）は、別途許可を得てから実施する | 既定 |
+| A7 | 試験は合成データで行う。IT2 は VRAM が空いていることを条件に許可済み（U9）。TAKT worker は実モデルを実行せず、監督が行う。AC-I4 の代替 E2E はこのリポジトリの IT2 で「想定する Core の呼び出し順」を確認するもので、Core の検証ではない。Core からの ST は Memory クライアントができるまで NOT RUN、ST の実行許可は別途確認する | 決定（2026-11-04〜05、本人） |
 | A8 | 投影の単位は、Hindsightの想定に合わせて「1キャラbank × 1 Session ＝ 1 document」とし、知覚したTurnをappendで追加する。1往復単位にはこだわらない。Turnを削除したときは、台帳に残ったTurnからそのSessionのdocumentをreplaceで作り直す | 決定（2026-10-26、本人がHindsightに合わせると明示。具体の単位はAIの提案） |
-| A9 | Coreが呼ぶHTTP APIは、既存digital-souls-memoryのエンドポイントとスキーマに合わせ、内部の実装は新しく作る。この定めは既存実装との比較用で、受け入れ条件の要求により合う方法があればそれを採ってよい（位置づけの追記：2026-11-03、Issue #44）。Core側も開発途中のため、STでの接続確認はCoreで実装済みの機能に限り、それ以外はIT1で確認する | 決定（2026-10-27、本人） |
+| A9 | Coreが呼ぶHTTP APIは、既存digital-souls-memoryのエンドポイントとスキーマに合わせ、内部の実装は新しく作る。この定めは既存実装との比較用で、受け入れ条件の要求により合う方法があればそれを採ってよい（位置づけの追記：2026-11-03、Issue #44）。AC-I4 の代替 E2E はこのリポジトリの IT2 として「想定する Core の呼び出し順」を確認し、Core 自体の検証とはしない。Core からの ST は Memory クライアントができるまで NOT RUN とする | 決定（2026-10-27、本人。2026-11-04〜05、Epic 5 の範囲を追記） |
 | A10 | IT1では、外部ネットワークに接続しないコンテナ網に、OpenAI互換のスタブ（LLM・embedding）とCohere互換のスタブrerankerを置き、Hindsightサーバーの接続先をそこへ向ける。棄権はrerankerのスコアで判定する。rrfとスタブembeddingでは棄権を判定できないため変更した。サーバーはslimイメージを使う（スタブで動くことを確認済み、7章） | 決定（2026-10-29、本人。slimは2026-10-27の委任に基づきAIが動作確認で判断） |
 | A11 | PostgreSQLは台帳とHindsightで同じインスタンスを使い、データベースを分ける。イメージはpgvectorとPGroongaを入れたものをこのリポジトリでビルドし、版とdigestを固定する。Hindsightの全文検索は `HINDSIGHT_API_TEXT_SEARCH_EXTENSION=pgroonga` とする | 決定（2026-10-27、本人） |
 | A12 | 台帳からHindsightへの投影・削除などの非同期処理は、PostgreSQLのoutboxテーブルと、同じサービス内のworkerで行う | 決定（2026-10-27、本人） |
 | A13 | 他キャラへのappendは配達範囲の確定順になり、occurred_atの順序とずれることを許容する。retainにはoccurred_atを時刻（timestamp）として渡し、時間の順序をappendの順に頼らない | 決定（2026-10-27、本人。U7の解決） |
-| A14 | IT2・STの実モデルはllama.cppで動かす（Hindsightの接続方式は `llamacpp`／OpenAI互換、rerankerはCohere互換）。embeddingはbge-m3、rerankerはbge-reranker-v2-m3とし、digital-souls-memoryの検索比較（memory-v2.1、IT2）の結果を参考にする。フレームワークによる差を見るため、digital-souls-memoryの自作実装との比較も行ってよい | 決定（2026-10-27、本人。U5・U6の解決。抽出・統合に使う生成モデルはU8） |
+| A14 | 抽出・統合の生成モデル候補は gemma4-12b（llama.cpp の OpenAI 互換 API、Hindsight の provider 値は `openai`）と gpt-6-luna（Hindsight の `openai-codex` provider）。embedding は bge-m3、reranker は bge-reranker-v2-m3（llama.cpp の Cohere 互換 API）を使う。LLMGateway・Reviewer・ContextGateway は OpenAI 互換の 1 種類で実装し、IT2 では常に gemma4-12b を使う。gpt-6-luna との比較は Hindsight の抽出・統合だけとし、既存 digital-souls-memory との比較は Epic 5 に含めない。生成モデルの採用は U8 の未決事項として残す | 決定（2026-11-04〜05、本人。採用は Issue 5-7） |
 | A15 | 投影後に他キャラ向けの配達範囲が変わった場合は、影響を受けるキャラのbankで、そのSessionのdocumentを台帳から作り直す（replace）。範囲が変わらないReceiptでは作り直さない | 決定（2026-10-28、本人） |
 
 ## 3. 受け入れ条件
@@ -40,6 +40,16 @@
 - ST：Coreから呼ぶE2E試験
 
 FAIL・SKIP・NOT RUNはPASSと区別して報告する。
+
+Epic 5 の必須合成ケースは実行前に固定し、試行ごとに新しい bank で固定 3 回実行する。
+全回で全必須ケースが合格した場合だけ PASS とし、全試行の結果を記録する。
+成功するまで再実行して最後の成功だけを採ることはしない。
+誤統合率・統合漏れ率・無関係 Anchor の混入率は測定・記録のみで、合否には使わない。
+棄権閾値は再現率を優先して選び、再現率 90% は選択の目安であって合否条件ではない。
+必須ケースを通る閾値がなければ AC-R4 は FAIL とし、黙って再現率を下げず本人へ戻す。
+両モデルの結果を並べて本人が生成モデルを採用し、採用モデルの結果で受け入れを判定する。
+両モデルとも不合格なら、採用の決定だけで PASS にしない。
+ケース・指標・採点単位は [IT2 採点契約](it2-scoring-contract.md) に従う。
 
 ### 3.1 Evidence（会話台帳）
 
@@ -96,8 +106,8 @@ FAIL・SKIP・NOT RUNはPASSと区別して報告する。
 | AC-I1 | CoreIdentity・Temperament・PersonalityProfile（author_seedと記述文）は、登録APIでのみ版が上がる。記憶や統合の処理から書き換えられない。Hindsightのbank設定（mission・disposition）を正本にしない | UT, IT1 |
 | AC-I2 | VoiceExemplarとVerbatimAnchorは逐語で保存し、言い換えを禁止し、登録には承認を必要とする | UT |
 | AC-I3 | CharacterStateは窓口・セッション単位の揮発状態として扱う | UT |
-| AC-I4 | 常駐コンテキストAPIは、提供のたびにその時点で登録済みの最新版のCoreIdentity・Temperament・PersonalityProfileと、その時点で利用可能な代表発話・CharacterProfileを返す。セッション単位では固定せず、途中の登録・設定変更は次の提供から反映する。返した内容と一致する人格の版・代表発話ID・CharacterProfileのrevisionと返却項目をProvisionRecordに保存し、commit後に成功を返す。自動の人格更新はPhase 3の対象とする | IT1（ST は Epic 5） |
-| AC-I5 | 登録時に整合チェックを1回実行し、結果を作者に返す | IT2 |
+| AC-I4 | 常駐コンテキストAPIは、提供のたびにその時点で登録済みの最新版のCoreIdentity・Temperament・PersonalityProfileと、その時点で利用可能な代表発話・CharacterProfileを返す。セッション単位では固定せず、途中の登録・設定変更は次の提供から反映する。返した内容と一致する人格の版・代表発話ID・CharacterProfileのrevisionと返却項目をProvisionRecordに保存し、commit後に成功を返す。自動の人格更新はPhase 3の対象とする | IT1、代替 E2E（IT2：想定する Core の呼び出し順。Core の検証ではない）。Core からの ST は NOT RUN |
+| AC-I5 | 人格は登録時に整合チェックを1回実行し、矛盾があれば拒否し、登録成功時にも審査結果を作者へ返す。temperament 更新時も再審査する。口調は初回登録で 1 回だけ審査し、矛盾があっても登録して結果を返す。人格登録の成功応答は `review`（`consistent`・`reason`）を返し、profileのない気質登録ではnullとする。人格の審査結果は保存しない | UT, IT1, IT2 |
 
 ### 3.7 運用と再現性
 
@@ -130,8 +140,8 @@ FAIL・SKIP・NOT RUNはPASSと区別して報告する。
 ## 6. 未決事項（質疑中）
 
 - 解決済み：U1（利用形態 → A1）、U2（案A → A3）、U3（投影の単位 → A8）、U4（統合の実行 → A6）、台帳の位置づけ（→ A2）、AC-P4の扱い（案Aでは対象外）、U5・U6（実モデル → A14）、U7（appendの順序 → A13）
-- U8：抽出・統合に使う生成モデル（llama.cppで動かすGGUF）。digital-souls-memoryの調査では生成モデルを比較していない
-- U9：IT2・STの実行許可。実行の時期・対象環境を本人が確認してから行う（A7）
+- U8：**未決**。抽出・統合の生成モデル候補は gemma4-12b（llama.cpp）と gpt-6-luna（Hindsight の `openai-codex` provider）。比較結果を並べて本人が採用を決め、Issue 5-7 で A14 に記録する。
+- U9：IT2 は条件付きで許可済み（2026-11-04〜05、本人）。VRAM が空いていること、合成データだけを使うことが条件。TAKT worker は実モデルを実行せず監督が行う。ST の実行は別途確認し、Core からの ST は Memory クライアントができるまで NOT RUN とする（A7）。
 
 ## 7. 引継ぎメモ
 

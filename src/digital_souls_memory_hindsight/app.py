@@ -27,6 +27,7 @@ from digital_souls_memory_hindsight.hindsight_retain import HindsightRetain
 from digital_souls_memory_hindsight.identity.ports import LLMGateway
 from digital_souls_memory_hindsight.identity.service import IdentityService
 from digital_souls_memory_hindsight.identity_http import identity_router
+from digital_souls_memory_hindsight.openai_compatible import OpenAICompatibleGateway
 from digital_souls_memory_hindsight.postgres_anchors import PostgresAnchorStore
 from digital_souls_memory_hindsight.postgres_character_profile import PostgresCharacterProfileStore
 from digital_souls_memory_hindsight.postgres_character_state import PostgresCharacterStateStore
@@ -130,6 +131,16 @@ def create_app(
 ) -> FastAPI:
     application = FastAPI(lifespan=lifespan)
     settings = load_settings()
+    if settings.llm is not None:
+        gateway = OpenAICompatibleGateway(
+            settings.llm.base_url,
+            settings.llm.model,
+            settings.llm.api_key,
+            settings.llm.timeout_seconds,
+        )
+        llm_gateway = gateway if llm_gateway is None else llm_gateway
+        reviewer = gateway if reviewer is None else reviewer
+        context_gateway = gateway if context_gateway is None else context_gateway
     application.state.settings = settings
     application.state.context_gateway = context_gateway
     application.state.llm_gateway = llm_gateway

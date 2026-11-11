@@ -1,0 +1,20 @@
+services:
+  hindsight:
+    environment:
+      HINDSIGHT_API_LLM_PROVIDER: openai-codex
+      HINDSIGHT_API_LLM_MODEL: gpt-6-luna
+      HINDSIGHT_API_LLM_CODEX_HOME: /codex-home
+      HINDSIGHT_API_LLM_BASE_URL: !reset null
+      HINDSIGHT_API_LLM_API_KEY: !reset null
+    volumes:
+      - type: bind
+        source: ${IT2_CODEX_HOME:-./.it2-auth-not-set}
+        target: /codex-home
+        read_only: false
+        bind:
+          create_host_path: false
+    networks: [it2, it2-egress]
+
+networks:
+  it2-egress:
+    internal: false

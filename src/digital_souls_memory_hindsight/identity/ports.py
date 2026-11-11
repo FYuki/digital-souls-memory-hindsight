@@ -64,6 +64,18 @@ class IdentitySnapshot:
     personality_profile: PersonalityProfile | None
 
 
+@dataclass(frozen=True)
+class TemperamentRegistration:
+    temperament: Temperament
+    review: ConsistencyReview | None
+
+
+@dataclass(frozen=True)
+class ProfileRegistration:
+    profile: PersonalityProfile
+    review: ConsistencyReview
+
+
 class LLMGateway(Protocol):
     def render_personality(
         self, aspects: dict[str, float], temperament: Temperament, renderer_version: str

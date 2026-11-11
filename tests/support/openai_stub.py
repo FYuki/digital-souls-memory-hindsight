@@ -193,11 +193,36 @@ def _consolidation_response(
     return output
 
 
+def _memory_port_output(messages: list[dict[str, object]]) -> dict[str, object] | None:
+    if not messages or messages[0].get("role") != "system":
+        return None
+    prompt = messages[0].get("content")
+    if not isinstance(prompt, str):
+        return None
+    header = prompt.split("\n", 1)[0]
+    if header == "[dsm-memory/render_personality/v1]":
+        return {"description": "架空の人物は穏やかに相手を気遣います。"}
+    if header == "[dsm-memory/respond_in_voice/v1]":
+        return {"response": "架空の場面でも、ゆっくりお話ししましょう。"}
+    if header in {"[dsm-memory/review_personality/v1]", "[dsm-memory/review_voice/v1]"}:
+        return {"consistent": True, "reason": "架空の記述は穏やかな口調と整合しています。"}
+    if header == "[dsm-memory/generate_state/v1]":
+        return {
+            "mood": "穏やか",
+            "relationship_temperature": "温かい",
+            "current_topic": "架空のお茶",
+        }
+    return None
+
+
 def chat_completion(request: dict[str, object]) -> dict[str, object]:
     messages = _messages(request)
+    memory_output = _memory_port_output(messages)
     schema = None if request.get("tools") else _select_schema(request, messages)
     content = "ok"
-    if schema is not None:
+    if memory_output is not None:
+        content = json.dumps(memory_output, ensure_ascii=False)
+    elif schema is not None:
         consolidation = any(
             isinstance(text := message.get("content"), str)
             and text.startswith(CONSOLIDATION_PROMPT)

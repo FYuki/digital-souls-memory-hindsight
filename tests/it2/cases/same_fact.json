@@ -1,0 +1,39 @@
+[
+  {
+    "id": "same-fact-001",
+    "acceptance_id": "AC-M1",
+    "input": {
+      "sessions": [
+        {
+          "session_id": "same-s1",
+          "mentions": [
+            {
+              "id": "same-m1",
+              "text": "澪は星見町の天文台で働いている。"
+            }
+          ]
+        },
+        {
+          "session_id": "same-s2",
+          "mentions": [
+            {
+              "id": "same-m2",
+              "text": "星見町の天文台が澪の勤務先だ。"
+            }
+          ]
+        }
+      ]
+    },
+    "expected": {
+      "consolidated_fact_count": 1,
+      "source_mention_ids": [
+        "same-m1",
+        "same-m2"
+      ],
+      "facts": [
+        "澪の勤務先は星見町の天文台。"
+      ]
+    },
+    "scoring_unit": "consolidated_fact_group"
+  }
+]

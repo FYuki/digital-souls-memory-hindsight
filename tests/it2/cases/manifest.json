@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "scorer_version": "2",
+  "trial_count": 3,
+  "case_files": [
+    "same_fact.json",
+    "difference_fact.json",
+    "japanese.json",
+    "abstention.json"
+  ],
+  "character_ids": [
+    "it2-same-fact-t1",
+    "it2-same-fact-t2",
+    "it2-same-fact-t3",
+    "it2-difference-fact-t1",
+    "it2-difference-fact-t2",
+    "it2-difference-fact-t3",
+    "it2-japanese-t1",
+    "it2-japanese-t2",
+    "it2-japanese-t3",
+    "it2-abstention-t1",
+    "it2-abstention-t2",
+    "it2-abstention-t3",
+    "it2-performance",
+    "it2-e2e-t1",
+    "it2-e2e-t2",
+    "it2-e2e-t3"
+  ]
+}

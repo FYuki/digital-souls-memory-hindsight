@@ -44,6 +44,8 @@ Session 登録時に人格の版を固定する案は採らない。
 
 ## 影響
 
-AC-I4 の判定は IT1 とし、ST は Epic 5 で扱う。
+AC-I4 は IT1 に加え、Epic 5 でこのリポジトリの代替 E2E（IT2）を用意する。
+代替 E2E は「想定する Core の呼び出し順」の確認であり、Core 自体の検証ではない。
+Core からの ST は Memory クライアントができるまで NOT RUN とし、実行許可は別途確認する。
 今回の変更は受け入れ条件と設計記録の同期に限る。
 常駐コンテキスト API・ProvisionRecord・`resident_provision_id` などのコード変更は4-1以降で行う。

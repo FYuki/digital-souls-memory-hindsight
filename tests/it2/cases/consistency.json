@@ -1,0 +1,272 @@
+{
+  "schema_version": 1,
+  "scorer_version": "2",
+  "trial_count": 3,
+  "cases": [
+    {
+      "id": "reviewer-personality-consistent-001",
+      "level": "reviewer",
+      "operation": "personality",
+      "input": {
+        "temperament": "誰に対しても穏やかで、決して怒鳴らない。",
+        "personality": "誰に対しても穏やかで、怒鳴ることは決してない。"
+      },
+      "expected": {
+        "consistent": true
+      }
+    },
+    {
+      "id": "reviewer-personality-contradiction-001",
+      "level": "reviewer",
+      "operation": "personality",
+      "input": {
+        "temperament": "誰に対しても穏やかで、決して怒鳴らない。",
+        "personality": "些細なことで激怒し、常に全員を怒鳴りつける。"
+      },
+      "expected": {
+        "consistent": false
+      }
+    },
+    {
+      "id": "reviewer-personality-consistent-002",
+      "level": "reviewer",
+      "operation": "personality",
+      "input": {
+        "temperament": "どんな相手にも必ず親切に接し、傷つけることを嫌う。",
+        "personality": "誰にでも親切にし、他者を傷つける行為を嫌う。"
+      },
+      "expected": {
+        "consistent": true
+      }
+    },
+    {
+      "id": "reviewer-personality-contradiction-002",
+      "level": "reviewer",
+      "operation": "personality",
+      "input": {
+        "temperament": "どんな相手にも必ず親切に接し、傷つけることを嫌う。",
+        "personality": "誰に対しても常に残酷で、他者を傷つけることを喜ぶ。"
+      },
+      "expected": {
+        "consistent": false
+      }
+    },
+    {
+      "id": "reviewer-voice-consistent-001",
+      "level": "reviewer",
+      "operation": "voice",
+      "input": {
+        "situation": "初対面の相手への挨拶",
+        "response": "こちらこそ、どうぞよろしくお願いいたします。",
+        "answer": "初めまして。どうぞよろしくお願いいたします。",
+        "question": null,
+        "temperament": "常に丁寧な敬語だけで話す。"
+      },
+      "expected": {
+        "consistent": true
+      }
+    },
+    {
+      "id": "reviewer-voice-contradiction-001",
+      "level": "reviewer",
+      "operation": "voice",
+      "input": {
+        "situation": "初対面の相手への挨拶",
+        "response": "うるせえ、てめえには関係ねえだろ。",
+        "answer": "初めまして。どうぞよろしくお願いいたします。",
+        "question": null,
+        "temperament": "常に丁寧な敬語だけで話す。"
+      },
+      "expected": {
+        "consistent": false
+      }
+    },
+    {
+      "id": "reviewer-voice-consistent-002",
+      "level": "reviewer",
+      "operation": "voice",
+      "input": {
+        "situation": "初対面の相手への挨拶",
+        "response": "ありがとうございます。よろしくお願いいたします。",
+        "answer": "お困りでしたら、私がお手伝いいたします。",
+        "question": null,
+        "temperament": "常に落ち着いた丁寧な敬語で話し、罵倒しない。"
+      },
+      "expected": {
+        "consistent": true
+      }
+    },
+    {
+      "id": "reviewer-voice-contradiction-002",
+      "level": "reviewer",
+      "operation": "voice",
+      "input": {
+        "situation": "初対面の相手への挨拶",
+        "response": "黙れ、くそ野郎。ぶっ飛ばすぞ。",
+        "answer": "お困りでしたら、私がお手伝いいたします。",
+        "question": null,
+        "temperament": "常に落ち着いた丁寧な敬語で話し、罵倒しない。"
+      },
+      "expected": {
+        "consistent": false
+      }
+    },
+    {
+      "id": "path-seed-consistent-001",
+      "level": "path",
+      "operation": "seed",
+      "input": {
+        "temperament": "誰に対しても穏やかで親切で、決して怒鳴ったり罵倒したりしない。",
+        "seed": {
+          "aspects": {
+            "Volatility": 0.0,
+            "Withdrawal": 0.5,
+            "Compassion": 1.0,
+            "Politeness": 1.0,
+            "Industriousness": 0.5,
+            "Orderliness": 0.5,
+            "Enthusiasm": 0.5,
+            "Assertiveness": 0.5,
+            "Intellect": 0.5,
+            "Openness": 0.5
+          },
+          "renderer_version": "it2-consistency-v1"
+        }
+      },
+      "expected": {
+        "consistent": true
+      }
+    },
+    {
+      "id": "path-temperament-consistent-001",
+      "level": "path",
+      "operation": "temperament",
+      "input": {
+        "temperament": "誰に対しても穏やかで親切で、決して怒鳴らない。",
+        "seed": {
+          "aspects": {
+            "Volatility": 0.0,
+            "Withdrawal": 0.5,
+            "Compassion": 1.0,
+            "Politeness": 1.0,
+            "Industriousness": 0.5,
+            "Orderliness": 0.5,
+            "Enthusiasm": 0.5,
+            "Assertiveness": 0.5,
+            "Intellect": 0.5,
+            "Openness": 0.5
+          },
+          "renderer_version": "it2-consistency-v1"
+        },
+        "update": "誰に対しても穏やかで親切で、決して怒鳴らない。"
+      },
+      "expected": {
+        "consistent": true
+      }
+    },
+    {
+      "id": "path-voice-first-consistent-001",
+      "level": "path",
+      "operation": "voice_first",
+      "input": {
+        "temperament": "常に丁寧な敬語だけで話し、罵倒しない。",
+        "voice": {
+          "exemplar_id": "first",
+          "source": "canonical_seed",
+          "answer": "初めまして。どうぞよろしくお願いいたします。",
+          "approved_by": "synthetic-author"
+        }
+      },
+      "expected": {
+        "consistent": true
+      }
+    },
+    {
+      "id": "path-seed-contradiction-001",
+      "level": "path",
+      "operation": "seed",
+      "input": {
+        "temperament": "誰に対しても穏やかで親切で、決して怒鳴ったり罵倒したりしない。",
+        "seed": {
+          "aspects": {
+            "Volatility": 1.0,
+            "Withdrawal": 0.5,
+            "Compassion": 0.0,
+            "Politeness": 0.0,
+            "Industriousness": 0.5,
+            "Orderliness": 0.5,
+            "Enthusiasm": 0.5,
+            "Assertiveness": 0.5,
+            "Intellect": 0.5,
+            "Openness": 0.5
+          },
+          "renderer_version": "it2-consistency-v1"
+        }
+      },
+      "expected": {
+        "consistent": false
+      }
+    },
+    {
+      "id": "path-temperament-contradiction-001",
+      "level": "path",
+      "operation": "temperament",
+      "input": {
+        "temperament": "誰に対しても穏やかで親切で、決して怒鳴らない。",
+        "seed": {
+          "aspects": {
+            "Volatility": 0.0,
+            "Withdrawal": 0.5,
+            "Compassion": 1.0,
+            "Politeness": 1.0,
+            "Industriousness": 0.5,
+            "Orderliness": 0.5,
+            "Enthusiasm": 0.5,
+            "Assertiveness": 0.5,
+            "Intellect": 0.5,
+            "Openness": 0.5
+          },
+          "renderer_version": "it2-consistency-v1"
+        },
+        "update": "常に激怒して全員を怒鳴りつけ、誰に対しても残酷に振る舞う。"
+      },
+      "expected": {
+        "consistent": false
+      }
+    },
+    {
+      "id": "path-voice-first-contradiction-001",
+      "level": "path",
+      "operation": "voice_first",
+      "input": {
+        "temperament": "常に丁寧な敬語だけで話し、罵倒しない。",
+        "voice": {
+          "exemplar_id": "first",
+          "source": "canonical_seed",
+          "answer": "うるせえ、てめえには関係ねえだろ。",
+          "approved_by": "synthetic-author"
+        }
+      },
+      "expected": {
+        "consistent": false
+      }
+    },
+    {
+      "id": "path-voice-no-rereview-001",
+      "level": "path",
+      "operation": "voice_no_rereview",
+      "input": {
+        "temperament": "常に丁寧な敬語だけで話す。",
+        "voice": {
+          "exemplar_id": "first",
+          "source": "canonical_seed",
+          "answer": "初めまして。どうぞよろしくお願いいたします。",
+          "approved_by": "synthetic-author"
+        }
+      },
+      "expected": {
+        "consistent": true
+      }
+    }
+  ]
+}

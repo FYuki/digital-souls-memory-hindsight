@@ -1,0 +1,2222 @@
+{
+  "run_id": "2026-11-05-5-3-gpt-6-luna-attempt-1",
+  "authorization": "本人の条件付き許可（2026-11-04〜05）：VRAM が空いていること、合成データのみ。監督が実行。",
+  "environment": "WSL2、NVIDIA RTX 4070 Ti SUPER 16GB、Docker Compose 5.2.0。他サービスが GPU を約 4.3GB 使用中。起動後の GPU 使用量 13814/16376 MiB。",
+  "revision": "518844eb67b35987d4378dfec10de9ca96917b4d",
+  "timestamp": "2026-11-05T07:30Z（UTC、概時刻）",
+  "models": {
+    "generation": "gpt-6-luna",
+    "components": "gemma4-12b",
+    "gemma4-12b.gguf": "sha256:1278394b693672ac2799eadc9a83fd98259a6a88a40acfb1dcaa6c6fc895a606",
+    "bge-m3-q8_0.gguf": "sha256:aa473d51f451a22f0fcf39ba3330c14bed38a385712b1113440f69df4047a173",
+    "bge-reranker-v2-m3-Q8_0.gguf": "sha256:a43c7c9b11a4c1517e5bf95151960e1621d1b72f7a493364b01e386cf1aaa1d3"
+  },
+  "images": {
+    "llama.cpp": "ghcr.io/ggml-org/llama.cpp@sha256:69019445c94c970496c8f6d6447214b837508162dfe1152768942c51237e3ab7",
+    "hindsight": "ghcr.io/vectorize-io/hindsight:1.1.0-slim@sha256:fbc37d194bce007b6cce2fd9f66cd7f8c050bd18b80e662090a92835d9cb191d"
+  },
+  "settings": {
+    "recall_min_reranker_score": 0.5,
+    "llama_generation_ctx_size": 32768,
+    "llama_generation_parallel": 1,
+    "reasoning": "off"
+  },
+  "scorer_version": "1",
+  "completion": "全 9 試行で retain・consolidation・outbox が完了",
+  "trials": [
+    {
+      "bank_id": "8e0dd3dc-ba98-5864-ae90-13b964df252c",
+      "completion": "complete",
+      "cases": {
+        "same-fact-001": true
+      },
+      "metrics": {
+        "false_merge_rate": null,
+        "missed_merge_rate": 0.0,
+        "recall": null,
+        "abstention_rate": null,
+        "anchor_contamination_rate": null,
+        "empty_fact_responses": 0,
+        "empty_responses": 0
+      },
+      "suite": "same-fact",
+      "trial": 1,
+      "reason": "retain, consolidation and outbox completed",
+      "elapsed_seconds": 18.083460219029803,
+      "failures": {},
+      "memories": [
+        {
+          "id": "9ffe39e3-e820-4809-beaa-5b9ff5c46937",
+          "text": "星見町の天文台は澪の勤務先である。 | Involving: 澪",
+          "context": "",
+          "date": "2026-11-05T00:01:00+00:00",
+          "fact_type": "world",
+          "document_id": "af08b02c-5176-5297-91d1-77110b8a65b5",
+          "mentioned_at": "2026-11-05T00:01:00+00:00",
+          "entities": "澪, 星見町, 天文台",
+          "chunk_id": "8e0dd3dc-ba98-5864-ae90-13b964df252c_af08b02c-5176-5297-91d1-77110b8a65b5_0",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "consolidated_at": "2026-11-05T07:29:36.347721+00:00",
+          "state": "valid",
+          "updated_at": "2026-11-05T07:29:31.070239+00:00",
+          "source_memory_ids": [],
+          "occurred_start": null,
+          "occurred_end": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "089947f4-96fb-4b2d-a774-037e378d7770",
+          "text": "澪は星見町の天文台で働いている。",
+          "context": "",
+          "date": "2026-11-05T00:00:00+00:00",
+          "fact_type": "observation",
+          "mentioned_at": "2026-11-05T00:01:00+00:00",
+          "entities": "",
+          "proof_count": 2,
+          "tags": [],
+          "metadata": {},
+          "state": "valid",
+          "updated_at": "2026-11-05T07:29:36.343083+00:00",
+          "source_memory_ids": [
+            "ac8ac8f2-d9d2-41af-bf95-ad99947ea8af",
+            "9ffe39e3-e820-4809-beaa-5b9ff5c46937"
+          ],
+          "document_id": null,
+          "occurred_start": null,
+          "occurred_end": null,
+          "chunk_id": null,
+          "consolidated_at": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "ac8ac8f2-d9d2-41af-bf95-ad99947ea8af",
+          "text": "澪は星見町の天文台で働いている。 | Involving: 澪",
+          "context": "",
+          "date": "2026-11-05T00:00:00+00:00",
+          "fact_type": "world",
+          "document_id": "00af8d19-57b1-5f53-a5a5-1d5d80bcd00d",
+          "mentioned_at": "2026-11-05T00:00:00+00:00",
+          "entities": "澪, 星見町, 天文台",
+          "chunk_id": "8e0dd3dc-ba98-5864-ae90-13b964df252c_00af8d19-57b1-5f53-a5a5-1d5d80bcd00d_0",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "consolidated_at": "2026-11-05T07:29:27.671333+00:00",
+          "state": "valid",
+          "updated_at": "2026-11-05T07:29:25.469404+00:00",
+          "source_memory_ids": [],
+          "occurred_start": null,
+          "occurred_end": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        }
+      ]
+    },
+    {
+      "bank_id": "667624bc-d2fd-5230-82be-d48df53a0d5c",
+      "completion": "complete",
+      "cases": {
+        "difference-number-001": false,
+        "difference-negation-001": false,
+        "difference-subject-001": true,
+        "difference-tense-001": false
+      },
+      "metrics": {
+        "false_merge_rate": 0.5,
+        "missed_merge_rate": null,
+        "recall": null,
+        "abstention_rate": null,
+        "anchor_contamination_rate": null,
+        "empty_fact_responses": 0,
+        "empty_responses": 0
+      },
+      "suite": "difference-fact",
+      "trial": 1,
+      "reason": "retain, consolidation and outbox completed",
+      "elapsed_seconds": 58.043828602007125,
+      "failures": {
+        "difference-number-001": "false_merge",
+        "difference-negation-001": "false_merge",
+        "difference-tense-001": "unresolved_fact"
+      },
+      "memories": [
+        {
+          "id": "6df585a8-84a1-4794-8898-7749863167d2",
+          "text": "澪は2026年11月6日に星見資料館で働く予定。 | When: 2026年11月6日 | Involving: 澪",
+          "context": "",
+          "date": "2026-11-06T00:00:00+00:00",
+          "fact_type": "world",
+          "document_id": "8cd0a4c8-d3f7-5be3-bcf9-0efb918797f1",
+          "mentioned_at": "2026-11-05T00:07:00+00:00",
+          "occurred_start": "2026-11-06T00:00:00+00:00",
+          "occurred_end": "2026-11-06T00:00:00+00:00",
+          "entities": "星見資料館, 澪",
+          "chunk_id": "667624bc-d2fd-5230-82be-d48df53a0d5c_8cd0a4c8-d3f7-5be3-bcf9-0efb918797f1_1",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "consolidated_at": "2026-11-05T07:30:30.566289+00:00",
+          "state": "valid",
+          "updated_at": "2026-11-05T07:30:26.473938+00:00",
+          "source_memory_ids": [],
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "595a98ef-0ce3-47bf-b10c-49a208704fee",
+          "text": "澪は2026年11月4日に星見資料館で働いており、2026年11月6日にも働く予定である。",
+          "context": "",
+          "date": "2026-11-04T00:00:00+00:00",
+          "fact_type": "observation",
+          "mentioned_at": "2026-11-05T00:07:00+00:00",
+          "occurred_start": "2026-11-04T00:00:00+00:00",
+          "occurred_end": "2026-11-06T00:00:00+00:00",
+          "entities": "",
+          "proof_count": 2,
+          "tags": [],
+          "metadata": {},
+          "state": "valid",
+          "updated_at": "2026-11-05T07:30:30.563153+00:00",
+          "source_memory_ids": [
+            "7c3741f1-3852-4c3f-9d4f-5513f27f83eb",
+            "6df585a8-84a1-4794-8898-7749863167d2"
+          ],
+          "document_id": null,
+          "chunk_id": null,
+          "consolidated_at": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "7c3741f1-3852-4c3f-9d4f-5513f27f83eb",
+          "text": "澪は星見資料館で働いていた。 | When: 2026年11月4日 | Involving: 澪",
+          "context": "",
+          "date": "2026-11-04T00:00:00+00:00",
+          "fact_type": "world",
+          "document_id": "8cd0a4c8-d3f7-5be3-bcf9-0efb918797f1",
+          "mentioned_at": "2026-11-05T00:06:00+00:00",
+          "occurred_start": "2026-11-04T00:00:00+00:00",
+          "occurred_end": "2026-11-04T00:00:00+00:00",
+          "entities": "澪, 星見資料館",
+          "chunk_id": "667624bc-d2fd-5230-82be-d48df53a0d5c_8cd0a4c8-d3f7-5be3-bcf9-0efb918797f1_0",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "consolidated_at": "2026-11-05T07:30:25.145710+00:00",
+          "state": "valid",
+          "updated_at": "2026-11-05T07:30:19.906144+00:00",
+          "source_memory_ids": [],
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "e26d07ce-efaa-4cdd-875f-3270c13db9da",
+          "text": "凪は赤い鍵を持っている。",
+          "context": "",
+          "date": "2026-11-05T00:05:00+00:00",
+          "fact_type": "observation",
+          "mentioned_at": "2026-11-05T00:05:00+00:00",
+          "entities": "",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "state": "valid",
+          "updated_at": "2026-11-05T07:30:17.612316+00:00",
+          "source_memory_ids": [
+            "a858d145-be9b-41e3-a94c-bb5ae3f74638"
+          ],
+          "document_id": null,
+          "occurred_start": null,
+          "occurred_end": null,
+          "chunk_id": null,
+          "consolidated_at": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "a858d145-be9b-41e3-a94c-bb5ae3f74638",
+          "text": "凪は赤い鍵を持っている。 | Involving: 凪",
+          "context": "",
+          "date": "2026-11-05T00:05:00+00:00",
+          "fact_type": "world",
+          "document_id": "cf6f83e0-a0d9-5cd4-8c0d-9f69331bed09",
+          "mentioned_at": "2026-11-05T00:05:00+00:00",
+          "entities": "凪, 赤い鍵",
+          "chunk_id": "667624bc-d2fd-5230-82be-d48df53a0d5c_cf6f83e0-a0d9-5cd4-8c0d-9f69331bed09_1",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "consolidated_at": "2026-11-05T07:30:17.615256+00:00",
+          "state": "valid",
+          "updated_at": "2026-11-05T07:30:11.506270+00:00",
+          "source_memory_ids": [],
+          "occurred_start": null,
+          "occurred_end": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "95f662e4-befb-4bc0-a652-5c6a4e615a48",
+          "text": "澪は赤い鍵を持っている。",
+          "context": "",
+          "date": "2026-11-05T00:04:00+00:00",
+          "fact_type": "observation",
+          "mentioned_at": "2026-11-05T00:04:00+00:00",
+          "entities": "",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "state": "valid",
+          "updated_at": "2026-11-05T07:30:13.764535+00:00",
+          "source_memory_ids": [
+            "076d98ec-d10e-4300-b61d-5840dd55360e"
+          ],
+          "document_id": null,
+          "occurred_start": null,
+          "occurred_end": null,
+          "chunk_id": null,
+          "consolidated_at": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "076d98ec-d10e-4300-b61d-5840dd55360e",
+          "text": "澪は赤い鍵を持っている。 | Involving: 澪",
+          "context": "",
+          "date": "2026-11-05T00:04:00+00:00",
+          "fact_type": "world",
+          "document_id": "cf6f83e0-a0d9-5cd4-8c0d-9f69331bed09",
+          "mentioned_at": "2026-11-05T00:04:00+00:00",
+          "entities": "赤い鍵, 澪",
+          "chunk_id": "667624bc-d2fd-5230-82be-d48df53a0d5c_cf6f83e0-a0d9-5cd4-8c0d-9f69331bed09_0",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "consolidated_at": "2026-11-05T07:30:13.766281+00:00",
+          "state": "valid",
+          "updated_at": "2026-11-05T07:30:05.502791+00:00",
+          "source_memory_ids": [],
+          "occurred_start": null,
+          "occurred_end": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "aa648770-97c5-43d8-a181-4d255ba17adb",
+          "text": "澪は柚子茶を飲まない。以前は飲むとされていた。",
+          "context": "",
+          "date": "2026-11-05T00:02:00+00:00",
+          "fact_type": "observation",
+          "mentioned_at": "2026-11-05T00:03:00+00:00",
+          "entities": "",
+          "proof_count": 2,
+          "tags": [],
+          "metadata": {},
+          "state": "valid",
+          "updated_at": "2026-11-05T07:30:09.281716+00:00",
+          "source_memory_ids": [
+            "fc888bdc-64bf-4d44-9526-ba14ee56898a",
+            "76ffdb28-1262-4c5b-9f89-e49a4c1f57c2"
+          ],
+          "document_id": null,
+          "occurred_start": null,
+          "occurred_end": null,
+          "chunk_id": null,
+          "consolidated_at": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "76ffdb28-1262-4c5b-9f89-e49a4c1f57c2",
+          "text": "澪は柚子茶を飲まない。 | Involving: 澪",
+          "context": "",
+          "date": "2026-11-05T00:03:00+00:00",
+          "fact_type": "world",
+          "document_id": "75595eb8-00d5-5507-bef6-3aeef2cfc69c",
+          "mentioned_at": "2026-11-05T00:03:00+00:00",
+          "entities": "澪, 柚子茶",
+          "chunk_id": "667624bc-d2fd-5230-82be-d48df53a0d5c_75595eb8-00d5-5507-bef6-3aeef2cfc69c_1",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "consolidated_at": "2026-11-05T07:30:09.284897+00:00",
+          "state": "valid",
+          "updated_at": "2026-11-05T07:29:59.794119+00:00",
+          "source_memory_ids": [],
+          "occurred_start": null,
+          "occurred_end": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "fc888bdc-64bf-4d44-9526-ba14ee56898a",
+          "text": "澪は柚子茶を飲む。 | Involving: 澪",
+          "context": "",
+          "date": "2026-11-05T00:02:00+00:00",
+          "fact_type": "world",
+          "document_id": "75595eb8-00d5-5507-bef6-3aeef2cfc69c",
+          "mentioned_at": "2026-11-05T00:02:00+00:00",
+          "entities": "柚子茶, 澪",
+          "chunk_id": "667624bc-d2fd-5230-82be-d48df53a0d5c_75595eb8-00d5-5507-bef6-3aeef2cfc69c_0",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "consolidated_at": "2026-11-05T07:30:04.170704+00:00",
+          "state": "valid",
+          "updated_at": "2026-11-05T07:29:56.545146+00:00",
+          "source_memory_ids": [],
+          "occurred_start": null,
+          "occurred_end": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "6bceff8b-f494-4501-b989-faa9b929c311",
+          "text": "澪が保管する青い石は五個。 | Involving: 澪",
+          "context": "",
+          "date": "2026-11-05T00:01:00+00:00",
+          "fact_type": "world",
+          "document_id": "542cbdf9-c095-55a0-a171-6eb5108beb14",
+          "mentioned_at": "2026-11-05T00:01:00+00:00",
+          "entities": "澪, 青い石",
+          "chunk_id": "667624bc-d2fd-5230-82be-d48df53a0d5c_542cbdf9-c095-55a0-a171-6eb5108beb14_1",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "consolidated_at": "2026-11-05T07:29:56.614615+00:00",
+          "state": "valid",
+          "updated_at": "2026-11-05T07:29:51.850072+00:00",
+          "source_memory_ids": [],
+          "occurred_start": null,
+          "occurred_end": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "4a6814bb-9a90-4b19-bc43-54b9a090e7b7",
+          "text": "澪が保管する青い石は五個である。",
+          "context": "",
+          "date": "2026-11-05T00:00:00+00:00",
+          "fact_type": "observation",
+          "mentioned_at": "2026-11-05T00:01:00+00:00",
+          "entities": "",
+          "proof_count": 2,
+          "tags": [],
+          "metadata": {},
+          "state": "valid",
+          "updated_at": "2026-11-05T07:29:56.611594+00:00",
+          "source_memory_ids": [
+            "a7fda412-ce03-4997-9932-72c1fe19f576",
+            "6bceff8b-f494-4501-b989-faa9b929c311"
+          ],
+          "document_id": null,
+          "occurred_start": null,
+          "occurred_end": null,
+          "chunk_id": null,
+          "consolidated_at": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "a7fda412-ce03-4997-9932-72c1fe19f576",
+          "text": "澪が保管する青い石は三個である。 | Involving: 澪",
+          "context": "",
+          "date": "2026-11-05T00:00:00+00:00",
+          "fact_type": "world",
+          "document_id": "542cbdf9-c095-55a0-a171-6eb5108beb14",
+          "mentioned_at": "2026-11-05T00:00:00+00:00",
+          "entities": "澪, 青い石",
+          "chunk_id": "667624bc-d2fd-5230-82be-d48df53a0d5c_542cbdf9-c095-55a0-a171-6eb5108beb14_0",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "consolidated_at": "2026-11-05T07:29:46.297356+00:00",
+          "state": "valid",
+          "updated_at": "2026-11-05T07:29:42.828961+00:00",
+          "source_memory_ids": [],
+          "occurred_start": null,
+          "occurred_end": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        }
+      ]
+    },
+    {
+      "bank_id": "047f284f-0d68-5a24-8466-04cb11a89e37",
+      "completion": "complete",
+      "cases": {
+        "japanese-proper_name-extracted_fact": true,
+        "japanese-proper_name-returned_source": true,
+        "japanese-date-extracted_fact": false,
+        "japanese-date-returned_source": true,
+        "japanese-verbatim-extracted_fact": true,
+        "japanese-verbatim-returned_source": true
+      },
+      "metrics": {
+        "false_merge_rate": null,
+        "missed_merge_rate": null,
+        "recall": null,
+        "abstention_rate": null,
+        "anchor_contamination_rate": null,
+        "empty_fact_responses": 0,
+        "empty_responses": 0
+      },
+      "suite": "japanese",
+      "trial": 1,
+      "reason": "retain, consolidation and outbox completed",
+      "elapsed_seconds": 25.325315212947316,
+      "failures": {
+        "japanese-date-extracted_fact": "extracted_fact_not_preserved"
+      },
+      "memories": [
+        {
+          "id": "0c66b0c4-10b2-4740-937c-97e3b7aaaa2c",
+          "text": "澪は「星が見えなくても、空を見上げよう」と約束した。",
+          "context": "",
+          "date": "2026-11-05T00:02:00+00:00",
+          "fact_type": "observation",
+          "mentioned_at": "2026-11-05T00:02:00+00:00",
+          "occurred_start": "2026-11-05T00:02:00+00:00",
+          "occurred_end": "2026-11-05T00:02:00+00:00",
+          "entities": "",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "state": "valid",
+          "updated_at": "2026-11-05T07:30:55.862393+00:00",
+          "source_memory_ids": [
+            "30e14fcb-f241-4b35-9174-58be83b926a4"
+          ],
+          "document_id": null,
+          "chunk_id": null,
+          "consolidated_at": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "30e14fcb-f241-4b35-9174-58be83b926a4",
+          "text": "澪は「星が見えなくても、空を見上げよう」と約束した。 | When: 2026年11月5日 | Involving: 澪",
+          "context": "",
+          "date": "2026-11-05T00:02:00+00:00",
+          "fact_type": "world",
+          "document_id": "f1157066-f512-5e04-89c9-277a230e0d07",
+          "mentioned_at": "2026-11-05T00:02:00+00:00",
+          "occurred_start": "2026-11-05T00:02:00+00:00",
+          "occurred_end": "2026-11-05T00:02:00+00:00",
+          "entities": "空, 澪, 星",
+          "chunk_id": "047f284f-0d68-5a24-8466-04cb11a89e37_f1157066-f512-5e04-89c9-277a230e0d07_0",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "consolidated_at": "2026-11-05T07:30:55.864858+00:00",
+          "state": "valid",
+          "updated_at": "2026-11-05T07:30:51.761402+00:00",
+          "source_memory_ids": [],
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "eb5e3d68-2963-44d9-a068-19f524bd48af",
+          "text": "2026年11月5日に凪との約束がある。",
+          "context": "",
+          "date": "2026-11-05T00:00:00+00:00",
+          "fact_type": "observation",
+          "mentioned_at": "2026-11-05T00:01:00+00:00",
+          "occurred_start": "2026-11-05T00:00:00+00:00",
+          "occurred_end": "2026-11-05T00:00:00+00:00",
+          "entities": "",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "state": "valid",
+          "updated_at": "2026-11-05T07:30:49.393741+00:00",
+          "source_memory_ids": [
+            "7aa4d0a7-fcc5-4e04-9d08-fbdf9d5b4b4c"
+          ],
+          "document_id": null,
+          "chunk_id": null,
+          "consolidated_at": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "7aa4d0a7-fcc5-4e04-9d08-fbdf9d5b4b4c",
+          "text": "凪との約束が2026年11月5日にある。 | When: 2026年11月5日 | Involving: user、凪",
+          "context": "",
+          "date": "2026-11-05T00:00:00+00:00",
+          "fact_type": "world",
+          "document_id": "9f3dbeb5-373b-5d36-9692-d085755104a6",
+          "mentioned_at": "2026-11-05T00:01:00+00:00",
+          "occurred_start": "2026-11-05T00:00:00+00:00",
+          "occurred_end": "2026-11-05T00:00:00+00:00",
+          "entities": "user, 凪",
+          "chunk_id": "047f284f-0d68-5a24-8466-04cb11a89e37_9f3dbeb5-373b-5d36-9692-d085755104a6_0",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "consolidated_at": "2026-11-05T07:30:49.395554+00:00",
+          "state": "valid",
+          "updated_at": "2026-11-05T07:30:45.710055+00:00",
+          "source_memory_ids": [],
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "9ee5c177-dcd6-4c1f-b905-66647e6a8237",
+          "text": "澪は星見町の天文台に勤務している。",
+          "context": "",
+          "date": "2026-11-05T00:00:00+00:00",
+          "fact_type": "observation",
+          "mentioned_at": "2026-11-05T00:00:00+00:00",
+          "entities": "",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "state": "valid",
+          "updated_at": "2026-11-05T07:30:40.500328+00:00",
+          "source_memory_ids": [
+            "9ce86091-a96a-4f1f-af78-5881dd214504"
+          ],
+          "document_id": null,
+          "occurred_start": null,
+          "occurred_end": null,
+          "chunk_id": null,
+          "consolidated_at": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "9ce86091-a96a-4f1f-af78-5881dd214504",
+          "text": "澪は星見町の天文台に勤務している。 | Involving: 澪",
+          "context": "",
+          "date": "2026-11-05T00:00:00+00:00",
+          "fact_type": "world",
+          "document_id": "69cef7f0-babf-5b23-9bed-afdc3f9273f8",
+          "mentioned_at": "2026-11-05T00:00:00+00:00",
+          "entities": "澪, 星見町, 天文台",
+          "chunk_id": "047f284f-0d68-5a24-8466-04cb11a89e37_69cef7f0-babf-5b23-9bed-afdc3f9273f8_0",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "consolidated_at": "2026-11-05T07:30:40.502690+00:00",
+          "state": "valid",
+          "updated_at": "2026-11-05T07:30:36.570072+00:00",
+          "source_memory_ids": [],
+          "occurred_start": null,
+          "occurred_end": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        }
+      ]
+    },
+    {
+      "bank_id": "b1d86329-3fc6-5d44-bce1-4fe6d85ded46",
+      "completion": "complete",
+      "cases": {
+        "same-fact-001": true
+      },
+      "metrics": {
+        "false_merge_rate": null,
+        "missed_merge_rate": 0.0,
+        "recall": null,
+        "abstention_rate": null,
+        "anchor_contamination_rate": null,
+        "empty_fact_responses": 0,
+        "empty_responses": 0
+      },
+      "suite": "same-fact",
+      "trial": 2,
+      "reason": "retain, consolidation and outbox completed",
+      "elapsed_seconds": 21.0889546580147,
+      "failures": {},
+      "memories": [
+        {
+          "id": "308da3b0-89f5-4e0e-9303-6218e2e14f5b",
+          "text": "星見町の天文台が澪の勤務先。 | Involving: 澪",
+          "context": "",
+          "date": "2026-11-05T00:01:00+00:00",
+          "fact_type": "world",
+          "document_id": "b21c55d1-3079-5b99-9d6b-f92b2dd353d3",
+          "mentioned_at": "2026-11-05T00:01:00+00:00",
+          "entities": "星見町, 澪",
+          "chunk_id": "b1d86329-3fc6-5d44-bce1-4fe6d85ded46_b21c55d1-3079-5b99-9d6b-f92b2dd353d3_0",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "consolidated_at": "2026-11-05T07:31:16.808476+00:00",
+          "state": "valid",
+          "updated_at": "2026-11-05T07:31:12.098890+00:00",
+          "source_memory_ids": [],
+          "occurred_start": null,
+          "occurred_end": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "6e5e5c1e-e0c0-47b5-8ffa-d67a379525d5",
+          "text": "澪は星見町の天文台で働いている。",
+          "context": "",
+          "date": "2026-11-05T00:00:00+00:00",
+          "fact_type": "observation",
+          "mentioned_at": "2026-11-05T00:01:00+00:00",
+          "entities": "",
+          "proof_count": 2,
+          "tags": [],
+          "metadata": {},
+          "state": "valid",
+          "updated_at": "2026-11-05T07:31:16.804102+00:00",
+          "source_memory_ids": [
+            "01742deb-a085-4b80-8609-d083b9c4f676",
+            "308da3b0-89f5-4e0e-9303-6218e2e14f5b"
+          ],
+          "document_id": null,
+          "occurred_start": null,
+          "occurred_end": null,
+          "chunk_id": null,
+          "consolidated_at": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "01742deb-a085-4b80-8609-d083b9c4f676",
+          "text": "澪は星見町の天文台で働いている。 | Involving: 澪",
+          "context": "",
+          "date": "2026-11-05T00:00:00+00:00",
+          "fact_type": "world",
+          "document_id": "12413a92-6502-585c-b9a1-dc464a6012c0",
+          "mentioned_at": "2026-11-05T00:00:00+00:00",
+          "entities": "天文台, 星見町, 澪",
+          "chunk_id": "b1d86329-3fc6-5d44-bce1-4fe6d85ded46_12413a92-6502-585c-b9a1-dc464a6012c0_0",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "consolidated_at": "2026-11-05T07:31:07.549953+00:00",
+          "state": "valid",
+          "updated_at": "2026-11-05T07:31:04.503414+00:00",
+          "source_memory_ids": [],
+          "occurred_start": null,
+          "occurred_end": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        }
+      ]
+    },
+    {
+      "bank_id": "1bec6a3f-b9ac-5e9b-83e7-a0c3e25f82a7",
+      "completion": "complete",
+      "cases": {
+        "difference-number-001": false,
+        "difference-negation-001": false,
+        "difference-subject-001": true,
+        "difference-tense-001": false
+      },
+      "metrics": {
+        "false_merge_rate": 0.5,
+        "missed_merge_rate": null,
+        "recall": null,
+        "abstention_rate": null,
+        "anchor_contamination_rate": null,
+        "empty_fact_responses": 0,
+        "empty_responses": 0
+      },
+      "suite": "difference-fact",
+      "trial": 2,
+      "reason": "retain, consolidation and outbox completed",
+      "elapsed_seconds": 56.879321010026615,
+      "failures": {
+        "difference-number-001": "false_merge",
+        "difference-negation-001": "false_merge",
+        "difference-tense-001": "unresolved_fact"
+      },
+      "memories": [
+        {
+          "id": "3e551c68-bc9a-4537-992e-c2cf3ad19e1d",
+          "text": "澪は2026年11月6日に星見資料館で働く予定である。",
+          "context": "",
+          "date": "2026-11-06T00:00:00+00:00",
+          "fact_type": "observation",
+          "mentioned_at": "2026-11-05T00:07:00+00:00",
+          "occurred_start": "2026-11-06T00:00:00+00:00",
+          "occurred_end": "2026-11-06T00:00:00+00:00",
+          "entities": "",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "state": "valid",
+          "updated_at": "2026-11-05T07:32:12.369768+00:00",
+          "source_memory_ids": [
+            "721630b7-ef16-4434-a15b-ea234c586f64"
+          ],
+          "document_id": null,
+          "chunk_id": null,
+          "consolidated_at": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "721630b7-ef16-4434-a15b-ea234c586f64",
+          "text": "澪は星見資料館で働く予定。 | When: 2026年11月6日 | Involving: 澪",
+          "context": "",
+          "date": "2026-11-06T00:00:00+00:00",
+          "fact_type": "world",
+          "document_id": "63d6b51e-2fa1-58f3-ac73-1f437d3dbfcf",
+          "mentioned_at": "2026-11-05T00:07:00+00:00",
+          "occurred_start": "2026-11-06T00:00:00+00:00",
+          "occurred_end": "2026-11-06T00:00:00+00:00",
+          "entities": "澪, 星見資料館",
+          "chunk_id": "1bec6a3f-b9ac-5e9b-83e7-a0c3e25f82a7_63d6b51e-2fa1-58f3-ac73-1f437d3dbfcf_1",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "consolidated_at": "2026-11-05T07:32:12.372457+00:00",
+          "state": "valid",
+          "updated_at": "2026-11-05T07:32:08.450626+00:00",
+          "source_memory_ids": [],
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "e5ef94a7-b8e2-4d72-9d27-d91431546c15",
+          "text": "澪は星見資料館で働いていた。",
+          "context": "",
+          "date": "2026-11-04T00:00:00+00:00",
+          "fact_type": "observation",
+          "mentioned_at": "2026-11-05T00:06:00+00:00",
+          "occurred_start": "2026-11-04T00:00:00+00:00",
+          "occurred_end": "2026-11-04T00:00:00+00:00",
+          "entities": "",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "state": "valid",
+          "updated_at": "2026-11-05T07:32:06.765489+00:00",
+          "source_memory_ids": [
+            "c52b5c76-5b4c-4307-a7d5-9ffbfd957212"
+          ],
+          "document_id": null,
+          "chunk_id": null,
+          "consolidated_at": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "c52b5c76-5b4c-4307-a7d5-9ffbfd957212",
+          "text": "澪は星見資料館で働いていた。 | When: 2026年11月4日 | Involving: 澪",
+          "context": "",
+          "date": "2026-11-04T00:00:00+00:00",
+          "fact_type": "world",
+          "document_id": "63d6b51e-2fa1-58f3-ac73-1f437d3dbfcf",
+          "mentioned_at": "2026-11-05T00:06:00+00:00",
+          "occurred_start": "2026-11-04T00:00:00+00:00",
+          "occurred_end": "2026-11-04T00:00:00+00:00",
+          "entities": "澪, 星見資料館",
+          "chunk_id": "1bec6a3f-b9ac-5e9b-83e7-a0c3e25f82a7_63d6b51e-2fa1-58f3-ac73-1f437d3dbfcf_0",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "consolidated_at": "2026-11-05T07:32:06.767864+00:00",
+          "state": "valid",
+          "updated_at": "2026-11-05T07:32:01.633136+00:00",
+          "source_memory_ids": [],
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "057c3108-3a3f-440c-bbb6-230c46a4cda1",
+          "text": "凪は赤い鍵を持っている。",
+          "context": "",
+          "date": "2026-11-05T00:05:00+00:00",
+          "fact_type": "observation",
+          "mentioned_at": "2026-11-05T00:05:00+00:00",
+          "entities": "",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "state": "valid",
+          "updated_at": "2026-11-05T07:31:58.959272+00:00",
+          "source_memory_ids": [
+            "9551fdfc-1047-4411-89ad-e892f0c2a7fd"
+          ],
+          "document_id": null,
+          "occurred_start": null,
+          "occurred_end": null,
+          "chunk_id": null,
+          "consolidated_at": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "9551fdfc-1047-4411-89ad-e892f0c2a7fd",
+          "text": "凪は赤い鍵を持っている。 | Involving: 凪",
+          "context": "",
+          "date": "2026-11-05T00:05:00+00:00",
+          "fact_type": "world",
+          "document_id": "d6d6a48a-bb49-5e1c-9895-3861a6a1ee8c",
+          "mentioned_at": "2026-11-05T00:05:00+00:00",
+          "entities": "赤い鍵, 凪",
+          "chunk_id": "1bec6a3f-b9ac-5e9b-83e7-a0c3e25f82a7_d6d6a48a-bb49-5e1c-9895-3861a6a1ee8c_1",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "consolidated_at": "2026-11-05T07:31:58.961575+00:00",
+          "state": "valid",
+          "updated_at": "2026-11-05T07:31:55.418679+00:00",
+          "source_memory_ids": [],
+          "occurred_start": null,
+          "occurred_end": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "e9a0ee3b-b821-44e4-89bc-e674b0cb2674",
+          "text": "澪は赤い鍵を持っている。",
+          "context": "",
+          "date": "2026-11-05T00:04:00+00:00",
+          "fact_type": "observation",
+          "mentioned_at": "2026-11-05T00:04:00+00:00",
+          "entities": "",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "state": "valid",
+          "updated_at": "2026-11-05T07:31:52.603595+00:00",
+          "source_memory_ids": [
+            "8adb9886-bc9f-4a92-802b-258641592bfe"
+          ],
+          "document_id": null,
+          "occurred_start": null,
+          "occurred_end": null,
+          "chunk_id": null,
+          "consolidated_at": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "8adb9886-bc9f-4a92-802b-258641592bfe",
+          "text": "澪は赤い鍵を持っている。 | Involving: 澪",
+          "context": "",
+          "date": "2026-11-05T00:04:00+00:00",
+          "fact_type": "world",
+          "document_id": "d6d6a48a-bb49-5e1c-9895-3861a6a1ee8c",
+          "mentioned_at": "2026-11-05T00:04:00+00:00",
+          "entities": "澪, 赤い鍵",
+          "chunk_id": "1bec6a3f-b9ac-5e9b-83e7-a0c3e25f82a7_d6d6a48a-bb49-5e1c-9895-3861a6a1ee8c_0",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "consolidated_at": "2026-11-05T07:31:52.606165+00:00",
+          "state": "valid",
+          "updated_at": "2026-11-05T07:31:48.027111+00:00",
+          "source_memory_ids": [],
+          "occurred_start": null,
+          "occurred_end": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "3eb7aec5-d74b-4eea-b3e5-28165ab1af90",
+          "text": "澪は柚子茶を飲まない。 | Involving: 澪",
+          "context": "",
+          "date": "2026-11-05T00:03:00+00:00",
+          "fact_type": "world",
+          "document_id": "9dcb303f-ed19-526c-a774-c09fb1484b23",
+          "mentioned_at": "2026-11-05T00:03:00+00:00",
+          "entities": "柚子茶, 澪",
+          "chunk_id": "1bec6a3f-b9ac-5e9b-83e7-a0c3e25f82a7_9dcb303f-ed19-526c-a774-c09fb1484b23_1",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "consolidated_at": "2026-11-05T07:31:47.638692+00:00",
+          "state": "valid",
+          "updated_at": "2026-11-05T07:31:42.658405+00:00",
+          "source_memory_ids": [],
+          "occurred_start": null,
+          "occurred_end": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "accd66ae-0dee-40a8-9d93-a5088148fe82",
+          "text": "澪は柚子茶を飲まない。",
+          "context": "",
+          "date": "2026-11-05T00:02:00+00:00",
+          "fact_type": "observation",
+          "mentioned_at": "2026-11-05T00:03:00+00:00",
+          "entities": "",
+          "proof_count": 2,
+          "tags": [],
+          "metadata": {},
+          "state": "valid",
+          "updated_at": "2026-11-05T07:31:47.635559+00:00",
+          "source_memory_ids": [
+            "3c5ef2a1-1c10-4239-96fc-7c1621757503",
+            "3eb7aec5-d74b-4eea-b3e5-28165ab1af90"
+          ],
+          "document_id": null,
+          "occurred_start": null,
+          "occurred_end": null,
+          "chunk_id": null,
+          "consolidated_at": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "3c5ef2a1-1c10-4239-96fc-7c1621757503",
+          "text": "澪は柚子茶を飲む。 | Involving: 澪",
+          "context": "",
+          "date": "2026-11-05T00:02:00+00:00",
+          "fact_type": "world",
+          "document_id": "9dcb303f-ed19-526c-a774-c09fb1484b23",
+          "mentioned_at": "2026-11-05T00:02:00+00:00",
+          "entities": "澪, 柚子茶",
+          "chunk_id": "1bec6a3f-b9ac-5e9b-83e7-a0c3e25f82a7_9dcb303f-ed19-526c-a774-c09fb1484b23_0",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "consolidated_at": "2026-11-05T07:31:40.332770+00:00",
+          "state": "valid",
+          "updated_at": "2026-11-05T07:31:35.291144+00:00",
+          "source_memory_ids": [],
+          "occurred_start": null,
+          "occurred_end": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "2abe4af7-e8b8-4145-977c-812fc1b64781",
+          "text": "澪が保管する青い石は五個である。 | Involving: 澪",
+          "context": "",
+          "date": "2026-11-05T00:01:00+00:00",
+          "fact_type": "world",
+          "document_id": "c40bfe0d-7097-571e-8682-f5287418a2f8",
+          "mentioned_at": "2026-11-05T00:01:00+00:00",
+          "entities": "澪, 青い石",
+          "chunk_id": "1bec6a3f-b9ac-5e9b-83e7-a0c3e25f82a7_c40bfe0d-7097-571e-8682-f5287418a2f8_1",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "consolidated_at": "2026-11-05T07:31:32.824192+00:00",
+          "state": "valid",
+          "updated_at": "2026-11-05T07:31:28.723522+00:00",
+          "source_memory_ids": [],
+          "occurred_start": null,
+          "occurred_end": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "2f551ee0-0a59-4bc7-95c2-843f57acee4c",
+          "text": "澪が保管する青い石は五個である。",
+          "context": "",
+          "date": "2026-11-05T00:00:00+00:00",
+          "fact_type": "observation",
+          "mentioned_at": "2026-11-05T00:01:00+00:00",
+          "entities": "",
+          "proof_count": 2,
+          "tags": [],
+          "metadata": {},
+          "state": "valid",
+          "updated_at": "2026-11-05T07:31:32.819643+00:00",
+          "source_memory_ids": [
+            "ee77cfad-ee84-48ab-b298-5ab624c63de2",
+            "2abe4af7-e8b8-4145-977c-812fc1b64781"
+          ],
+          "document_id": null,
+          "occurred_start": null,
+          "occurred_end": null,
+          "chunk_id": null,
+          "consolidated_at": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "ee77cfad-ee84-48ab-b298-5ab624c63de2",
+          "text": "澪が保管する青い石は三個である。 | Involving: 澪",
+          "context": "",
+          "date": "2026-11-05T00:00:00+00:00",
+          "fact_type": "world",
+          "document_id": "c40bfe0d-7097-571e-8682-f5287418a2f8",
+          "mentioned_at": "2026-11-05T00:00:00+00:00",
+          "entities": "澪, 青い石",
+          "chunk_id": "1bec6a3f-b9ac-5e9b-83e7-a0c3e25f82a7_c40bfe0d-7097-571e-8682-f5287418a2f8_0",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "consolidated_at": "2026-11-05T07:31:25.168450+00:00",
+          "state": "valid",
+          "updated_at": "2026-11-05T07:31:21.678231+00:00",
+          "source_memory_ids": [],
+          "occurred_start": null,
+          "occurred_end": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        }
+      ]
+    },
+    {
+      "bank_id": "16419d45-6a57-5e54-a1a0-c787c2b04452",
+      "completion": "complete",
+      "cases": {
+        "japanese-proper_name-extracted_fact": true,
+        "japanese-proper_name-returned_source": true,
+        "japanese-date-extracted_fact": false,
+        "japanese-date-returned_source": true,
+        "japanese-verbatim-extracted_fact": true,
+        "japanese-verbatim-returned_source": true
+      },
+      "metrics": {
+        "false_merge_rate": null,
+        "missed_merge_rate": null,
+        "recall": null,
+        "abstention_rate": null,
+        "anchor_contamination_rate": null,
+        "empty_fact_responses": 0,
+        "empty_responses": 0
+      },
+      "suite": "japanese",
+      "trial": 2,
+      "reason": "retain, consolidation and outbox completed",
+      "elapsed_seconds": 25.14668415900087,
+      "failures": {
+        "japanese-date-extracted_fact": "extracted_fact_not_preserved"
+      },
+      "memories": [
+        {
+          "id": "3699db5a-b139-4850-bc00-5a1647a550db",
+          "text": "澪は「星が見えなくても、空を見上げよう」と約束した。",
+          "context": "",
+          "date": "2026-11-05T00:00:00+00:00",
+          "fact_type": "observation",
+          "mentioned_at": "2026-11-05T00:02:00+00:00",
+          "occurred_start": "2026-11-05T00:00:00+00:00",
+          "occurred_end": "2026-11-05T00:00:00+00:00",
+          "entities": "",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "state": "valid",
+          "updated_at": "2026-11-05T07:32:34.705853+00:00",
+          "source_memory_ids": [
+            "805edd3c-3fa8-4d0f-b6ca-349b989e5e31"
+          ],
+          "document_id": null,
+          "chunk_id": null,
+          "consolidated_at": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "805edd3c-3fa8-4d0f-b6ca-349b989e5e31",
+          "text": "澪は「星が見えなくても、空を見上げよう」と約束した。 | When: 2026年11月5日 | Involving: 澪",
+          "context": "",
+          "date": "2026-11-05T00:00:00+00:00",
+          "fact_type": "world",
+          "document_id": "c183c8b1-889b-57ad-bd85-a4acd64101fe",
+          "mentioned_at": "2026-11-05T00:02:00+00:00",
+          "occurred_start": "2026-11-05T00:00:00+00:00",
+          "occurred_end": "2026-11-05T00:00:00+00:00",
+          "entities": "澪, 空, 星",
+          "chunk_id": "16419d45-6a57-5e54-a1a0-c787c2b04452_c183c8b1-889b-57ad-bd85-a4acd64101fe_0",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "consolidated_at": "2026-11-05T07:32:34.707919+00:00",
+          "state": "valid",
+          "updated_at": "2026-11-05T07:32:30.780927+00:00",
+          "source_memory_ids": [],
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "6d910bd7-97cf-4688-a170-ad9b8d3a740d",
+          "text": "ユーザーには凪との約束がある。",
+          "context": "",
+          "date": "2026-11-05T00:00:00+00:00",
+          "fact_type": "observation",
+          "mentioned_at": "2026-11-05T00:01:00+00:00",
+          "occurred_start": "2026-11-05T00:00:00+00:00",
+          "occurred_end": "2026-11-05T00:00:00+00:00",
+          "entities": "",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "state": "valid",
+          "updated_at": "2026-11-05T07:32:28.854255+00:00",
+          "source_memory_ids": [
+            "a4d80026-593a-4c97-894b-9a23831c5c8a"
+          ],
+          "document_id": null,
+          "chunk_id": null,
+          "consolidated_at": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "a4d80026-593a-4c97-894b-9a23831c5c8a",
+          "text": "凪との約束がある。 | When: 2026年11月5日 | Involving: user、凪",
+          "context": "",
+          "date": "2026-11-05T00:00:00+00:00",
+          "fact_type": "world",
+          "document_id": "c28f8840-0923-5a40-a8ce-942353d5fed5",
+          "mentioned_at": "2026-11-05T00:01:00+00:00",
+          "occurred_start": "2026-11-05T00:00:00+00:00",
+          "occurred_end": "2026-11-05T00:00:00+00:00",
+          "entities": "凪, 約束, user",
+          "chunk_id": "16419d45-6a57-5e54-a1a0-c787c2b04452_c28f8840-0923-5a40-a8ce-942353d5fed5_0",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "consolidated_at": "2026-11-05T07:32:28.856474+00:00",
+          "state": "valid",
+          "updated_at": "2026-11-05T07:32:25.333309+00:00",
+          "source_memory_ids": [],
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "efe19333-2035-42e5-9a67-80906893dfb6",
+          "text": "澪の勤務先は星見町の天文台。",
+          "context": "",
+          "date": "2026-11-05T00:00:00+00:00",
+          "fact_type": "observation",
+          "mentioned_at": "2026-11-05T00:00:00+00:00",
+          "entities": "",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "state": "valid",
+          "updated_at": "2026-11-05T07:32:18.382291+00:00",
+          "source_memory_ids": [
+            "d6452421-8120-4e17-98e6-9a6c193c5169"
+          ],
+          "document_id": null,
+          "occurred_start": null,
+          "occurred_end": null,
+          "chunk_id": null,
+          "consolidated_at": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "d6452421-8120-4e17-98e6-9a6c193c5169",
+          "text": "澪の勤務先は星見町の天文台。 | Involving: 澪",
+          "context": "",
+          "date": "2026-11-05T00:00:00+00:00",
+          "fact_type": "world",
+          "document_id": "98587710-2dcf-5dc7-aa93-7079d586c8ac",
+          "mentioned_at": "2026-11-05T00:00:00+00:00",
+          "entities": "星見町, 天文台, 澪",
+          "chunk_id": "16419d45-6a57-5e54-a1a0-c787c2b04452_98587710-2dcf-5dc7-aa93-7079d586c8ac_0",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "consolidated_at": "2026-11-05T07:32:18.385788+00:00",
+          "state": "valid",
+          "updated_at": "2026-11-05T07:32:14.662174+00:00",
+          "source_memory_ids": [],
+          "occurred_start": null,
+          "occurred_end": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        }
+      ]
+    },
+    {
+      "bank_id": "5a138993-f6da-58af-aca5-a3826e7d816d",
+      "completion": "complete",
+      "cases": {
+        "same-fact-001": true
+      },
+      "metrics": {
+        "false_merge_rate": null,
+        "missed_merge_rate": 0.0,
+        "recall": null,
+        "abstention_rate": null,
+        "anchor_contamination_rate": null,
+        "empty_fact_responses": 0,
+        "empty_responses": 0
+      },
+      "suite": "same-fact",
+      "trial": 3,
+      "reason": "retain, consolidation and outbox completed",
+      "elapsed_seconds": 17.876744381967,
+      "failures": {},
+      "memories": [
+        {
+          "id": "3abba262-fceb-43f9-afed-3b8c16b33b6a",
+          "text": "星見町の天文台は澪の勤務先。 | Involving: 澪",
+          "context": "",
+          "date": "2026-11-05T00:01:00+00:00",
+          "fact_type": "world",
+          "document_id": "3bdb77e4-fea5-5b8d-ae01-5cfe735dd3d1",
+          "mentioned_at": "2026-11-05T00:01:00+00:00",
+          "entities": "澪, 天文台, 星見町",
+          "chunk_id": "5a138993-f6da-58af-aca5-a3826e7d816d_3bdb77e4-fea5-5b8d-ae01-5cfe735dd3d1_0",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "consolidated_at": "2026-11-05T07:32:51.973709+00:00",
+          "state": "valid",
+          "updated_at": "2026-11-05T07:32:46.058325+00:00",
+          "source_memory_ids": [],
+          "occurred_start": null,
+          "occurred_end": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "4a7009db-2b17-4ca6-95b9-43bf774105be",
+          "text": "澪は星見町の天文台で働いている。",
+          "context": "",
+          "date": "2026-11-05T00:00:00+00:00",
+          "fact_type": "observation",
+          "mentioned_at": "2026-11-05T00:01:00+00:00",
+          "entities": "",
+          "proof_count": 2,
+          "tags": [],
+          "metadata": {},
+          "state": "valid",
+          "updated_at": "2026-11-05T07:32:51.970723+00:00",
+          "source_memory_ids": [
+            "bae2e1f2-894d-47c4-9bab-2fea1c886f51",
+            "3abba262-fceb-43f9-afed-3b8c16b33b6a"
+          ],
+          "document_id": null,
+          "occurred_start": null,
+          "occurred_end": null,
+          "chunk_id": null,
+          "consolidated_at": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "bae2e1f2-894d-47c4-9bab-2fea1c886f51",
+          "text": "澪は星見町の天文台で働いている。 | Involving: 澪",
+          "context": "",
+          "date": "2026-11-05T00:00:00+00:00",
+          "fact_type": "world",
+          "document_id": "7c570c25-2dad-505d-ae99-b202db829098",
+          "mentioned_at": "2026-11-05T00:00:00+00:00",
+          "entities": "澪, 星見町, 天文台, user",
+          "chunk_id": "5a138993-f6da-58af-aca5-a3826e7d816d_7c570c25-2dad-505d-ae99-b202db829098_0",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "consolidated_at": "2026-11-05T07:32:43.102942+00:00",
+          "state": "valid",
+          "updated_at": "2026-11-05T07:32:41.485259+00:00",
+          "source_memory_ids": [],
+          "occurred_start": null,
+          "occurred_end": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        }
+      ]
+    },
+    {
+      "bank_id": "e12877c6-52d8-5e13-8255-a9791bf14f06",
+      "completion": "complete",
+      "cases": {
+        "difference-number-001": false,
+        "difference-negation-001": false,
+        "difference-subject-001": true,
+        "difference-tense-001": false
+      },
+      "metrics": {
+        "false_merge_rate": 0.5,
+        "missed_merge_rate": null,
+        "recall": null,
+        "abstention_rate": null,
+        "anchor_contamination_rate": null,
+        "empty_fact_responses": 0,
+        "empty_responses": 0
+      },
+      "suite": "difference-fact",
+      "trial": 3,
+      "reason": "retain, consolidation and outbox completed",
+      "elapsed_seconds": 57.82621533499332,
+      "failures": {
+        "difference-number-001": "false_merge",
+        "difference-negation-001": "false_merge",
+        "difference-tense-001": "unresolved_fact"
+      },
+      "memories": [
+        {
+          "id": "bb100a36-657b-4cdb-8f9c-ab7611023cbc",
+          "text": "澪は星見資料館で働く予定。 | When: 2026年11月6日 | Involving: 澪",
+          "context": "",
+          "date": "2026-11-06T00:00:00+00:00",
+          "fact_type": "world",
+          "document_id": "47a41dc7-2daf-561f-ac5b-4d3635bee512",
+          "mentioned_at": "2026-11-05T00:07:00+00:00",
+          "occurred_start": "2026-11-06T00:00:00+00:00",
+          "occurred_end": "2026-11-06T00:00:00+00:00",
+          "entities": "澪, 星見資料館",
+          "chunk_id": "e12877c6-52d8-5e13-8255-a9791bf14f06_47a41dc7-2daf-561f-ac5b-4d3635bee512_1",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "consolidated_at": "2026-11-05T07:33:46.932044+00:00",
+          "state": "valid",
+          "updated_at": "2026-11-05T07:33:42.063211+00:00",
+          "source_memory_ids": [],
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "f213c62c-e4c3-44df-ac41-6904914ff43a",
+          "text": "澪は2026年11月4日に星見資料館で働いており、2026年11月6日にも働く予定。",
+          "context": "",
+          "date": "2026-11-04T00:00:00+00:00",
+          "fact_type": "observation",
+          "mentioned_at": "2026-11-05T00:07:00+00:00",
+          "occurred_start": "2026-11-04T00:00:00+00:00",
+          "occurred_end": "2026-11-06T00:00:00+00:00",
+          "entities": "",
+          "proof_count": 2,
+          "tags": [],
+          "metadata": {},
+          "state": "valid",
+          "updated_at": "2026-11-05T07:33:46.928272+00:00",
+          "source_memory_ids": [
+            "62307c14-c2ae-49ad-a904-d7451d2e2813",
+            "bb100a36-657b-4cdb-8f9c-ab7611023cbc"
+          ],
+          "document_id": null,
+          "chunk_id": null,
+          "consolidated_at": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "62307c14-c2ae-49ad-a904-d7451d2e2813",
+          "text": "澪は星見資料館で働いていた。 | When: 2026年11月4日 | Involving: 澪",
+          "context": "",
+          "date": "2026-11-04T00:00:00+00:00",
+          "fact_type": "world",
+          "document_id": "47a41dc7-2daf-561f-ac5b-4d3635bee512",
+          "mentioned_at": "2026-11-05T00:06:00+00:00",
+          "occurred_start": "2026-11-04T00:00:00+00:00",
+          "occurred_end": "2026-11-04T00:00:00+00:00",
+          "entities": "星見資料館, 澪",
+          "chunk_id": "e12877c6-52d8-5e13-8255-a9791bf14f06_47a41dc7-2daf-561f-ac5b-4d3635bee512_0",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "consolidated_at": "2026-11-05T07:33:40.041589+00:00",
+          "state": "valid",
+          "updated_at": "2026-11-05T07:33:35.921635+00:00",
+          "source_memory_ids": [],
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "3ec19756-eac2-46b1-b05f-0d480b6d2728",
+          "text": "凪は赤い鍵を持っている。",
+          "context": "",
+          "date": "2026-11-05T00:05:00+00:00",
+          "fact_type": "observation",
+          "mentioned_at": "2026-11-05T00:05:00+00:00",
+          "entities": "",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "state": "valid",
+          "updated_at": "2026-11-05T07:33:33.061448+00:00",
+          "source_memory_ids": [
+            "3c1bcb99-89f7-4a00-ba0d-42b36559ea0b"
+          ],
+          "document_id": null,
+          "occurred_start": null,
+          "occurred_end": null,
+          "chunk_id": null,
+          "consolidated_at": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "3c1bcb99-89f7-4a00-ba0d-42b36559ea0b",
+          "text": "凪は赤い鍵を持っている。 | Involving: 凪",
+          "context": "",
+          "date": "2026-11-05T00:05:00+00:00",
+          "fact_type": "world",
+          "document_id": "7fb3167d-4caf-5426-912e-c0c9412dce18",
+          "mentioned_at": "2026-11-05T00:05:00+00:00",
+          "entities": "赤い鍵, 凪",
+          "chunk_id": "e12877c6-52d8-5e13-8255-a9791bf14f06_7fb3167d-4caf-5426-912e-c0c9412dce18_1",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "consolidated_at": "2026-11-05T07:33:33.063516+00:00",
+          "state": "valid",
+          "updated_at": "2026-11-05T07:33:27.981146+00:00",
+          "source_memory_ids": [],
+          "occurred_start": null,
+          "occurred_end": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "2be0c4b5-b728-4e72-b6a1-d0ca2b7f0b93",
+          "text": "澪は赤い鍵を持っている。",
+          "context": "",
+          "date": "2026-11-05T00:04:00+00:00",
+          "fact_type": "observation",
+          "mentioned_at": "2026-11-05T00:04:00+00:00",
+          "entities": "",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "state": "valid",
+          "updated_at": "2026-11-05T07:33:28.945520+00:00",
+          "source_memory_ids": [
+            "ef7f24c7-6dab-401c-a6c3-3bc853ef7801"
+          ],
+          "document_id": null,
+          "occurred_start": null,
+          "occurred_end": null,
+          "chunk_id": null,
+          "consolidated_at": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "ef7f24c7-6dab-401c-a6c3-3bc853ef7801",
+          "text": "澪は赤い鍵を持っている。 | Involving: 澪",
+          "context": "",
+          "date": "2026-11-05T00:04:00+00:00",
+          "fact_type": "world",
+          "document_id": "7fb3167d-4caf-5426-912e-c0c9412dce18",
+          "mentioned_at": "2026-11-05T00:04:00+00:00",
+          "entities": "澪, 赤い鍵",
+          "chunk_id": "e12877c6-52d8-5e13-8255-a9791bf14f06_7fb3167d-4caf-5426-912e-c0c9412dce18_0",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "consolidated_at": "2026-11-05T07:33:28.948080+00:00",
+          "state": "valid",
+          "updated_at": "2026-11-05T07:33:23.733458+00:00",
+          "source_memory_ids": [],
+          "occurred_start": null,
+          "occurred_end": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "0e6bfb14-fa1f-47af-ab4f-4e816348363b",
+          "text": "澪は柚子茶を飲まない。 | Involving: 澪",
+          "context": "",
+          "date": "2026-11-05T00:03:00+00:00",
+          "fact_type": "world",
+          "document_id": "8bc25f17-48ce-5f17-ad52-587af8872ca7",
+          "mentioned_at": "2026-11-05T00:03:00+00:00",
+          "entities": "柚子茶, 澪",
+          "chunk_id": "e12877c6-52d8-5e13-8255-a9791bf14f06_8bc25f17-48ce-5f17-ad52-587af8872ca7_1",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "consolidated_at": "2026-11-05T07:33:23.556834+00:00",
+          "state": "valid",
+          "updated_at": "2026-11-05T07:33:17.316598+00:00",
+          "source_memory_ids": [],
+          "occurred_start": null,
+          "occurred_end": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "54f97a5c-4e25-429d-accc-6153f4c2b989",
+          "text": "澪は柚子茶を飲まない。以前は飲んでいた。",
+          "context": "",
+          "date": "2026-11-05T00:02:00+00:00",
+          "fact_type": "observation",
+          "mentioned_at": "2026-11-05T00:03:00+00:00",
+          "entities": "",
+          "proof_count": 2,
+          "tags": [],
+          "metadata": {},
+          "state": "valid",
+          "updated_at": "2026-11-05T07:33:23.553022+00:00",
+          "source_memory_ids": [
+            "007b594c-e1bf-41eb-a099-51ff0324b030",
+            "0e6bfb14-fa1f-47af-ab4f-4e816348363b"
+          ],
+          "document_id": null,
+          "occurred_start": null,
+          "occurred_end": null,
+          "chunk_id": null,
+          "consolidated_at": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "007b594c-e1bf-41eb-a099-51ff0324b030",
+          "text": "澪は柚子茶を飲む。 | Involving: 澪",
+          "context": "",
+          "date": "2026-11-05T00:02:00+00:00",
+          "fact_type": "world",
+          "document_id": "8bc25f17-48ce-5f17-ad52-587af8872ca7",
+          "mentioned_at": "2026-11-05T00:02:00+00:00",
+          "entities": "user, 澪, 柚子茶",
+          "chunk_id": "e12877c6-52d8-5e13-8255-a9791bf14f06_8bc25f17-48ce-5f17-ad52-587af8872ca7_0",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "consolidated_at": "2026-11-05T07:33:14.630026+00:00",
+          "state": "valid",
+          "updated_at": "2026-11-05T07:33:13.214724+00:00",
+          "source_memory_ids": [],
+          "occurred_start": null,
+          "occurred_end": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "d079854d-b62b-4aaa-b2d5-e05c6cc87622",
+          "text": "澪が保管する青い石は五個。 | Involving: 澪",
+          "context": "",
+          "date": "2026-11-05T00:01:00+00:00",
+          "fact_type": "world",
+          "document_id": "421afe1c-f8a6-517e-b77b-dedfe0c5880e",
+          "mentioned_at": "2026-11-05T00:01:00+00:00",
+          "entities": "澪, 青い石",
+          "chunk_id": "e12877c6-52d8-5e13-8255-a9791bf14f06_421afe1c-f8a6-517e-b77b-dedfe0c5880e_1",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "consolidated_at": "2026-11-05T07:33:11.857617+00:00",
+          "state": "valid",
+          "updated_at": "2026-11-05T07:33:07.116607+00:00",
+          "source_memory_ids": [],
+          "occurred_start": null,
+          "occurred_end": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "bfd2cb3e-24dd-494d-b4a6-5052950f6f7b",
+          "text": "澪が保管する青い石は五個である。",
+          "context": "",
+          "date": "2026-11-05T00:00:00+00:00",
+          "fact_type": "observation",
+          "mentioned_at": "2026-11-05T00:01:00+00:00",
+          "entities": "",
+          "proof_count": 2,
+          "tags": [],
+          "metadata": {},
+          "state": "valid",
+          "updated_at": "2026-11-05T07:33:11.853980+00:00",
+          "source_memory_ids": [
+            "2986408a-7b42-4a78-8996-822ce41a855a",
+            "d079854d-b62b-4aaa-b2d5-e05c6cc87622"
+          ],
+          "document_id": null,
+          "occurred_start": null,
+          "occurred_end": null,
+          "chunk_id": null,
+          "consolidated_at": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "2986408a-7b42-4a78-8996-822ce41a855a",
+          "text": "澪が保管する青い石は三個である。 | Involving: 澪",
+          "context": "",
+          "date": "2026-11-05T00:00:00+00:00",
+          "fact_type": "world",
+          "document_id": "421afe1c-f8a6-517e-b77b-dedfe0c5880e",
+          "mentioned_at": "2026-11-05T00:00:00+00:00",
+          "entities": "青い石, 澪",
+          "chunk_id": "e12877c6-52d8-5e13-8255-a9791bf14f06_421afe1c-f8a6-517e-b77b-dedfe0c5880e_0",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "consolidated_at": "2026-11-05T07:33:03.036211+00:00",
+          "state": "valid",
+          "updated_at": "2026-11-05T07:32:59.477444+00:00",
+          "source_memory_ids": [],
+          "occurred_start": null,
+          "occurred_end": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        }
+      ]
+    },
+    {
+      "bank_id": "ff27842d-3720-5bb5-aadd-8b953715f2b6",
+      "completion": "complete",
+      "cases": {
+        "japanese-proper_name-extracted_fact": true,
+        "japanese-proper_name-returned_source": true,
+        "japanese-date-extracted_fact": true,
+        "japanese-date-returned_source": true,
+        "japanese-verbatim-extracted_fact": true,
+        "japanese-verbatim-returned_source": true
+      },
+      "metrics": {
+        "false_merge_rate": null,
+        "missed_merge_rate": null,
+        "recall": null,
+        "abstention_rate": null,
+        "anchor_contamination_rate": null,
+        "empty_fact_responses": 0,
+        "empty_responses": 0
+      },
+      "suite": "japanese",
+      "trial": 3,
+      "reason": "retain, consolidation and outbox completed",
+      "elapsed_seconds": 27.34004125901265,
+      "failures": {},
+      "memories": [
+        {
+          "id": "e0d96eb2-70f3-424a-a4ca-9eaff9661e92",
+          "text": "澪は「星が見えなくても、空を見上げよう」と約束した。",
+          "context": "",
+          "date": "2026-11-05T00:02:00+00:00",
+          "fact_type": "observation",
+          "mentioned_at": "2026-11-05T00:02:00+00:00",
+          "entities": "",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "state": "valid",
+          "updated_at": "2026-11-05T07:34:13.621799+00:00",
+          "source_memory_ids": [
+            "5bdfd583-6fba-449f-bbb9-1352bde8cbec"
+          ],
+          "document_id": null,
+          "occurred_start": null,
+          "occurred_end": null,
+          "chunk_id": null,
+          "consolidated_at": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "5bdfd583-6fba-449f-bbb9-1352bde8cbec",
+          "text": "澪は「星が見えなくても、空を見上げよう」と約束した。 | Involving: 澪",
+          "context": "",
+          "date": "2026-11-05T00:02:00+00:00",
+          "fact_type": "world",
+          "document_id": "28aa07b2-7bb4-5ddd-8037-bd016cdb1b85",
+          "mentioned_at": "2026-11-05T00:02:00+00:00",
+          "entities": "空, 約束, 澪",
+          "chunk_id": "ff27842d-3720-5bb5-aadd-8b953715f2b6_28aa07b2-7bb4-5ddd-8037-bd016cdb1b85_0",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "consolidated_at": "2026-11-05T07:34:13.624785+00:00",
+          "state": "valid",
+          "updated_at": "2026-11-05T07:34:08.977160+00:00",
+          "source_memory_ids": [],
+          "occurred_start": null,
+          "occurred_end": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "21b79c67-676b-4de3-bb54-4c67aeaf21d3",
+          "text": "ユーザーは二〇二六年十一月五日に凪と会う約束をしている。",
+          "context": "",
+          "date": "2026-11-05T00:00:00+00:00",
+          "fact_type": "observation",
+          "mentioned_at": "2026-11-05T00:01:00+00:00",
+          "occurred_start": "2026-11-05T00:00:00+00:00",
+          "occurred_end": "2026-11-05T00:00:00+00:00",
+          "entities": "",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "state": "valid",
+          "updated_at": "2026-11-05T07:34:07.971014+00:00",
+          "source_memory_ids": [
+            "a000fc06-d716-4092-a0c6-f70011a4f4c0"
+          ],
+          "document_id": null,
+          "chunk_id": null,
+          "consolidated_at": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "a000fc06-d716-4092-a0c6-f70011a4f4c0",
+          "text": "ユーザーは凪と二〇二六年十一月五日に会う約束をしている。 | When: 二〇二六年十一月五日 | Involving: ユーザー、凪",
+          "context": "",
+          "date": "2026-11-05T00:00:00+00:00",
+          "fact_type": "world",
+          "document_id": "477e466a-7029-5726-9209-c5b0d8195d2f",
+          "mentioned_at": "2026-11-05T00:01:00+00:00",
+          "occurred_start": "2026-11-05T00:00:00+00:00",
+          "occurred_end": "2026-11-05T00:00:00+00:00",
+          "entities": "凪, user, 約束",
+          "chunk_id": "ff27842d-3720-5bb5-aadd-8b953715f2b6_477e466a-7029-5726-9209-c5b0d8195d2f_0",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "consolidated_at": "2026-11-05T07:34:07.973012+00:00",
+          "state": "valid",
+          "updated_at": "2026-11-05T07:34:02.918776+00:00",
+          "source_memory_ids": [],
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "65111e7f-5a13-48d2-8651-183678dcbe2c",
+          "text": "澪の勤務先は星見町の天文台。",
+          "context": "",
+          "date": "2026-11-05T00:00:00+00:00",
+          "fact_type": "observation",
+          "mentioned_at": "2026-11-05T00:00:00+00:00",
+          "entities": "",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "state": "valid",
+          "updated_at": "2026-11-05T07:33:58.743603+00:00",
+          "source_memory_ids": [
+            "15378c49-b73d-4b2d-a601-8c382c638ac7"
+          ],
+          "document_id": null,
+          "occurred_start": null,
+          "occurred_end": null,
+          "chunk_id": null,
+          "consolidated_at": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        },
+        {
+          "id": "15378c49-b73d-4b2d-a601-8c382c638ac7",
+          "text": "澪の勤務先は星見町の天文台。 | Involving: 澪",
+          "context": "",
+          "date": "2026-11-05T00:00:00+00:00",
+          "fact_type": "world",
+          "document_id": "32128cd5-5c5c-53f9-b3a0-85ba3afe7f98",
+          "mentioned_at": "2026-11-05T00:00:00+00:00",
+          "entities": "澪, 星見町, 天文台",
+          "chunk_id": "ff27842d-3720-5bb5-aadd-8b953715f2b6_32128cd5-5c5c-53f9-b3a0-85ba3afe7f98_0",
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "consolidated_at": "2026-11-05T07:33:58.745515+00:00",
+          "state": "valid",
+          "updated_at": "2026-11-05T07:33:52.323954+00:00",
+          "source_memory_ids": [],
+          "occurred_start": null,
+          "occurred_end": null,
+          "consolidation_failed_at": null,
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null
+        }
+      ]
+    }
+  ],
+  "costs_and_constraints": "クラウド利用（Codex サブスクリプション、従量の費用は未計測）。部品用の gemma4-12b も起動したまま。再実行なし。判定は FAIL。",
+  "synthetic_inputs": [
+    {
+      "id": "same-fact-001",
+      "input": {
+        "sessions": [
+          {
+            "session_id": "same-s1",
+            "mentions": [
+              {
+                "id": "same-m1",
+                "text": "澪は星見町の天文台で働いている。"
+              }
+            ]
+          },
+          {
+            "session_id": "same-s2",
+            "mentions": [
+              {
+                "id": "same-m2",
+                "text": "星見町の天文台が澪の勤務先だ。"
+              }
+            ]
+          }
+        ]
+      },
+      "expected": {
+        "consolidated_fact_count": 1,
+        "source_mention_ids": [
+          "same-m1",
+          "same-m2"
+        ],
+        "facts": [
+          "澪の勤務先は星見町の天文台。"
+        ]
+      }
+    },
+    {
+      "id": "difference-number-001",
+      "input": {
+        "sessions": [
+          {
+            "session_id": "difference-number-s1",
+            "mentions": [
+              {
+                "id": "number-m1",
+                "text": "澪が保管する青い石は三個である。"
+              },
+              {
+                "id": "number-m2",
+                "text": "澪が保管する青い石は五個である。"
+              }
+            ]
+          }
+        ]
+      },
+      "expected": {
+        "distinct_fact_count": 2,
+        "facts": [
+          "澪が保管する青い石は三個である。",
+          "澪が保管する青い石は五個である。"
+        ]
+      }
+    },
+    {
+      "id": "difference-negation-001",
+      "input": {
+        "sessions": [
+          {
+            "session_id": "difference-negation-s1",
+            "mentions": [
+              {
+                "id": "negation-m1",
+                "text": "澪は柚子茶を飲む。"
+              },
+              {
+                "id": "negation-m2",
+                "text": "澪は柚子茶を飲まない。"
+              }
+            ]
+          }
+        ]
+      },
+      "expected": {
+        "distinct_fact_count": 2,
+        "facts": [
+          "澪は柚子茶を飲む。",
+          "澪は柚子茶を飲まない。"
+        ]
+      }
+    },
+    {
+      "id": "difference-subject-001",
+      "input": {
+        "sessions": [
+          {
+            "session_id": "difference-subject-s1",
+            "mentions": [
+              {
+                "id": "subject-m1",
+                "text": "澪は赤い鍵を持っている。"
+              },
+              {
+                "id": "subject-m2",
+                "text": "凪は赤い鍵を持っている。"
+              }
+            ]
+          }
+        ]
+      },
+      "expected": {
+        "distinct_fact_count": 2,
+        "facts": [
+          "澪は赤い鍵を持っている。",
+          "凪は赤い鍵を持っている。"
+        ]
+      }
+    },
+    {
+      "id": "difference-tense-001",
+      "input": {
+        "sessions": [
+          {
+            "session_id": "difference-tense-s1",
+            "mentions": [
+              {
+                "id": "tense-m1",
+                "text": "澪は昨日、星見資料館で働いていた。"
+              },
+              {
+                "id": "tense-m2",
+                "text": "澪は明日、星見資料館で働く予定だ。"
+              }
+            ]
+          }
+        ]
+      },
+      "expected": {
+        "distinct_fact_count": 2,
+        "facts": [
+          "澪は昨日、星見資料館で働いていた。",
+          "澪は明日、星見資料館で働く予定だ。"
+        ]
+      }
+    },
+    {
+      "id": "japanese-proper_name-extracted_fact",
+      "input": {
+        "sessions": [
+          {
+            "session_id": "ja-proper_name-s1",
+            "mentions": [
+              {
+                "id": "ja-proper_name-m1",
+                "text": "澪の勤務先は星見町の天文台だ。"
+              }
+            ]
+          }
+        ]
+      },
+      "expected": {
+        "preserve": [
+          "星見町"
+        ]
+      }
+    },
+    {
+      "id": "japanese-proper_name-returned_source",
+      "input": {
+        "sessions": [
+          {
+            "session_id": "ja-proper_name-s1",
+            "mentions": [
+              {
+                "id": "ja-proper_name-m1",
+                "text": "澪の勤務先は星見町の天文台だ。"
+              }
+            ]
+          }
+        ]
+      },
+      "expected": {
+        "preserve": [
+          "星見町"
+        ]
+      }
+    },
+    {
+      "id": "japanese-date-extracted_fact",
+      "input": {
+        "sessions": [
+          {
+            "session_id": "ja-date-s1",
+            "mentions": [
+              {
+                "id": "ja-date-m1",
+                "text": "凪との約束は二〇二六年十一月五日だ。"
+              }
+            ]
+          }
+        ]
+      },
+      "expected": {
+        "preserve": [
+          "二〇二六年十一月五日"
+        ]
+      }
+    },
+    {
+      "id": "japanese-date-returned_source",
+      "input": {
+        "sessions": [
+          {
+            "session_id": "ja-date-s1",
+            "mentions": [
+              {
+                "id": "ja-date-m1",
+                "text": "凪との約束は二〇二六年十一月五日だ。"
+              }
+            ]
+          }
+        ]
+      },
+      "expected": {
+        "preserve": [
+          "二〇二六年十一月五日"
+        ]
+      }
+    },
+    {
+      "id": "japanese-verbatim-extracted_fact",
+      "input": {
+        "sessions": [
+          {
+            "session_id": "ja-verbatim-s1",
+            "mentions": [
+              {
+                "id": "ja-verbatim-m1",
+                "text": "澪は「星が見えなくても、空を見上げよう」と約束した。"
+              }
+            ]
+          }
+        ]
+      },
+      "expected": {
+        "preserve": [
+          "星が見えなくても、空を見上げよう"
+        ]
+      }
+    },
+    {
+      "id": "japanese-verbatim-returned_source",
+      "input": {
+        "sessions": [
+          {
+            "session_id": "ja-verbatim-s1",
+            "mentions": [
+              {
+                "id": "ja-verbatim-m1",
+                "text": "澪は「星が見えなくても、空を見上げよう」と約束した。"
+              }
+            ]
+          }
+        ]
+      },
+      "expected": {
+        "preserve": [
+          "星が見えなくても、空を見上げよう"
+        ]
+      }
+    }
+  ]
+}

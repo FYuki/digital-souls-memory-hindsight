@@ -1,0 +1,166 @@
+name: dsm-hindsight-it2
+
+x-llama: &llama
+  image: ghcr.io/ggml-org/llama.cpp@sha256:69019445c94c970496c8f6d6447214b837508162dfe1152768942c51237e3ab7
+  user: "${IT2_MODEL_UID:-1000}:${IT2_MODEL_GID:-1000}"
+  gpus: all
+  environment:
+    CUDA_DEVICE_ORDER: PCI_BUS_ID
+    CUDA_VISIBLE_DEVICES: "${IT2_GPU_DEVICE:-0}"
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  pids_limit: 512
+  mem_limit: 16g
+  tmpfs: ["/tmp:rw,noexec,nosuid,size=256m,mode=1777"]
+  networks: [it2]
+  healthcheck:
+    test: [CMD, curl, --fail, --silent, http://localhost:8080/health]
+    interval: 2s
+    timeout: 3s
+    retries: 180
+
+services:
+  postgres:
+    build: docker/retrieval-postgres
+    environment:
+      POSTGRES_USER: it1
+      POSTGRES_DB: postgres
+      POSTGRES_HOST_AUTH_METHOD: trust
+    volumes:
+      - postgres-data:/var/lib/postgresql
+      - ./docker/it1/init-databases.sql:/docker-entrypoint-initdb.d/10-databases.sql:ro
+    networks: [it2]
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U it1 -d ledger"]
+      interval: 2s
+      timeout: 3s
+      retries: 60
+
+  llama-generation:
+    <<: *llama
+    command: [--model, /models/gemma4-12b.gguf, --alias, gemma4-12b, --host, 0.0.0.0, --port, "8080", --gpu-layers, "999", --ctx-size, "32768", --parallel, "1", --reasoning, "off", --chat-template-kwargs, "{\"enable_thinking\":false}", --metrics]
+    volumes:
+      - type: bind
+        source: ${IT2_MODEL_DIR:-./.it2-models-not-set}/gemma4-12b.gguf
+        target: /models/gemma4-12b.gguf
+        read_only: true
+        bind:
+          create_host_path: false
+
+  llama-embedding:
+    <<: *llama
+    command: [--model, /models/bge-m3-q8_0.gguf, --alias, bge-m3, --host, 0.0.0.0, --port, "8080", --gpu-layers, "999", --embedding, --pooling, cls, --ctx-size, "8192"]
+    volumes:
+      - type: bind
+        source: ${IT2_MODEL_DIR:-./.it2-models-not-set}/bge-m3-q8_0.gguf
+        target: /models/bge-m3-q8_0.gguf
+        read_only: true
+        bind:
+          create_host_path: false
+
+  llama-reranker:
+    <<: *llama
+    command: [--model, /models/bge-reranker-v2-m3-Q8_0.gguf, --alias, bge-reranker-v2-m3, --host, 0.0.0.0, --port, "8080", --gpu-layers, "999", --reranking, --ctx-size, "8192"]
+    volumes:
+      - type: bind
+        source: ${IT2_MODEL_DIR:-./.it2-models-not-set}/bge-reranker-v2-m3-Q8_0.gguf
+        target: /models/bge-reranker-v2-m3-Q8_0.gguf
+        read_only: true
+        bind:
+          create_host_path: false
+
+  hindsight:
+    image: ghcr.io/vectorize-io/hindsight:1.1.0-slim@sha256:fbc37d194bce007b6cce2fd9f66cd7f8c050bd18b80e662090a92835d9cb191d
+    environment:
+      HINDSIGHT_ENABLE_CP: "false"
+      HINDSIGHT_API_DATABASE_URL: postgresql://it1@postgres:5432/hindsight
+      HINDSIGHT_API_LLM_PROVIDER: openai
+      HINDSIGHT_API_LLM_BASE_URL: http://llama-generation:8080/v1
+      HINDSIGHT_API_LLM_API_KEY: local-unused
+      HINDSIGHT_API_LLM_MODEL: gemma4-12b
+      HINDSIGHT_API_EMBEDDINGS_PROVIDER: openai
+      HINDSIGHT_API_EMBEDDINGS_OPENAI_BASE_URL: http://llama-embedding:8080/v1
+      HINDSIGHT_API_EMBEDDINGS_OPENAI_API_KEY: local-unused
+      HINDSIGHT_API_EMBEDDINGS_OPENAI_MODEL: bge-m3
+      HINDSIGHT_API_EMBEDDINGS_OPENAI_DIMENSIONS: "1024"
+      HINDSIGHT_API_RERANKER_PROVIDER: cohere
+      HINDSIGHT_API_RERANKER_COHERE_BASE_URL: http://llama-reranker:8080/v1/rerank
+      HINDSIGHT_API_RERANKER_COHERE_API_KEY: local-unused
+      HINDSIGHT_API_RERANKER_COHERE_MODEL: bge-reranker-v2-m3
+      HINDSIGHT_API_TEXT_SEARCH_EXTENSION: pgroonga
+    depends_on:
+      postgres:
+        condition: service_healthy
+      llama-generation:
+        condition: service_healthy
+      llama-embedding:
+        condition: service_healthy
+      llama-reranker:
+        condition: service_healthy
+    networks: [it2]
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://localhost:8888/health', timeout=2).close()"]
+      interval: 3s
+      timeout: 5s
+      retries: 60
+
+  service:
+    image: dsm-hindsight-it1-runtime
+    build:
+      context: .
+      dockerfile: docker/it1/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://it1@postgres:5432/ledger
+      EVIDENCE_CHARACTER_IDS: '["it2-same-fact-t1", "it2-same-fact-t2", "it2-same-fact-t3", "it2-difference-fact-t1", "it2-difference-fact-t2", "it2-difference-fact-t3", "it2-japanese-t1", "it2-japanese-t2", "it2-japanese-t3", "it2-abstention-t1", "it2-abstention-t2", "it2-abstention-t3", "it2-performance", "it2-e2e-t1", "it2-e2e-t2", "it2-e2e-t3"]'
+      HINDSIGHT_URL: http://hindsight:8888
+      RECALL_MIN_RERANKER_SCORE: "${RECALL_MIN_RERANKER_SCORE:-0.5}"
+      MEMORY_LLM_BASE_URL: http://llama-generation:8080/v1
+      MEMORY_LLM_MODEL: gemma4-12b
+      MEMORY_LLM_API_KEY: local-unused
+      MEMORY_LLM_TIMEOUT_SECONDS: "${MEMORY_LLM_TIMEOUT_SECONDS:-120}"
+      MEMORY_AUTHOR_ID: synthetic-author
+      MEMORY_AUTHOR_TOKEN: synthetic-e2e-author-only
+    command: [bash, -c, "uv run --no-sync alembic upgrade head && exec bash scripts/run-service.sh"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [it2]
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2).close()"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  tests:
+    image: dsm-hindsight-it1-runtime
+    profiles: [test]
+    environment:
+      IT2_GENERATION_MODEL: "${IT2_GENERATION_MODEL:-gemma4-12b}"
+      IT2_RESULT_DIR: /it2-artifacts
+      MEMORY_LLM_BASE_URL: http://llama-generation:8080/v1
+      MEMORY_LLM_MODEL: gemma4-12b
+      MEMORY_LLM_API_KEY: local-unused
+      MEMORY_LLM_TIMEOUT_SECONDS: "${MEMORY_LLM_TIMEOUT_SECONDS:-120}"
+      MEMORY_AUTHOR_ID: synthetic-author
+      MEMORY_AUTHOR_TOKEN: synthetic-e2e-author-only
+      RECALL_MIN_RERANKER_SCORE: "${RECALL_MIN_RERANKER_SCORE:-0.5}"
+      DATABASE_URL: postgresql://it1@postgres:5432/ledger
+      HINDSIGHT_DATABASE_URL: postgresql://it1@postgres:5432/hindsight
+      SERVICE_URL: http://service:8000
+      HINDSIGHT_URL: http://hindsight:8888
+    volumes:
+      - type: bind
+        source: ${IT2_ARTIFACT_DIR:-./.it2-artifacts-not-set}
+        target: /it2-artifacts
+        bind:
+          create_host_path: false
+    networks: [it2]
+    command: [uv, run, --no-sync, pytest, -m, it2, "--allow-hosts=postgres,hindsight,service,llama-generation,llama-embedding,llama-reranker", -q]
+
+networks:
+  it2:
+    internal: true
+
+volumes:
+  postgres-data:
